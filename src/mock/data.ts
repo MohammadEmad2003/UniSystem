@@ -1,0 +1,316 @@
+// ============================================================
+// Mock Data — Realistic seed data for all entities
+// ============================================================
+import type {
+  Student, Doctor, Admin, Department, Course, Class,
+  Lecture, Material, Attendance, Grade, Question, Answer,
+  Enrollment, Notification, StudentGradeSummary,
+} from '../types';
+
+// ---- Departments ----
+export const mockDepartments: Department[] = [
+  { dept_id: 'dept-1', dept_name: 'Computer Science' },
+  { dept_id: 'dept-2', dept_name: 'Information Systems' },
+  { dept_id: 'dept-3', dept_name: 'Artificial Intelligence' },
+];
+
+// ---- Courses ----
+export const mockCourses: Course[] = [
+  { course_code: 'CS101', name: 'Introduction to Programming', credit_hours: 3, department_id: 'dept-1' },
+  { course_code: 'CS201', name: 'Data Structures & Algorithms', credit_hours: 3, department_id: 'dept-1' },
+  { course_code: 'CS301', name: 'Database Systems', credit_hours: 3, department_id: 'dept-1' },
+  { course_code: 'CS401', name: 'Software Engineering', credit_hours: 3, department_id: 'dept-1' },
+  { course_code: 'IS201', name: 'Systems Analysis & Design', credit_hours: 3, department_id: 'dept-2' },
+  { course_code: 'IS301', name: 'Information Security', credit_hours: 3, department_id: 'dept-2' },
+  { course_code: 'AI201', name: 'Machine Learning Fundamentals', credit_hours: 3, department_id: 'dept-3' },
+  { course_code: 'AI301', name: 'Deep Learning & Neural Networks', credit_hours: 3, department_id: 'dept-3' },
+];
+
+// ---- Users ----
+export const mockStudents: Student[] = [
+  {
+    user_id: 'student-1', f_name: 'Ahmed', l_name: 'Hassan', email: 'ahmed.hassan@capital.edu',
+    role: 'student', account_status: 'approved', ssn: '29901011234567', nfc_tag_id: 'NFC-001',
+    academic_level: 3, payment_status: 'paid', total_hours: 90, total_gpa: 3.45,
+    department_id: 'dept-1', image_url: '', created_at: '2024-09-01T08:00:00Z',
+  },
+  {
+    user_id: 'student-2', f_name: 'Fatma', l_name: 'Ali', email: 'fatma.ali@capital.edu',
+    role: 'student', account_status: 'approved', ssn: '30001151234567', nfc_tag_id: 'NFC-002',
+    academic_level: 2, payment_status: 'paid', total_hours: 60, total_gpa: 3.72,
+    department_id: 'dept-1', image_url: '', created_at: '2024-09-01T08:00:00Z',
+  },
+  {
+    user_id: 'student-3', f_name: 'Omar', l_name: 'Mahmoud', email: 'omar.mahmoud@capital.edu',
+    role: 'student', account_status: 'approved', ssn: '29801231234567', nfc_tag_id: 'NFC-003',
+    academic_level: 4, payment_status: 'partial', total_hours: 120, total_gpa: 3.15,
+    department_id: 'dept-3', image_url: '', created_at: '2023-09-01T08:00:00Z',
+  },
+  {
+    user_id: 'student-4', f_name: 'Nour', l_name: 'Ibrahim', email: 'nour.ibrahim@capital.edu',
+    role: 'student', account_status: 'pending', ssn: '30101051234567', nfc_tag_id: '',
+    academic_level: 1, payment_status: 'unpaid', total_hours: 0, total_gpa: 0,
+    department_id: 'dept-2', document: 'national_id_nour.pdf', image_url: '', created_at: '2025-01-15T10:00:00Z',
+  },
+  {
+    user_id: 'student-5', f_name: 'Youssef', l_name: 'Khaled', email: 'youssef.khaled@capital.edu',
+    role: 'student', account_status: 'pending', ssn: '30201011234567', nfc_tag_id: '',
+    academic_level: 1, payment_status: 'unpaid', total_hours: 0, total_gpa: 0,
+    department_id: 'dept-1', document: 'national_id_youssef.pdf', image_url: '', created_at: '2025-02-01T09:00:00Z',
+  },
+];
+
+export const mockDoctors: Doctor[] = [
+  {
+    user_id: 'doctor-1', f_name: 'Mohamed', l_name: 'El-Sayed', email: 'mohamed.elsayed@capital.edu',
+    role: 'doctor', account_status: 'approved', specialization: 'Software Engineering & Databases',
+    department_id: 'dept-1', image_url: '', created_at: '2020-09-01T08:00:00Z',
+  },
+  {
+    user_id: 'doctor-2', f_name: 'Sara', l_name: 'Abdelrahman', email: 'sara.abdelrahman@capital.edu',
+    role: 'doctor', account_status: 'approved', specialization: 'Machine Learning & AI',
+    department_id: 'dept-3', image_url: '', created_at: '2021-01-15T08:00:00Z',
+  },
+];
+
+export const mockAdmins: Admin[] = [
+  {
+    user_id: 'admin-1', f_name: 'Tarek', l_name: 'Mostafa', email: 'admin@capital.edu',
+    role: 'admin', account_status: 'approved', permissions_level: 'super_admin',
+    image_url: '', created_at: '2019-01-01T08:00:00Z',
+  },
+];
+
+// ---- Classes ----
+export const mockClasses: Class[] = [
+  {
+    class_id: 'class-1', course_code: 'CS201', course_name: 'Data Structures & Algorithms',
+    doctor_id: 'doctor-1', doctor_name: 'Dr. Mohamed El-Sayed', semester: 'Spring',
+    level: 2, capacity: 40, enrolled_count: 28, department_id: 'dept-1',
+  },
+  {
+    class_id: 'class-2', course_code: 'CS301', course_name: 'Database Systems',
+    doctor_id: 'doctor-1', doctor_name: 'Dr. Mohamed El-Sayed', semester: 'Spring',
+    level: 3, capacity: 35, enrolled_count: 32, department_id: 'dept-1',
+  },
+  {
+    class_id: 'class-3', course_code: 'AI201', course_name: 'Machine Learning Fundamentals',
+    doctor_id: 'doctor-2', doctor_name: 'Dr. Sara Abdelrahman', semester: 'Spring',
+    level: 3, capacity: 30, enrolled_count: 25, department_id: 'dept-3',
+  },
+  {
+    class_id: 'class-4', course_code: 'CS401', course_name: 'Software Engineering',
+    doctor_id: 'doctor-1', doctor_name: 'Dr. Mohamed El-Sayed', semester: 'Spring',
+    level: 4, capacity: 35, enrolled_count: 20, department_id: 'dept-1',
+  },
+  {
+    class_id: 'class-5', course_code: 'AI301', course_name: 'Deep Learning & Neural Networks',
+    doctor_id: 'doctor-2', doctor_name: 'Dr. Sara Abdelrahman', semester: 'Spring',
+    level: 4, capacity: 25, enrolled_count: 18, department_id: 'dept-3',
+  },
+  {
+    class_id: 'class-6', course_code: 'IS201', course_name: 'Systems Analysis & Design',
+    doctor_id: 'doctor-1', doctor_name: 'Dr. Mohamed El-Sayed', semester: 'Fall',
+    level: 2, capacity: 40, enrolled_count: 35, department_id: 'dept-2',
+  },
+];
+
+// ---- Enrollments ----
+export const mockEnrollments: Enrollment[] = [
+  // Student 1 (Ahmed) enrolled in 3 classes
+  { enrollment_id: 'enr-1', student_id: 'student-1', class_id: 'class-1', enrolled_at: '2025-01-20T10:00:00Z' },
+  { enrollment_id: 'enr-2', student_id: 'student-1', class_id: 'class-2', enrolled_at: '2025-01-20T10:05:00Z' },
+  { enrollment_id: 'enr-3', student_id: 'student-1', class_id: 'class-3', enrolled_at: '2025-01-20T10:10:00Z' },
+  // Student 2 (Fatma) enrolled in 3 classes
+  { enrollment_id: 'enr-4', student_id: 'student-2', class_id: 'class-1', enrolled_at: '2025-01-21T09:00:00Z' },
+  { enrollment_id: 'enr-5', student_id: 'student-2', class_id: 'class-2', enrolled_at: '2025-01-21T09:05:00Z' },
+  { enrollment_id: 'enr-6', student_id: 'student-2', class_id: 'class-3', enrolled_at: '2025-01-21T09:10:00Z' },
+  // Student 3 (Omar) enrolled in 2 classes
+  { enrollment_id: 'enr-7', student_id: 'student-3', class_id: 'class-4', enrolled_at: '2025-01-22T11:00:00Z' },
+  { enrollment_id: 'enr-8', student_id: 'student-3', class_id: 'class-5', enrolled_at: '2025-01-22T11:05:00Z' },
+];
+
+// ---- Lectures ----
+export const mockLectures: Lecture[] = [
+  // Class 1 lectures
+  { lec_id: 'lec-1', class_id: 'class-1', day: 'Sunday', time: '09:00', type: 'offline', room_id: 'Hall-A1', title: 'Arrays & Linked Lists', date: '2025-02-02' },
+  { lec_id: 'lec-2', class_id: 'class-1', day: 'Wednesday', time: '11:00', type: 'offline', room_id: 'Hall-A1', title: 'Stacks & Queues', date: '2025-02-05' },
+  { lec_id: 'lec-3', class_id: 'class-1', day: 'Sunday', time: '09:00', type: 'offline', room_id: 'Hall-A1', title: 'Trees & Binary Search Trees', date: '2025-02-09' },
+  { lec_id: 'lec-4', class_id: 'class-1', day: 'Wednesday', time: '11:00', type: 'online', meeting_link: 'https://meet.google.com/abc-defg-hij', title: 'Graphs & Traversal', date: '2025-02-12' },
+  // Class 2 lectures
+  { lec_id: 'lec-5', class_id: 'class-2', day: 'Monday', time: '10:00', type: 'offline', room_id: 'Hall-B2', title: 'Introduction to SQL', date: '2025-02-03' },
+  { lec_id: 'lec-6', class_id: 'class-2', day: 'Thursday', time: '13:00', type: 'offline', room_id: 'Hall-B2', title: 'ER Diagrams & Normalization', date: '2025-02-06' },
+  { lec_id: 'lec-7', class_id: 'class-2', day: 'Monday', time: '10:00', type: 'hybrid', room_id: 'Hall-B2', meeting_link: 'https://meet.google.com/xyz', title: 'Advanced Queries & Joins', date: '2025-02-10' },
+  // Class 3 lectures
+  { lec_id: 'lec-8', class_id: 'class-3', day: 'Tuesday', time: '14:00', type: 'offline', room_id: 'Lab-C1', title: 'Introduction to ML', date: '2025-02-04' },
+  { lec_id: 'lec-9', class_id: 'class-3', day: 'Thursday', time: '16:00', type: 'offline', room_id: 'Lab-C1', title: 'Linear Regression', date: '2025-02-06' },
+  { lec_id: 'lec-10', class_id: 'class-3', day: 'Tuesday', time: '14:00', type: 'online', meeting_link: 'https://zoom.us/j/123456', title: 'Classification Algorithms', date: '2025-02-11' },
+  // Class 4 lectures
+  { lec_id: 'lec-11', class_id: 'class-4', day: 'Sunday', time: '13:00', type: 'offline', room_id: 'Hall-A3', title: 'Software Development Life Cycle', date: '2025-02-02' },
+  { lec_id: 'lec-12', class_id: 'class-4', day: 'Tuesday', time: '09:00', type: 'offline', room_id: 'Hall-A3', title: 'Agile & Scrum', date: '2025-02-04' },
+  // Class 5 lectures
+  { lec_id: 'lec-13', class_id: 'class-5', day: 'Monday', time: '14:00', type: 'offline', room_id: 'Lab-D1', title: 'Neural Network Basics', date: '2025-02-03' },
+  { lec_id: 'lec-14', class_id: 'class-5', day: 'Wednesday', time: '16:00', type: 'offline', room_id: 'Lab-D1', title: 'Convolutional Neural Networks', date: '2025-02-05' },
+  // Class 6 lectures
+  { lec_id: 'lec-15', class_id: 'class-6', day: 'Sunday', time: '11:00', type: 'offline', room_id: 'Hall-B1', title: 'System Requirements Analysis', date: '2025-02-02' },
+  { lec_id: 'lec-16', class_id: 'class-6', day: 'Wednesday', time: '09:00', type: 'offline', room_id: 'Hall-B1', title: 'Use Case Diagrams', date: '2025-02-05' },
+];
+
+// ---- Materials ----
+export const mockMaterials: Material[] = [
+  { material_id: 'mat-1', lecture_id: 'lec-1', class_id: 'class-1', name: 'Lecture 1 - Arrays Slides', url: '/files/arrays.pdf', type: 'pdf', summarize: 'Comprehensive overview of array data structures including dynamic arrays and amortized analysis.', uploaded_at: '2025-02-02T10:00:00Z', uploaded_by: 'doctor-1' },
+  { material_id: 'mat-2', lecture_id: 'lec-1', class_id: 'class-1', name: 'Linked List Tutorial', url: 'https://www.geeksforgeeks.org/linked-list-data-structure/', type: 'link', uploaded_at: '2025-02-02T10:30:00Z', uploaded_by: 'doctor-1' },
+  { material_id: 'mat-3', lecture_id: 'lec-2', class_id: 'class-1', name: 'Stacks & Queues Notes', url: '/files/stacks.pdf', type: 'pdf', summarize: 'Stack and queue implementations with applications in expression evaluation.', uploaded_at: '2025-02-05T12:00:00Z', uploaded_by: 'doctor-1' },
+  { material_id: 'mat-4', lecture_id: 'lec-5', class_id: 'class-2', name: 'SQL Basics Cheat Sheet', url: '/files/sql_basics.pdf', type: 'pdf', summarize: 'Quick reference for SELECT, INSERT, UPDATE, DELETE operations.', uploaded_at: '2025-02-03T11:00:00Z', uploaded_by: 'doctor-1' },
+  { material_id: 'mat-5', lecture_id: 'lec-6', class_id: 'class-2', name: 'ER Diagram Examples', url: '/files/er_diagrams.pdf', type: 'document', uploaded_at: '2025-02-06T14:00:00Z', uploaded_by: 'doctor-1' },
+  { material_id: 'mat-6', lecture_id: 'lec-7', class_id: 'class-2', name: 'SQL Joins Video Tutorial', url: 'https://youtube.com/watch?v=example', type: 'video', summarize: 'Visual explanation of INNER, LEFT, RIGHT, and FULL OUTER joins.', uploaded_at: '2025-02-10T11:00:00Z', uploaded_by: 'doctor-1' },
+  { material_id: 'mat-7', lecture_id: 'lec-8', class_id: 'class-3', name: 'ML Introduction Slides', url: '/files/ml_intro.pdf', type: 'pdf', summarize: 'Overview of machine learning paradigms: supervised, unsupervised, reinforcement learning.', uploaded_at: '2025-02-04T15:00:00Z', uploaded_by: 'doctor-2' },
+  { material_id: 'mat-8', lecture_id: 'lec-9', class_id: 'class-3', name: 'Linear Regression Notebook', url: '/files/linear_reg.pdf', type: 'document', summarize: 'Step-by-step linear regression implementation with scikit-learn.', uploaded_at: '2025-02-06T17:00:00Z', uploaded_by: 'doctor-2' },
+  { material_id: 'mat-9', lecture_id: 'lec-11', class_id: 'class-4', name: 'SDLC Overview', url: '/files/sdlc.pdf', type: 'pdf', uploaded_at: '2025-02-02T14:00:00Z', uploaded_by: 'doctor-1' },
+  { material_id: 'mat-10', lecture_id: 'lec-13', class_id: 'class-5', name: 'Neural Networks Primer', url: '/files/nn_primer.pdf', type: 'pdf', summarize: 'Foundations of artificial neural networks, perceptrons, and backpropagation.', uploaded_at: '2025-02-03T15:00:00Z', uploaded_by: 'doctor-2' },
+  { material_id: 'mat-11', class_id: 'class-1', name: 'Course Syllabus - DSA', url: '/files/dsa_syllabus.pdf', type: 'pdf', uploaded_at: '2025-01-25T08:00:00Z', uploaded_by: 'doctor-1' },
+  { material_id: 'mat-12', class_id: 'class-2', name: 'Course Syllabus - DB', url: '/files/db_syllabus.pdf', type: 'pdf', uploaded_at: '2025-01-25T08:00:00Z', uploaded_by: 'doctor-1' },
+  { material_id: 'mat-13', class_id: 'class-3', name: 'Python for ML Setup Guide', url: 'https://docs.python.org/3/tutorial/', type: 'link', uploaded_at: '2025-01-28T09:00:00Z', uploaded_by: 'doctor-2' },
+];
+
+// ---- Questions & Answers ----
+export const mockQuestions: Question[] = [
+  {
+    q_id: 'q-1', class_id: 'class-1', user_id: 'student-1', user_name: 'Ahmed Hassan', user_role: 'student',
+    text: 'Can someone explain the difference between a singly linked list and a doubly linked list? When should I use each?',
+    time: '2025-02-03T14:30:00Z',
+    answers: [
+      { a_id: 'a-1', question_id: 'q-1', user_id: 'doctor-1', user_name: 'Dr. Mohamed El-Sayed', user_role: 'doctor', text: 'A singly linked list has nodes pointing only to the next node, while a doubly linked list has pointers to both next and previous nodes. Use doubly linked lists when you need backward traversal. Singly linked lists use less memory per node.', time: '2025-02-03T15:00:00Z' },
+      { a_id: 'a-2', question_id: 'q-1', user_id: 'student-2', user_name: 'Fatma Ali', user_role: 'student', text: 'Thanks Dr. Mohamed! So for implementing a browser back button, a doubly linked list would be better since we need to go back and forth?', time: '2025-02-03T15:30:00Z' },
+    ]
+  },
+  {
+    q_id: 'q-2', class_id: 'class-1', user_id: 'student-2', user_name: 'Fatma Ali', user_role: 'student',
+    text: 'Is the midterm going to cover everything up to trees, or will graphs be included too?',
+    time: '2025-02-08T09:00:00Z',
+    answers: [
+      { a_id: 'a-3', question_id: 'q-2', user_id: 'doctor-1', user_name: 'Dr. Mohamed El-Sayed', user_role: 'doctor', text: 'The midterm will cover Arrays, Linked Lists, Stacks, Queues, and Trees. Graphs will be in the final exam. Good luck!', time: '2025-02-08T10:00:00Z' },
+    ]
+  },
+  {
+    q_id: 'q-3', class_id: 'class-2', user_id: 'student-1', user_name: 'Ahmed Hassan', user_role: 'student',
+    text: 'I\'m having trouble understanding the difference between 2NF and 3NF. Can anyone help clarify?',
+    time: '2025-02-07T11:00:00Z',
+    answers: [
+      { a_id: 'a-4', question_id: 'q-3', user_id: 'doctor-1', user_name: 'Dr. Mohamed El-Sayed', user_role: 'doctor', text: '2NF removes partial dependencies (where a non-key attribute depends on part of a composite key). 3NF removes transitive dependencies (where a non-key attribute depends on another non-key attribute). Check slide 15 from Lecture 2 for examples.', time: '2025-02-07T12:30:00Z' },
+    ]
+  },
+  {
+    q_id: 'q-4', class_id: 'class-2', user_id: 'doctor-1', user_name: 'Dr. Mohamed El-Sayed', user_role: 'doctor',
+    text: '📢 Announcement: The database project groups should be finalized by next Thursday. Each group should have 3-4 members. Please coordinate in the comments below.',
+    time: '2025-02-09T08:00:00Z',
+    answers: [
+      { a_id: 'a-5', question_id: 'q-4', user_id: 'student-1', user_name: 'Ahmed Hassan', user_role: 'student', text: 'Looking for a group partner! Anyone from Section A interested?', time: '2025-02-09T09:00:00Z' },
+      { a_id: 'a-6', question_id: 'q-4', user_id: 'student-2', user_name: 'Fatma Ali', user_role: 'student', text: 'I can join your group Ahmed! DM me.', time: '2025-02-09T09:30:00Z' },
+    ]
+  },
+  {
+    q_id: 'q-5', class_id: 'class-3', user_id: 'student-1', user_name: 'Ahmed Hassan', user_role: 'student',
+    text: 'What Python libraries do we need to install for the linear regression lab?',
+    time: '2025-02-05T10:00:00Z',
+    answers: [
+      { a_id: 'a-7', question_id: 'q-5', user_id: 'doctor-2', user_name: 'Dr. Sara Abdelrahman', user_role: 'doctor', text: 'You need numpy, pandas, matplotlib, and scikit-learn. Run: pip install numpy pandas matplotlib scikit-learn', time: '2025-02-05T11:00:00Z' },
+    ]
+  },
+  {
+    q_id: 'q-6', class_id: 'class-3', user_id: 'student-2', user_name: 'Fatma Ali', user_role: 'student',
+    text: 'Is there a recommended dataset for practicing classification algorithms before the lab?',
+    time: '2025-02-10T16:00:00Z',
+    answers: []
+  },
+  {
+    q_id: 'q-7', class_id: 'class-4', user_id: 'student-3', user_name: 'Omar Mahmoud', user_role: 'student',
+    text: 'For the Agile project, should we use Scrum or Kanban? Which one is expected for the assignment?',
+    time: '2025-02-05T13:00:00Z',
+    answers: [
+      { a_id: 'a-8', question_id: 'q-7', user_id: 'doctor-1', user_name: 'Dr. Mohamed El-Sayed', user_role: 'doctor', text: 'Either methodology is acceptable. Choose the one that fits your team best. Just make sure to document your sprints/iterations properly.', time: '2025-02-05T14:00:00Z' },
+    ]
+  },
+  {
+    q_id: 'q-8', class_id: 'class-5', user_id: 'student-3', user_name: 'Omar Mahmoud', user_role: 'student',
+    text: 'The CNN lecture mentioned "pooling layers" - can someone explain max pooling vs average pooling?',
+    time: '2025-02-06T17:00:00Z',
+    answers: [
+      { a_id: 'a-9', question_id: 'q-8', user_id: 'doctor-2', user_name: 'Dr. Sara Abdelrahman', user_role: 'doctor', text: 'Max pooling takes the maximum value in each window, preserving the strongest features. Average pooling computes the mean, smoothing the representation. Max pooling is more common in practice as it retains the most prominent features.', time: '2025-02-06T18:00:00Z' },
+    ]
+  },
+];
+
+// ---- Grades ----
+export const mockGrades: Grade[] = [
+  // Student 1 grades for class 1
+  { class_id: 'class-1', student_id: 'student-1', type: 'midterm', grade: 35, max_grade: 40, generated_at: '2025-03-15T10:00:00Z' },
+  { class_id: 'class-1', student_id: 'student-1', type: 'project', grade: 18, max_grade: 20, generated_at: '2025-04-01T10:00:00Z' },
+  { class_id: 'class-1', student_id: 'student-1', type: 'attendance', grade: 9, max_grade: 10, generated_at: '2025-04-01T10:00:00Z' },
+  { class_id: 'class-1', student_id: 'student-1', type: 'practical', grade: 13, max_grade: 15, generated_at: '2025-04-01T10:00:00Z' },
+  // Student 2 grades for class 1
+  { class_id: 'class-1', student_id: 'student-2', type: 'midterm', grade: 38, max_grade: 40, generated_at: '2025-03-15T10:00:00Z' },
+  { class_id: 'class-1', student_id: 'student-2', type: 'project', grade: 20, max_grade: 20, generated_at: '2025-04-01T10:00:00Z' },
+  { class_id: 'class-1', student_id: 'student-2', type: 'attendance', grade: 10, max_grade: 10, generated_at: '2025-04-01T10:00:00Z' },
+  // Student 1 grades for class 2
+  { class_id: 'class-2', student_id: 'student-1', type: 'midterm', grade: 30, max_grade: 40, generated_at: '2025-03-16T10:00:00Z' },
+  { class_id: 'class-2', student_id: 'student-1', type: 'project', grade: 17, max_grade: 20, generated_at: '2025-04-02T10:00:00Z' },
+  // Student 3 grades for class 4
+  { class_id: 'class-4', student_id: 'student-3', type: 'midterm', grade: 28, max_grade: 40, generated_at: '2025-03-17T10:00:00Z' },
+  { class_id: 'class-4', student_id: 'student-3', type: 'project', grade: 15, max_grade: 20, generated_at: '2025-04-03T10:00:00Z' },
+  // Student 3 grades for class 5
+  { class_id: 'class-5', student_id: 'student-3', type: 'midterm', grade: 32, max_grade: 40, generated_at: '2025-03-18T10:00:00Z' },
+];
+
+// ---- Grade Summaries ----
+export const mockGradeSummaries: StudentGradeSummary[] = [
+  { student_id: 'student-1', student_name: 'Ahmed Hassan', class_id: 'class-1', midterm: 35, project: 18, attendance_grade: 9, practical: 13, total: 75, gpa: 3.0 },
+  { student_id: 'student-2', student_name: 'Fatma Ali', class_id: 'class-1', midterm: 38, project: 20, attendance_grade: 10, total: 68, gpa: 3.4 },
+  { student_id: 'student-1', student_name: 'Ahmed Hassan', class_id: 'class-2', midterm: 30, project: 17, total: 47, gpa: 2.8 },
+  { student_id: 'student-3', student_name: 'Omar Mahmoud', class_id: 'class-4', midterm: 28, project: 15, total: 43, gpa: 2.5 },
+  { student_id: 'student-3', student_name: 'Omar Mahmoud', class_id: 'class-5', midterm: 32, total: 32, gpa: 3.2 },
+];
+
+// ---- Attendance ----
+export const mockAttendance: Attendance[] = [
+  // Lecture 1 attendance
+  { attendance_id: 'att-1', lecture_id: 'lec-1', student_id: 'student-1', student_name: 'Ahmed Hassan', time: '2025-02-02T08:55:00Z', is_verified: true, status: 'present' },
+  { attendance_id: 'att-2', lecture_id: 'lec-1', student_id: 'student-2', student_name: 'Fatma Ali', time: '2025-02-02T09:02:00Z', is_verified: true, status: 'present' },
+  // Lecture 2 attendance
+  { attendance_id: 'att-3', lecture_id: 'lec-2', student_id: 'student-1', student_name: 'Ahmed Hassan', time: '2025-02-05T10:58:00Z', is_verified: true, status: 'present' },
+  { attendance_id: 'att-4', lecture_id: 'lec-2', student_id: 'student-2', student_name: 'Fatma Ali', time: '', is_verified: false, status: 'absent' },
+  // Lecture 3 attendance
+  { attendance_id: 'att-5', lecture_id: 'lec-3', student_id: 'student-1', student_name: 'Ahmed Hassan', time: '2025-02-09T09:15:00Z', is_verified: true, status: 'late' },
+  { attendance_id: 'att-6', lecture_id: 'lec-3', student_id: 'student-2', student_name: 'Fatma Ali', time: '2025-02-09T08:50:00Z', is_verified: true, status: 'present' },
+  // Lecture 5 attendance (class 2)
+  { attendance_id: 'att-7', lecture_id: 'lec-5', student_id: 'student-1', student_name: 'Ahmed Hassan', time: '2025-02-03T09:55:00Z', is_verified: true, status: 'present' },
+  { attendance_id: 'att-8', lecture_id: 'lec-5', student_id: 'student-2', student_name: 'Fatma Ali', time: '2025-02-03T10:00:00Z', is_verified: true, status: 'present' },
+  // Lecture 8 attendance (class 3)
+  { attendance_id: 'att-9', lecture_id: 'lec-8', student_id: 'student-1', student_name: 'Ahmed Hassan', time: '2025-02-04T13:58:00Z', is_verified: true, status: 'present' },
+  { attendance_id: 'att-10', lecture_id: 'lec-8', student_id: 'student-2', student_name: 'Fatma Ali', time: '', is_verified: false, status: 'absent' },
+  // Lecture 11 attendance (class 4)
+  { attendance_id: 'att-11', lecture_id: 'lec-11', student_id: 'student-3', student_name: 'Omar Mahmoud', time: '2025-02-02T12:55:00Z', is_verified: true, status: 'present' },
+  // Lecture 13 attendance (class 5)
+  { attendance_id: 'att-12', lecture_id: 'lec-13', student_id: 'student-3', student_name: 'Omar Mahmoud', time: '2025-02-03T14:10:00Z', is_verified: true, status: 'late' },
+];
+
+// ---- Notifications ----
+export const mockNotifications: Notification[] = [
+  // Student 1 notifications
+  { notification_id: 'notif-1', user_id: 'student-1', type: 'new_material', title: 'New Material Uploaded', message: 'Dr. Mohamed uploaded "Stacks & Queues Notes" in Data Structures & Algorithms', class_id: 'class-1', class_name: 'Data Structures & Algorithms', reference_id: 'mat-3', is_read: false, created_at: '2025-02-05T12:00:00Z' },
+  { notification_id: 'notif-2', user_id: 'student-1', type: 'new_answer', title: 'New Reply', message: 'Dr. Mohamed replied to your question about linked lists', class_id: 'class-1', class_name: 'Data Structures & Algorithms', reference_id: 'q-1', is_read: false, created_at: '2025-02-03T15:00:00Z' },
+  { notification_id: 'notif-3', user_id: 'student-1', type: 'new_grade', title: 'Grade Published', message: 'Your midterm grade for Data Structures & Algorithms has been published', class_id: 'class-1', class_name: 'Data Structures & Algorithms', is_read: true, created_at: '2025-03-15T10:00:00Z' },
+  { notification_id: 'notif-4', user_id: 'student-1', type: 'announcement', title: 'Announcement', message: 'Database project groups should be finalized by Thursday', class_id: 'class-2', class_name: 'Database Systems', reference_id: 'q-4', is_read: false, created_at: '2025-02-09T08:00:00Z' },
+  { notification_id: 'notif-5', user_id: 'student-1', type: 'new_material', title: 'New Material Uploaded', message: 'Dr. Sara uploaded "ML Introduction Slides" in Machine Learning Fundamentals', class_id: 'class-3', class_name: 'Machine Learning Fundamentals', reference_id: 'mat-7', is_read: true, created_at: '2025-02-04T15:00:00Z' },
+  // Student 2 notifications
+  { notification_id: 'notif-6', user_id: 'student-2', type: 'new_material', title: 'New Material', message: 'New lecture slides uploaded in Data Structures', class_id: 'class-1', class_name: 'Data Structures & Algorithms', reference_id: 'mat-1', is_read: true, created_at: '2025-02-02T10:00:00Z' },
+  { notification_id: 'notif-7', user_id: 'student-2', type: 'new_answer', title: 'New Reply', message: 'Dr. Mohamed answered the midterm coverage question', class_id: 'class-1', class_name: 'Data Structures & Algorithms', reference_id: 'q-2', is_read: false, created_at: '2025-02-08T10:00:00Z' },
+  // Doctor 1 notifications
+  { notification_id: 'notif-8', user_id: 'doctor-1', type: 'new_question', title: 'New Question', message: 'Ahmed Hassan asked about linked lists in Data Structures', class_id: 'class-1', class_name: 'Data Structures & Algorithms', reference_id: 'q-1', is_read: true, created_at: '2025-02-03T14:30:00Z' },
+  { notification_id: 'notif-9', user_id: 'doctor-1', type: 'new_question', title: 'New Question', message: 'Fatma Ali asked about midterm coverage', class_id: 'class-1', class_name: 'Data Structures & Algorithms', reference_id: 'q-2', is_read: false, created_at: '2025-02-08T09:00:00Z' },
+  { notification_id: 'notif-10', user_id: 'doctor-1', type: 'new_question', title: 'New Question', message: 'Ahmed Hassan asked about normalization in Database Systems', class_id: 'class-2', class_name: 'Database Systems', reference_id: 'q-3', is_read: true, created_at: '2025-02-07T11:00:00Z' },
+  { notification_id: 'notif-11', user_id: 'doctor-1', type: 'new_answer', title: 'Reply to Announcement', message: 'Ahmed Hassan replied to your announcement about project groups', class_id: 'class-2', class_name: 'Database Systems', reference_id: 'q-4', is_read: false, created_at: '2025-02-09T09:00:00Z' },
+  // Admin notifications
+  { notification_id: 'notif-12', user_id: 'admin-1', type: 'approval', title: 'New Registration', message: 'Nour Ibrahim has registered and is awaiting approval', reference_id: 'student-4', is_read: false, created_at: '2025-01-15T10:00:00Z' },
+  { notification_id: 'notif-13', user_id: 'admin-1', type: 'approval', title: 'New Registration', message: 'Youssef Khaled has registered and is awaiting approval', reference_id: 'student-5', is_read: false, created_at: '2025-02-01T09:00:00Z' },
+];

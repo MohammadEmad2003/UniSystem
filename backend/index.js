@@ -5,6 +5,11 @@ const app = express();
 require('dotenv').config();
 const httpstatustext=require('./utilities/httpstatustext');
 
+
+// import database to create tables if not exist
+require('./models/userModel');  
+
+
 // allow for cors
 app.use(cors());
 

@@ -24,7 +24,6 @@ const register = asyncWrapper(async (req, res, next) => {
 
     // Check if email already exists
     const existingUser = await userQueries.getByEmail(email);
-    console.log('Existing user:', existingUser);
     if (existingUser) {
         const error = new Error("Email already exists");
         error.statusCode = 400;
@@ -35,6 +34,19 @@ const register = asyncWrapper(async (req, res, next) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Get document and image paths if files were uploaded
+    let documentPath = null;
+    let imageUrl = null;
+
+    if (req.files) {
+        if (req.files.document && req.files.document.length > 0) {
+            documentPath = `/uploads/${req.files.document[0].filename}`;
+        }
+        if (req.files.image && req.files.image.length > 0) {
+            imageUrl = `/uploads/${req.files.image[0].filename}`;
+        }
+    }
+
     // Create user with "pending" status for students
     const userResult = await userQueries.create({
         F_Name: f_name,
@@ -42,13 +54,15 @@ const register = asyncWrapper(async (req, res, next) => {
         Email: email,
         Password: hashedPassword,
         Role: 'Student',
-        Account_Status: 'pending'
+        Account_Status: 'pending',
+        Document: documentPath,
+        Image_Url: imageUrl
     });
 
     const userId = userResult.lastID;
 
     // Create student record with SSN, academic level, and department
-    if (ssn && academic_level && department_id) {
+    if (ssn || academic_level || department_id) {
         await studentQueries.create({
             User_ID: userId,
             SSN: ssn,
@@ -86,6 +100,8 @@ const register = asyncWrapper(async (req, res, next) => {
                 ssn: ssn,
                 academic_level: academic_level,
                 department_id: department_id,
+                document: documentPath,
+                image_url: imageUrl,
                 total_hours: 0,
                 total_gpa: 0,
                 payment_status: 'unpaid'
@@ -175,6 +191,7 @@ const login = asyncWrapper(async (req, res, next) => {
                 email: user.Email,
                 role: user.Role,
                 account_status: user.Account_Status,
+                document: user.Document,
                 image_url: user.Image_Url,
                 created_at: new Date().toISOString(),
                 ...additionalData

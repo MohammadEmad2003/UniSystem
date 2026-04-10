@@ -5,52 +5,76 @@ const genericQueries = (tableName, options = {}) => {
   const emailField = options.emailField || 'Email';
 
   const getAll = () => {
-    return db.prepare(`SELECT * FROM ${tableName}`).all();
+    return new Promise((resolve, reject) => {
+      db.all(`SELECT * FROM ${tableName}`, (err, rows) => {
+        if (err) reject(err);
+        resolve(rows || []);
+      });
+    });
   };
 
   const getById = (id) => {
-    return db.prepare(`
-      SELECT * FROM ${tableName}
-      WHERE ${primaryKey} = ?
-    `).get(id);
+    return new Promise((resolve, reject) => {
+      db.get(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ?`, [id], (err, row) => {
+        if (err) reject(err);
+        resolve(row);
+      });
+    });
   };
 
-  getByEmail = (email) => {
-    return db.prepare(`
-      SELECT * FROM ${tableName}
-      WHERE ${emailField} = ?
-    `).get(email);
+  const getByEmail = (email) => {
+    return new Promise((resolve, reject) => {
+      db.get(`SELECT * FROM ${tableName} WHERE ${emailField} = ?`, [email], (err, row) => {
+        if (err) reject(err);
+        resolve(row);
+      });
+    });
   };
 
   const create = (data) => {
-    const keys = Object.keys(data).join(', ');
-    const placeholders = Object.keys(data).map(() => '?').join(', ');
-    const values = Object.values(data);
+    return new Promise((resolve, reject) => {
+      const keys = Object.keys(data).join(', ');
+      const placeholders = Object.keys(data).map(() => '?').join(', ');
+      const values = Object.values(data);
 
-    const stmt = db.prepare(`
-      INSERT INTO ${tableName} (${keys})
-      VALUES (${placeholders})
-    `);
-
-    return stmt.run(...values);
+      db.run(
+        `INSERT INTO ${tableName} (${keys}) VALUES (${placeholders})`,
+        values,
+        function(err) {
+          if (err) reject(err);
+          resolve({ lastID: this.lastID, changes: this.changes });
+        }
+      );
+    });
   };
 
   const update = (id, data) => {
-    const sets = Object.keys(data).map(k => `${k} = ?`).join(', ');
-    const values = [...Object.values(data), id];
+    return new Promise((resolve, reject) => {
+      const sets = Object.keys(data).map(k => `${k} = ?`).join(', ');
+      const values = [...Object.values(data), id];
 
-    return db.prepare(`
-      UPDATE ${tableName}
-      SET ${sets}
-      WHERE ${primaryKey} = ?
-    `).run(...values);
+      db.run(
+        `UPDATE ${tableName} SET ${sets} WHERE ${primaryKey} = ?`,
+        values,
+        function(err) {
+          if (err) reject(err);
+          resolve({ changes: this.changes });
+        }
+      );
+    });
   };
 
   const deleteRow = (id) => {
-    return db.prepare(`
-      DELETE FROM ${tableName}
-      WHERE ${primaryKey} = ?
-    `).run(id);
+    return new Promise((resolve, reject) => {
+      db.run(
+        `DELETE FROM ${tableName} WHERE ${primaryKey} = ?`,
+        [id],
+        function(err) {
+          if (err) reject(err);
+          resolve({ changes: this.changes });
+        }
+      );
+    });
   };
 
   return {

@@ -1,9 +1,8 @@
 const sqlite3 = require('@journeyapps/sqlcipher').verbose();
 const path = require('path');
 
-const dbPath = path.join(__dirname, '../database.db');
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) console.error('❌ error:', err.message);
+const db = new sqlite3.Database(path.join(__dirname, '../database.db'), {
+  verbose: console.log 
 });
 
 db.run("PRAGMA key='123456'");

@@ -1,5 +1,6 @@
 const cors=require('cors'); 
 const express = require("express");
+const httpstatustext=require('./utilities/httpstatustext');
 const path=require('path');
 const app = express();
 require('dotenv').config();// import database to create tables if not exist
@@ -21,9 +22,10 @@ require('./models/answerModel');
 require('./models/attendanceModel'); 
 
 
-const httpstatustext=require('./utilities/httpstatustext');
-const createuser = require("./controllers/test");
-createuser(); // ✅ كده هتشتغل
+
+// const httpstatustext=require('./utilities/httpstatustext');
+// const createuser = require("./controllers/test");
+// createuser(); // ✅ كده هتشتغل
 
 // allow for cors
 app.use(cors());
@@ -34,10 +36,9 @@ app.use("/uploads",express.static(path.join(__dirname,'uploads')));
 // parse json body
 app.use(express.json());
 
-// make any route for testing
-app.get("/test",(req,res)=>{
-    res.status(200).json({success:true,data:"Test route"});
-});
+//routes - MUST be before app.all()
+const authRouter = require("./routes/auth");
+app.use("/api/auth", authRouter);
 
 // handling other routes by jsend
 //and to handle unfound routes

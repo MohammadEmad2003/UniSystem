@@ -2,6 +2,7 @@ const db = require('./database');
 
 const genericQueries = (tableName, options = {}) => {
   const primaryKey = options.primaryKey || 'id';
+  const emailField = options.emailField || 'Email';
 
   const getAll = () => {
     return db.prepare(`SELECT * FROM ${tableName}`).all();
@@ -12,6 +13,13 @@ const genericQueries = (tableName, options = {}) => {
       SELECT * FROM ${tableName}
       WHERE ${primaryKey} = ?
     `).get(id);
+  };
+
+  getByEmail = (email) => {
+    return db.prepare(`
+      SELECT * FROM ${tableName}
+      WHERE ${emailField} = ?
+    `).get(email);
   };
 
   const create = (data) => {
@@ -48,6 +56,7 @@ const genericQueries = (tableName, options = {}) => {
   return {
     getAll,
     getById,
+    getByEmail,
     create,
     update,
     delete: deleteRow

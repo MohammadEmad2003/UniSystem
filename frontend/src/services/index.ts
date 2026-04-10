@@ -7,7 +7,7 @@ import {
   mockStudentService,
 } from '../mock/mockServices';
 
-const useMock = import.meta.env.VITE_USE_MOCK === 'true';
+const useMock = import.meta.env.VITE_USE_MOCK === 'false';
 
 // For now we always use mock. When backend is ready, add real implementations.
 export const authService = useMock ? mockAuthService : mockAuthService;

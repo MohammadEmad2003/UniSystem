@@ -1,13 +1,11 @@
-const Database = require('better-sqlite3-multiple-ciphers');
+const Database = require('better-sqlite3');
 const path = require('path');
 
-const DB_PASSWORD = process.env.DB_PASSWORD;
+const db = new Database(path.join(__dirname, '../database.db'), {
+  verbose: console.log // شيلها في production
+});
 
-const db = new Database(path.join(__dirname, '../database.sqlite'));
-
-
-db.pragma(`key='${DB_PASSWORD}'`);
-
+// تفعيل Foreign Keys
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 

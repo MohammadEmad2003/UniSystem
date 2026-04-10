@@ -2,13 +2,28 @@ const cors=require('cors');
 const express = require("express");
 const path=require('path');
 const app = express();
-require('dotenv').config();
+require('dotenv').config();// import database to create tables if not exist
+require('./models/userModel');
+require('./models/departmentModel');
+require('./models/doctorModel');
+require('./models/studentModel');
+require('./models/adminModel');
+require('./models/courseModel');       // مش coursesModel
+require('./models/classModel');
+require('./models/lectureModel');
+require('./models/materialModel');
+require('./models/gradeModel');        // مش gradesModel
+require('./models/jusnctionModel');    // مش junctionTablesModel
+require('./models/lectureModel');
+require('./models/materialModel');
+require('./models/questionModel');     // مش questionsModel
+require('./models/answerModel');
+require('./models/attendanceModel'); 
+
+
 const httpstatustext=require('./utilities/httpstatustext');
-
-
-// import database to create tables if not exist
-require('./models/userModel');  
-
+const createuser = require("./controllers/test");
+createuser(); // ✅ كده هتشتغل
 
 // allow for cors
 app.use(cors());

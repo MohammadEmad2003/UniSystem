@@ -1,12 +1,12 @@
-const Database = require('better-sqlite3');
+const sqlite3 = require('@journeyapps/sqlcipher').verbose();
 const path = require('path');
 
-const db = new Database(path.join(__dirname, '../database.db'), {
-  verbose: console.log // شيلها في production
+const dbPath = path.join(__dirname, '../database.db');
+const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) console.error('❌ error:', err.message);
 });
 
-// تفعيل Foreign Keys
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+db.run("PRAGMA key='123456'");
+db.run("PRAGMA cipher_compatibility=4");
 
 module.exports = db;

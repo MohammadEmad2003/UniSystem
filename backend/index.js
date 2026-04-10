@@ -38,8 +38,9 @@ app.use(express.json());
 
 //routes - MUST be before app.all()
 const authRouter = require("./routes/auth");
+const studentRouter = require("./routes/student");
 app.use("/api/auth", authRouter);
-
+app.use("/api/students", studentRouter);
 // handling other routes by jsend
 //and to handle unfound routes
 app.all(/.*/, (req, res) => {

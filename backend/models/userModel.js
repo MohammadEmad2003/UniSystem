@@ -1,13 +1,17 @@
 const db = require('../utilities/database');
-
-
+ 
 db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  CREATE TABLE IF NOT EXISTS User (
+    User_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+    Password VARCHAR(255) NOT NULL,
+    F_Name VARCHAR(50) NOT NULL,
+    L_Name VARCHAR(50) NOT NULL,
+    Email VARCHAR(100) UNIQUE NOT NULL,
+    Account_Status TEXT CHECK(Account_Status IN ('Active', 'Inactive', 'Suspended')) DEFAULT 'Suspended' NOT NULL,
+    Role TEXT CHECK(Role IN ('Student', 'Doctor', 'Admin')) NOT NULL,
+    Document VARCHAR(255),
+    Image_Url VARCHAR(255)
   )
 `);
-
+ 
 module.exports = db;

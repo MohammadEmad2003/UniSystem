@@ -98,6 +98,7 @@ const genericQueries = (tableName, options = {}) => {
       });
     });
   };
+  
 
   const count = () => {
     return new Promise((resolve, reject) => {
@@ -203,6 +204,8 @@ const genericQueries = (tableName, options = {}) => {
       });
     });
   };
+
+ 
 
   return {
     getAll,

@@ -31,6 +31,15 @@ const genericQueries = (tableName, options = {}) => {
     });
   };
 
+  const findByField = (fieldName, value) => {
+    return new Promise((resolve, reject) => {
+      db.get(`SELECT * FROM ${tableName} WHERE ${fieldName} = ?`, [value], (err, row) => {
+        if (err) reject(err);
+        resolve(row);
+      });
+    });
+  };
+
   const create = (data) => {
     return new Promise((resolve, reject) => {
       const keys = Object.keys(data).join(', ');
@@ -77,13 +86,127 @@ const genericQueries = (tableName, options = {}) => {
     });
   };
 
+  const count = () => {
+    return new Promise((resolve, reject) => {
+      db.get(`SELECT COUNT(*) as count FROM ${tableName}`, (err, row) => {
+        if (err) reject(err);
+        resolve(row?.count || 0);
+      });
+    });
+  };
+
+  const countByField = (fieldName, value) => {
+    return new Promise((resolve, reject) => {
+      db.get(
+        `SELECT COUNT(*) as count FROM ${tableName} WHERE ${fieldName} = ?`,
+        [value],
+        (err, row) => {
+          if (err) reject(err);
+          resolve(row?.count || 0);
+        }
+      );
+    });
+  };
+
+  const countByFields = (conditions) => {
+    return new Promise((resolve, reject) => {
+      const fields = Object.keys(conditions);
+      const whereClause = fields.map(f => `${f} = ?`).join(' AND ');
+      const values = Object.values(conditions);
+
+      db.get(
+        `SELECT COUNT(*) as count FROM ${tableName} WHERE ${whereClause}`,
+        values,
+        (err, row) => {
+          if (err) reject(err);
+          resolve(row?.count || 0);
+        }
+      );
+    });
+  };
+
+  const countDistinct = (fieldName, conditions = {}) => {
+    return new Promise((resolve, reject) => {
+      let query = `SELECT COUNT(DISTINCT ${fieldName}) as count FROM ${tableName}`;
+      let values = [];
+
+      if (Object.keys(conditions).length > 0) {
+        const whereClause = Object.keys(conditions).map(f => `${f} = ?`).join(' AND ');
+        query += ` WHERE ${whereClause}`;
+        values = Object.values(conditions);
+      }
+
+      db.get(query, values, (err, row) => {
+        if (err) reject(err);
+        resolve(row?.count || 0);
+      });
+    });
+  };
+
+  const countWithWhereClause = (whereClause, params = []) => {
+    return new Promise((resolve, reject) => {
+      db.get(
+        `SELECT COUNT(*) as count FROM ${tableName} WHERE ${whereClause}`,
+        params,
+        (err, row) => {
+          if (err) reject(err);
+          resolve(row?.count || 0);
+        }
+      );
+    });
+  };
+
+  const countDistinctWithWhereClause = (fieldName, whereClause, params = []) => {
+    return new Promise((resolve, reject) => {
+      db.get(
+        `SELECT COUNT(DISTINCT ${fieldName}) as count FROM ${tableName} WHERE ${whereClause}`,
+        params,
+        (err, row) => {
+          if (err) reject(err);
+          resolve(row?.count || 0);
+        }
+      );
+    });
+  };
+
+  const getAllWithWhereClause = (whereClause, params = [], orderBy = null) => {
+    return new Promise((resolve, reject) => {
+      let query = `SELECT * FROM ${tableName} WHERE ${whereClause}`;
+      if (orderBy) {
+        query += ` ORDER BY ${orderBy}`;
+      }
+      db.all(query, params, (err, rows) => {
+        if (err) reject(err);
+        resolve(rows || []);
+      });
+    });
+  };
+
+  const customQuery = (sql, params = []) => {
+    return new Promise((resolve, reject) => {
+      db.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        resolve(rows || []);
+      });
+    });
+  };
+
   return {
     getAll,
     getById,
     getByEmail,
+    findByField,
     create,
     update,
-    delete: deleteRow
+    delete: deleteRow,
+    count,
+    countByField,
+    countByFields,
+    countDistinct,
+    countWithWhereClause,
+    countDistinctWithWhereClause,
+    getAllWithWhereClause,
+    customQuery
   };
 };
 

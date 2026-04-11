@@ -30,7 +30,7 @@ const genericQueries = (tableName, options = {}) => {
       });
     });
   };
-  
+
 
   const create = (data) => {
     return new Promise((resolve, reject) => {
@@ -76,12 +76,24 @@ const genericQueries = (tableName, options = {}) => {
         }
       );
     });
+
+  };
+
+  const getAllByField = (fieldName, value) => {
+    return new Promise((resolve, reject) => {
+    
+      db.all(`SELECT * FROM ${tableName} WHERE ${fieldName} = ?`, [value], (err, rows) => {
+        if (err) reject(err);
+        resolve(rows || []);
+      });
+    });
   };
 
   return {
     getAll,
     getById,
     getByEmail,
+    getAllByField, 
     create,
     update,
     delete: deleteRow

@@ -9,6 +9,7 @@ const lectureModel = genericQueries('Lecture', {
 const getLecturesByClassID = asyncWrapper(async (req, res) => {
     const { classId } = req.params;
 
+    // مفيش Loop هنا! قاعدة البيانات بتبعتلك المصفوفة جاهزة
     const lectures = await lectureModel.getAllByField('Class_ID', classId);
 
     res.status(200).json({

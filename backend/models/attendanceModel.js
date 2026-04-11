@@ -1,7 +1,7 @@
 const db = require('../utilities/database');
 
 db.exec(`
-  CREATE TABLE IF NOT EXISTS Attendance (
+    CREATE TABLE IF NOT EXISTS Attendance (
     Attendance_ID INTEGER PRIMARY KEY AUTOINCREMENT,
     User_ID INTEGER NOT NULL,
     Lec_ID INTEGER NOT NULL,

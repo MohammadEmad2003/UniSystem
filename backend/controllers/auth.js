@@ -24,6 +24,7 @@ const register = asyncWrapper(async (req, res, next) => {
 
     // Check if email already exists
     const existingUser = await userQueries.getByEmail(email);
+    console.log('Existing user:', existingUser);
     if (existingUser) {
         const error = new Error("Email already exists");
         error.statusCode = 400;

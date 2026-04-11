@@ -31,6 +31,7 @@ const genericQueries = (tableName, options = {}) => {
     });
   };
 
+
   const create = (data) => {
     return new Promise((resolve, reject) => {
       const keys = Object.keys(data).join(', ');
@@ -75,6 +76,7 @@ const genericQueries = (tableName, options = {}) => {
         }
       );
     });
+
   };
 
   const getAllByField = (fieldName, value) => {

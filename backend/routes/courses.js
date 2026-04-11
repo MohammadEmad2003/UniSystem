@@ -7,7 +7,7 @@ const {
   deleteCourse,
 } = require("../controllers/coursesController");
 
-const verifyToken = require("../middleware/verifyToken");
+const verifyToken = require("../middleware/verifytoken");
 const allowedTo = require("../middleware/allowedTo");
 const userRoles = require("../utilities/userRoles");
 const router = express.Router();

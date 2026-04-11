@@ -20,7 +20,7 @@ require('./models/materialModel');
 require('./models/questionModel');     // مش questionsModel
 require('./models/answerModel');
 require('./models/attendanceModel'); 
-
+require('./models/notificationModel');
 
 
 // const httpstatustext=require('./utilities/httpstatustext');
@@ -47,7 +47,21 @@ const gradeRouter = require("./routes/grade");
 // Auth Routes (Register, Login, Email Verification, Password Reset, Resend emails)
 app.use("/api/auth", authRouter);
 
+
 // Student Routes
+
+const classesRouter = require('./routes/classes');
+app.use('/api/classes', classesRouter);
+
+const attendanceRouter = require('./routes/attendance');
+app.use('/api/attendance', attendanceRouter);
+
+const questionsRouter = require('./routes/questions');
+app.use('/api/questions', questionsRouter);
+
+const notificationsRouter = require('./routes/notifications');
+app.use('/api/notifications', notificationsRouter);
+
 app.use("/api/students", studentRouter);
 
 // Doctor Routes

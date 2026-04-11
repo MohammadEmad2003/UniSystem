@@ -40,7 +40,15 @@ app.use(express.json());
 const authRouter = require("./routes/auth");
 const studentRouter = require("./routes/student");
 const lectureRouter = require("./routes/lecture");
+const doctorRouter = require("./routes/doctor");
+const gradeRouter = require("./routes/grade");
+
+// ============ ROUTES CONFIGURATION ============
+// Auth Routes (Register, Login, Email Verification, Password Reset, Resend emails)
 app.use("/api/auth", authRouter);
+
+
+// Student Routes
 
 const classesRouter = require('./routes/classes');
 app.use('/api/classes', classesRouter);
@@ -53,7 +61,16 @@ app.use('/api/questions', questionsRouter);
 
 const notificationsRouter = require('./routes/notifications');
 app.use('/api/notifications', notificationsRouter);
+
 app.use("/api/students", studentRouter);
+
+// Doctor Routes
+app.use("/api/doctors", doctorRouter);
+
+// Grade Routes
+app.use("/api/grades", gradeRouter);
+
+// Lecture/Classes Routes
 app.use("/api/classes", lectureRouter);
 // handling other routes by jsend
 //and to handle unfound routes

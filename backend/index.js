@@ -9,15 +9,15 @@ require('./models/departmentModel');
 require('./models/doctorModel');
 require('./models/studentModel');
 require('./models/adminModel');
-require('./models/courseModel');       // مش coursesModel
+require('./models/courseModel');       
 require('./models/classModel');
 require('./models/lectureModel');
 require('./models/materialModel');
-require('./models/gradeModel');        // مش gradesModel
-require('./models/jusnctionModel');    // مش junctionTablesModel
+require('./models/gradeModel');        
+require('./models/jusnctionModel');    
 require('./models/lectureModel');
 require('./models/materialModel');
-require('./models/questionModel');     // مش questionsModel
+require('./models/questionModel');     
 require('./models/answerModel');
 require('./models/attendanceModel'); 
 require('./models/notificationModel');
@@ -40,6 +40,7 @@ app.use(express.json());
 const authRouter = require("./routes/auth");
 const studentRouter = require("./routes/student");
 const lectureRouter = require("./routes/lecture");
+const materialRouter = require("./routes/material");
 const doctorRouter = require("./routes/doctor");
 const gradeRouter = require("./routes/grade");
 
@@ -72,6 +73,9 @@ app.use("/api/grades", gradeRouter);
 
 // Lecture/Classes Routes
 app.use("/api/classes", lectureRouter);
+app.use("/api/classes", materialRouter);
+app.use("/api", materialRouter);
+
 // handling other routes by jsend
 //and to handle unfound routes
 app.all(/.*/, (req, res) => {

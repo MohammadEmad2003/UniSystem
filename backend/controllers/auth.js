@@ -24,6 +24,7 @@ const register = asyncWrapper(async (req, res, next) => {
 
     // Check if email already exists
     const existingUser = await userQueries.getByEmail(email);
+    console.log('Existing user:', existingUser);
     if (existingUser) {
         const error = new Error("Email already exists");
         error.statusCode = 400;
@@ -41,7 +42,7 @@ const register = asyncWrapper(async (req, res, next) => {
         Email: email,
         Password: hashedPassword,
         Role: 'Student',
-        Account_Status: 'Suspended'
+        Account_Status: 'pending'
     });
 
     const userId = userResult.lastID;

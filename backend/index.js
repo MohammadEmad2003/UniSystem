@@ -20,7 +20,7 @@ require('./models/materialModel');
 require('./models/questionModel');     // مش questionsModel
 require('./models/answerModel');
 require('./models/attendanceModel'); 
-
+require('./models/notificationModel');
 
 
 // const httpstatustext=require('./utilities/httpstatustext');
@@ -40,6 +40,17 @@ app.use(express.json());
 const authRouter = require("./routes/auth");
 app.use("/api/auth", authRouter);
 
+const classesRouter = require('./routes/classes');
+app.use('/api/classes', classesRouter);
+
+const attendanceRouter = require('./routes/attendance');
+app.use('/api/attendance', attendanceRouter);
+
+const questionsRouter = require('./routes/questions');
+app.use('/api/questions', questionsRouter);
+
+const notificationsRouter = require('./routes/notifications');
+app.use('/api/notifications', notificationsRouter);
 // handling other routes by jsend
 //and to handle unfound routes
 app.all(/.*/, (req, res) => {

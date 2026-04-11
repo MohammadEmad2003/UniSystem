@@ -20,7 +20,7 @@ require('./models/materialModel');
 require('./models/questionModel');     
 require('./models/answerModel');
 require('./models/attendanceModel'); 
-
+require('./models/notificationModel');
 
 
 // const httpstatustext=require('./utilities/httpstatustext');
@@ -41,8 +41,37 @@ const authRouter = require("./routes/auth");
 const studentRouter = require("./routes/student");
 const lectureRouter = require("./routes/lecture");
 const materialRouter = require("./routes/material");
+const doctorRouter = require("./routes/doctor");
+const gradeRouter = require("./routes/grade");
+
+// ============ ROUTES CONFIGURATION ============
+// Auth Routes (Register, Login, Email Verification, Password Reset, Resend emails)
 app.use("/api/auth", authRouter);
+
+
+// Student Routes
+
+const classesRouter = require('./routes/classes');
+app.use('/api/classes', classesRouter);
+
+const attendanceRouter = require('./routes/attendance');
+app.use('/api/attendance', attendanceRouter);
+
+const questionsRouter = require('./routes/questions');
+app.use('/api/questions', questionsRouter);
+
+const notificationsRouter = require('./routes/notifications');
+app.use('/api/notifications', notificationsRouter);
+
 app.use("/api/students", studentRouter);
+
+// Doctor Routes
+app.use("/api/doctors", doctorRouter);
+
+// Grade Routes
+app.use("/api/grades", gradeRouter);
+
+// Lecture/Classes Routes
 app.use("/api/classes", lectureRouter);
 app.use("/api/classes", materialRouter);
 app.use("/api", materialRouter);

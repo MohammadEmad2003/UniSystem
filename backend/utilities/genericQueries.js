@@ -31,6 +31,7 @@ const genericQueries = (tableName, options = {}) => {
     });
   };
 
+
   const findByField = (fieldName, value) => {
     return new Promise((resolve, reject) => {
       db.get(`SELECT * FROM ${tableName} WHERE ${fieldName} = ?`, [value], (err, row) => {
@@ -39,6 +40,7 @@ const genericQueries = (tableName, options = {}) => {
       });
     });
   };
+
 
   const create = (data) => {
     return new Promise((resolve, reject) => {
@@ -83,6 +85,17 @@ const genericQueries = (tableName, options = {}) => {
           resolve({ changes: this.changes });
         }
       );
+    });
+
+  };
+
+  const getAllByField = (fieldName, value) => {
+    return new Promise((resolve, reject) => {
+    
+      db.all(`SELECT * FROM ${tableName} WHERE ${fieldName} = ?`, [value], (err, rows) => {
+        if (err) reject(err);
+        resolve(rows || []);
+      });
     });
   };
 
@@ -196,6 +209,7 @@ const genericQueries = (tableName, options = {}) => {
     getById,
     getByEmail,
     findByField,
+    getAllByField, 
     create,
     update,
     delete: deleteRow,

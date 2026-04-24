@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getLectureAttendance, getStudentAttendanceByClass, recordAttendance } = require('../controllers/attendanceController');
-const verifyToken = require('../middleware/verifyToken');
+const verifyToken = require('../middleware/verifytoken');
 
 router.use(verifyToken);
 

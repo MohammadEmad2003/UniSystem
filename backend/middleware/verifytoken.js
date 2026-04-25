@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const jwtSecret = process.env.JWT_SECRET || process.env.JWT_SECRET_KEY;
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers['authorization'] || req.headers['Authorization'];
     if(!authHeader){
@@ -8,7 +9,7 @@ const verifyToken = (req, res, next) => {
     }
     const token =  authHeader.split(' ')[1]; // Bearer <token>
     try {
-   const decodedToken = jwt.verify(token, process.env.JWT_SECRET_KEY);// if token not valid it will throw error
+   const decodedToken = jwt.verify(token, jwtSecret);// if token not valid it will throw error
    req.currentUser = decodedToken;
     next();
     } catch (error) {

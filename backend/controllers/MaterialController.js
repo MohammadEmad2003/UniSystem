@@ -3,11 +3,13 @@ const fs = require('fs');
 const genericQueries = require('../utilities/genericQueries'); 
 const asyncWrapper = require('../middleware/asyncWrapper');
 const path = require('path');
+const aiServiceClient = require('../services/aiServiceClient');
 
 const materialModel = genericQueries('Material', { primaryKey: 'Material_ID' });
 
 const createMaterial = asyncWrapper(async (req, res) => {
     // recived data from client
+    const { classId } = req.params;
     const { name, lecture_id, type, summarize, url } = req.body;
 
     let finalDocument = null;
@@ -30,6 +32,14 @@ const createMaterial = asyncWrapper(async (req, res) => {
         Summarize: summarize,
         Type: type 
     });
+
+    try {
+        await aiServiceClient.indexMaterial(result.lastID, {
+            class_id: Number(classId)
+        });
+    } catch (error) {
+        console.error(`[AI] Failed to index material ${result.lastID}: ${error.message}`);
+    }
 
     res.status(201).json({
         success: true,

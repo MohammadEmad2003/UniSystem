@@ -18,6 +18,7 @@ const adminQueries = genericQueries('Admin', {
 const asyncWrapper = require("../middleware/asyncWrapper");
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const jwtSecret = process.env.JWT_SECRET || process.env.JWT_SECRET_KEY;
 
 // REGISTER - Create new student account
 const register = asyncWrapper(async (req, res, next) => {
@@ -102,7 +103,7 @@ const register = asyncWrapper(async (req, res, next) => {
       email: email,
       role: "Student",
     },
-    process.env.JWT_SECRET_KEY,
+    jwtSecret,
     { expiresIn: "5h" },
   );
 
@@ -204,7 +205,7 @@ const login = asyncWrapper(async (req, res, next) => {
             email: user.Email,
             role: user.Role
         }, 
-        process.env.JWT_SECRET_KEY, 
+        jwtSecret, 
         { expiresIn: '5h' }
     );
 

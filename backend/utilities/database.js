@@ -1,7 +1,10 @@
 const sqlite3 = require('@journeyapps/sqlcipher').verbose();
 const path = require('path');
 
-const dbPath = path.join(__dirname, '../database.db');
+const backendRoot = path.resolve(__dirname, '..');
+const dbPath = process.env.DATABASE_PATH
+    ? path.resolve(backendRoot, process.env.DATABASE_PATH)
+    : path.join(backendRoot, 'database.db');
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) console.error('❌ error:', err.message);
 

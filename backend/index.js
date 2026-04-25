@@ -1,6 +1,7 @@
 const cors = require("cors");
 const express = require("express");
 const httpstatustext = require("./utilities/httpstatustext");
+const fs = require("fs");
 const path = require("path");
 const app = express();
 require('dotenv').config();// import database to create tables if not exist
@@ -30,8 +31,14 @@ require('./models/notificationModel');
 // allow for cors
 app.use(cors());
 
+const uploadsPath = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+}
+
 // static files for avater image
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(uploadsPath));
+app.use("/files", express.static(uploadsPath));
 
 // parse json body
 app.use(express.json());
@@ -46,6 +53,8 @@ const gradeRouter = require("./routes/grade");
 const coursesRouter = require("./routes/courses");
 const departmentRouter = require("./routes/department");
 const adminRouter = require("./routes/admin");
+const aiRouter = require("./routes/aiRoutes");
+const internalAiRouter = require("./routes/internalAiRoutes");
 
 // ============ ROUTES CONFIGURATION ============
 // Auth Routes (Register, Login, Email Verification, Password Reset, Resend emails)
@@ -56,6 +65,8 @@ app.use("/api/auth", authRouter);
 
 const classesRouter = require('./routes/classes');
 app.use('/api/classes', classesRouter);
+app.use("/api/classes", aiRouter);
+app.use("/api/internal/ai", internalAiRouter);
 
 const attendanceRouter = require('./routes/attendance');
 app.use('/api/attendance', attendanceRouter);
@@ -103,4 +114,5 @@ app.use((err, req, res, next) => {
 app.listen(process.env.PORT, () => {
   console.log("Server is running on port " + process.env.PORT);
   console.log(`http://localhost:${process.env.PORT}`);
+  console.log("Serving static files from:", uploadsPath);
 });

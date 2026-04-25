@@ -2,6 +2,7 @@ const httpstatustext = require('../utilities/httpstatustext');
 const asyncWrapper = require('../middleware/asyncWrapper');
 const db = require('../utilities/database');
 const createNotification = require('../utilities/createNotification');
+const aiServiceClient = require('../services/aiServiceClient');
 
 // GET /classes/:classId/questions
 const getClassQuestions = asyncWrapper(async (req, res) => {
@@ -188,6 +189,16 @@ const postAnswer = asyncWrapper(async (req, res) => {
       classId: question.Class_ID,
       referenceId: parseInt(questionId)
     });
+  }
+
+  if (isDoctor) {
+    try {
+      await aiServiceClient.indexQuestion(questionId, {
+        class_id: question.Class_ID
+      });
+    } catch (error) {
+      console.error(`[AI] Failed to index answered question ${questionId}: ${error.message}`);
+    }
   }
 
   res.status(201).json({ success: httpstatustext.success, message: { msg: 'Answer posted successfully' } });

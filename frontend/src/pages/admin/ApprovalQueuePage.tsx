@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { adminService } from '../../services';
-import { ShieldCheck, CheckCircle, XCircle, FileText, User } from 'lucide-react';
+import { CheckCircle, XCircle, FileText } from 'lucide-react';
 import type { Student } from '../../types';
 
 export default function ApprovalQueuePage() {
   const [pending, setPending] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    adminService.getPendingStudents().then(r => setPending(r.data)).finally(() => setLoading(false));
+    adminService.getPendingStudents()
+      .then(r => setPending(r.data))
+      .catch(e => setError(e instanceof Error ? e.message : 'Failed to load pending students'))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleApprove = async (id: string) => {
@@ -30,6 +34,8 @@ export default function ApprovalQueuePage() {
         <p className="text-surface-500 mt-1">Review and approve student registrations</p>
       </div>
 
+      {error && <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm">{error}</div>}
+
       {pending.length === 0 ? (
         <div className="card p-12 text-center">
           <CheckCircle size={48} className="mx-auto text-emerald-400 mb-4" />
@@ -49,15 +55,15 @@ export default function ApprovalQueuePage() {
                     <h3 className="font-semibold text-surface-800">{s.f_name} {s.l_name}</h3>
                     <p className="text-sm text-surface-500">{s.email}</p>
                     <div className="flex flex-wrap gap-2 mt-2">
-                      <span className="badge bg-primary-50 text-primary-700">Level {s.academic_level}</span>
-                      <span className="badge bg-surface-100 text-surface-600">SSN: {s.ssn.slice(0, 4)}****</span>
+                      {s.academic_level && <span className="badge bg-primary-50 text-primary-700">Level {s.academic_level}</span>}
+                      {s.ssn && <span className="badge bg-surface-100 text-surface-600">SSN: {s.ssn.slice(0, 4)}****</span>}
                       {s.document && (
                         <span className="badge bg-blue-50 text-blue-600 flex items-center gap-1">
                           <FileText size={12} /> {s.document}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-surface-400 mt-2">Registered: {new Date(s.created_at).toLocaleDateString()}</p>
+                    {s.created_at && <p className="text-xs text-surface-400 mt-2">Registered: {new Date(s.created_at).toLocaleDateString()}</p>}
                   </div>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">

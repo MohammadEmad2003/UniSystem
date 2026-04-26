@@ -1,4 +1,5 @@
-// Service barrel — routes to mock or real API based on env
+// Service barrel — switches between mock and real (axios) backend.
+// Set VITE_USE_MOCK=false to hit the real API.
 import {
   mockAuthService, mockAdminService, mockDepartmentService,
   mockCourseService, mockClassService, mockLectureService,
@@ -6,20 +7,38 @@ import {
   mockAttendanceService, mockNotificationService, mockDoctorService,
   mockStudentService,
 } from '../mock/mockServices';
+import {
+  realAuthService, realAdminService, realDepartmentService,
+  realCourseService, realClassService, realLectureService,
+  realMaterialService, realDiscussionService, realGradeService,
+  realAttendanceService, realNotificationService, realDoctorService,
+  realStudentService,
+} from './realServices';
 
-const useMock = import.meta.env.VITE_USE_MOCK === 'false';
+const useMock = import.meta.env.VITE_USE_MOCK !== 'false';
 
-// For now we always use mock. When backend is ready, add real implementations.
-export const authService = useMock ? mockAuthService : mockAuthService;
-export const adminService = useMock ? mockAdminService : mockAdminService;
-export const departmentService = useMock ? mockDepartmentService : mockDepartmentService;
-export const courseService = useMock ? mockCourseService : mockCourseService;
-export const classService = useMock ? mockClassService : mockClassService;
-export const lectureService = useMock ? mockLectureService : mockLectureService;
-export const materialService = useMock ? mockMaterialService : mockMaterialService;
-export const discussionService = useMock ? mockDiscussionService : mockDiscussionService;
-export const gradeService = useMock ? mockGradeService : mockGradeService;
-export const attendanceService = useMock ? mockAttendanceService : mockAttendanceService;
-export const notificationService = useMock ? mockNotificationService : mockNotificationService;
-export const doctorService = useMock ? mockDoctorService : mockDoctorService;
-export const studentService = useMock ? mockStudentService : mockStudentService;
+export const authService         = useMock ? mockAuthService         : (realAuthService         as unknown as typeof mockAuthService);
+export const adminService        = useMock ? mockAdminService        : (realAdminService        as unknown as typeof mockAdminService);
+export const departmentService   = useMock ? mockDepartmentService   : (realDepartmentService   as unknown as typeof mockDepartmentService);
+export const courseService       = useMock ? mockCourseService       : (realCourseService       as unknown as typeof mockCourseService);
+export const classService        = useMock ? mockClassService        : (realClassService        as unknown as typeof mockClassService);
+export const lectureService      = useMock ? mockLectureService      : (realLectureService      as unknown as typeof mockLectureService);
+export const materialService     = useMock ? mockMaterialService     : (realMaterialService     as unknown as typeof mockMaterialService);
+export const discussionService   = useMock ? mockDiscussionService   : (realDiscussionService   as unknown as typeof mockDiscussionService);
+export const gradeService        = useMock ? mockGradeService        : (realGradeService        as unknown as typeof mockGradeService);
+export const attendanceService   = useMock ? mockAttendanceService   : (realAttendanceService   as unknown as typeof mockAttendanceService);
+export const notificationService = useMock ? mockNotificationService : (realNotificationService as unknown as typeof mockNotificationService);
+export const doctorService       = useMock ? mockDoctorService       : (realDoctorService       as unknown as typeof mockDoctorService);
+export const studentService      = useMock ? mockStudentService      : (realStudentService      as unknown as typeof mockStudentService);
+
+// Real-only: AI ask via backend, mock falls back to a canned response
+export const aiService = {
+  async ask(classId: string | undefined, question: string) {
+    if (useMock) {
+      await new Promise(r => setTimeout(r, 500));
+      return { success: true, data: { answer: `(mock) You asked: "${question}". Wire VITE_USE_MOCK=false for real RAG.` } };
+    }
+    if (classId) return realClassService.askAI(classId, question);
+    return realClassService.askGeneralAI(question);
+  },
+};

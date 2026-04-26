@@ -135,6 +135,33 @@ const askClassQuestion = asyncWrapper(async (req, res, next) => {
   });
 });
 
+const askGeneralQuestion = asyncWrapper(async (req, res, next) => {
+  const { question } = req.body;
+  const currentUser = req.currentUser;
+  const normalizedQuestion = typeof question === "string" ? question.trim() : "";
+
+  if (!normalizedQuestion) {
+    return res.status(400).json({
+      success: httpstatustext.error,
+      message: { msg: "question is required" },
+    });
+  }
+
+  try {
+    const aiResponse = await aiServiceClient.askGeneral({
+      user_id: currentUser.user_id,
+      question: normalizedQuestion,
+    });
+
+    return res.status(200).json(aiResponse);
+  } catch (err) {
+    const error = new Error(err.message || "AI service unavailable");
+    error.statusCode = err.statusCode || 502;
+    return next(error);
+  }
+});
+
 module.exports = {
   askClassQuestion,
+  askGeneralQuestion,
 };

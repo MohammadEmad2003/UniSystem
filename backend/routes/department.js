@@ -16,7 +16,7 @@ const router = express.Router();
 
 router
   .route("/")
-  .get(verifyToken, getAllDepartments)
+  .get(getAllDepartments)
   .post(verifyToken, allowedTo(userRoles.ADMIN), createDepartment);
 
 router

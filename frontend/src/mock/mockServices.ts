@@ -292,6 +292,13 @@ export const mockClassService = {
 
   async enrollStudent(classId: string, studentId: string): Promise<ApiResponse<Enrollment>> {
     await delay();
+    if (enrollments.some(e => e.student_id === studentId && e.class_id === classId)) {
+      throw new Error('Already enrolled');
+    }
+    const cls = classes.find(c => c.class_id === classId);
+    if (cls && cls.enrolled_count !== undefined && cls.enrolled_count >= cls.capacity) {
+      throw new Error('Class is full');
+    }
     const enrollment: Enrollment = {
       enrollment_id: `enr-${Date.now()}`,
       student_id: studentId,
@@ -299,9 +306,16 @@ export const mockClassService = {
       enrolled_at: new Date().toISOString(),
     };
     enrollments.push(enrollment);
-    const cls = classes.find(c => c.class_id === classId);
     if (cls && cls.enrolled_count !== undefined) cls.enrolled_count++;
     return { success: true, data: enrollment };
+  },
+
+  async dropStudent(classId: string, studentId: string): Promise<ApiResponse<null>> {
+    await delay();
+    enrollments = enrollments.filter(e => !(e.class_id === classId && e.student_id === studentId));
+    const cls = classes.find(c => c.class_id === classId);
+    if (cls && cls.enrolled_count !== undefined && cls.enrolled_count > 0) cls.enrolled_count--;
+    return { success: true, data: null };
   },
 };
 

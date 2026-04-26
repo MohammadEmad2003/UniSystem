@@ -9,6 +9,7 @@ import StudentDashboard from './pages/dashboard/StudentDashboard';
 import DoctorDashboard from './pages/dashboard/DoctorDashboard';
 import AdminDashboard from './pages/dashboard/AdminDashboard';
 import MyClassesPage from './pages/classes/MyClassesPage';
+import BrowseClassesPage from './pages/classes/BrowseClassesPage';
 import ClassWorkspacePage from './pages/classes/ClassWorkspacePage';
 import ClassStreamTab from './pages/classes/ClassStreamTab';
 import ClassMaterialsTab from './pages/classes/ClassMaterialsTab';
@@ -55,6 +56,7 @@ export default function App() {
 
         {/* Classes (student + doctor only) */}
         <Route path="/classes" element={<ProtectedRoute roles={['student', 'doctor']}><MyClassesPage /></ProtectedRoute>} />
+        <Route path="/classes/browse" element={<ProtectedRoute roles={['student']}><BrowseClassesPage /></ProtectedRoute>} />
         <Route path="/classes/:classId" element={<ProtectedRoute roles={['student', 'doctor']}><ClassWorkspacePage /></ProtectedRoute>}>
           <Route index element={<Navigate to="stream" replace />} />
           <Route path="stream" element={<ClassStreamTab />} />

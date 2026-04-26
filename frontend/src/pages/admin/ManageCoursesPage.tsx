@@ -7,21 +7,23 @@ export default function ManageCoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ course_code: '', name: '', credit_hours: '3', department_id: '' });
 
   useEffect(() => {
     Promise.all([courseService.getAll(), departmentService.getAll()]).then(([c, d]) => {
       setCourses(c.data); setDepartments(d.data);
-      if (d.data.length) setForm(f => ({ ...f, department_id: d.data[0].dept_id }));
-    }).finally(() => setLoading(false));
+      if (d.data.length) setForm(f => ({ ...f, department_id: String(d.data[0].dept_id) }));
+    }).catch(e => setError(e instanceof Error ? e.message : 'Failed to load data'))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleCreate = async () => {
     if (!form.course_code || !form.name) return;
     const res = await courseService.create({ ...form, credit_hours: Number(form.credit_hours) });
     setCourses(prev => [...prev, res.data]);
-    setShowForm(false); setForm({ course_code: '', name: '', credit_hours: '3', department_id: departments[0]?.dept_id || '' });
+    setShowForm(false); setForm({ course_code: '', name: '', credit_hours: '3', department_id: String(departments[0]?.dept_id || '') });
   };
 
   const handleDelete = async (code: string) => {
@@ -29,7 +31,7 @@ export default function ManageCoursesPage() {
     setCourses(prev => prev.filter(c => c.course_code !== code));
   };
 
-  const getDeptName = (id: string) => departments.find(d => d.dept_id === id)?.dept_name || id;
+  const getDeptName = (id: string | number) => departments.find(d => String(d.dept_id) === String(id))?.dept_name || String(id);
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
 
@@ -39,6 +41,8 @@ export default function ManageCoursesPage() {
         <div><h1 className="text-2xl font-bold text-surface-900">Courses</h1><p className="text-surface-500 mt-1">Manage academic courses</p></div>
         <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2"><Plus size={18} /> Add Course</button>
       </div>
+
+      {error && <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm">{error}</div>}
 
       <div className="card overflow-hidden">
         <table className="w-full">

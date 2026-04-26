@@ -7,15 +7,13 @@ const userRoles = require("../utilities/userRoles");
 const verifyToken = require("../middleware/verifytoken");
 const { createMaterial, getMaterialsByClass ,deleteMaterial , getMaterialsByLectureID} = require("../controllers/MaterialController");
 
-router.use(verifyToken);
-
-router.post("/:classId/materials", allowedTo(userRoles.DOCTOR), upload.single('document'), createMaterial);
-router.get("/:classId/materials", allowedTo(userRoles.DOCTOR), getMaterialsByClass);
+router.post("/:classId/materials", verifyToken, allowedTo(userRoles.DOCTOR), upload.single('document'), createMaterial);
+router.get("/:classId/materials", verifyToken, getMaterialsByClass);
 
 // Get materials by lecture ID
-router.get("/lectures/:lectureId/materials", getMaterialsByLectureID);
+router.get("/lectures/:lectureId/materials", verifyToken, getMaterialsByLectureID);
 
-router.delete("/materials/:materialId", deleteMaterial);
+router.delete("/materials/:materialId", verifyToken, deleteMaterial);
 
 
 

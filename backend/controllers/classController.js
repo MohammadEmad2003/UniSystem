@@ -236,6 +236,40 @@ const enrollStudent = asyncWrapper(async (req, res) => {
 
   res.status(201).json({ success: httpstatustext.success, message: { msg: 'Student enrolled successfully' } });
 });
+
+// DELETE /classes/:classId/enroll/:studentId — Self-drop or admin
+const dropStudent = asyncWrapper(async (req, res) => {
+  const { classId, studentId } = req.params;
+
+  const existing = await new Promise((resolve, reject) => {
+    db.get(
+      `SELECT * FROM Enrollment WHERE Class_ID = ? AND User_ID = ?`,
+      [classId, studentId],
+      (err, row) => {
+        if (err) return reject(err);
+        resolve(row);
+      }
+    );
+  });
+
+  if (!existing) {
+    return res.status(404).json({ success: httpstatustext.error, message: { msg: 'Enrollment not found' } });
+  }
+
+  await new Promise((resolve, reject) => {
+    db.run(
+      `DELETE FROM Enrollment WHERE Class_ID = ? AND User_ID = ?`,
+      [classId, studentId],
+      function (err) {
+        if (err) return reject(err);
+        resolve();
+      }
+    );
+  });
+
+  res.json({ success: httpstatustext.success, message: { msg: 'Dropped from class successfully' } });
+});
+
 // GET /classes/:classId/grades — Doctor only
 const getClassGrades = asyncWrapper(async (req, res) => {
   const { classId } = req.params;
@@ -351,6 +385,6 @@ const addGrade = asyncWrapper(async (req, res) => {
 
 module.exports = { 
   getAllClasses, getClassById, getClassesByDoctor, getClassesByStudent, 
-  createClass, deleteClass, getClassStudents, enrollStudent,
+  createClass, deleteClass, getClassStudents, enrollStudent, dropStudent,
   getClassGrades, getStudentGrades, addGrade
 };

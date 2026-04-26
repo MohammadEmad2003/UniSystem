@@ -89,7 +89,7 @@ const register = asyncWrapper(async (req, res, next) => {
       User_ID: userId,
       SSN: ssn,
       Academic_Level: academic_level,
-      Dept_ID: department_id,
+      Dept_ID: department_id || null,
       Payment_Status: "Unpaid",
     });
   }

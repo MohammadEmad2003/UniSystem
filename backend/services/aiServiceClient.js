@@ -31,6 +31,15 @@ const askQuestion = async (payload) => {
   }
 };
 
+const askGeneral = async (payload) => {
+  try {
+    const response = await client.post("/ai/chat", payload);
+    return response.data;
+  } catch (error) {
+    throw buildServiceError(error, "AI service is unavailable");
+  }
+};
+
 const indexQuestion = async (questionId, payload = {}) => {
   try {
     const response = await client.post(`/rag/index/question/${questionId}`, payload);
@@ -60,6 +69,7 @@ const indexClass = async (classId, payload = {}) => {
 
 module.exports = {
   askQuestion,
+  askGeneral,
   indexQuestion,
   indexMaterial,
   indexClass,

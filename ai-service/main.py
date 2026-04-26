@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+from contextlib import asynccontextmanager
 from typing import Any
 
 from dotenv import load_dotenv
@@ -10,12 +12,41 @@ from rag_service import RagService
 
 load_dotenv()
 
-app = FastAPI(title="UniSystem AI Service", version="1.0.0")
+
+def _preload_model() -> None:
+    """Download + load the LLM into memory at startup.
+    If the model is already in the HuggingFace cache it won't be re-downloaded.
+    """
+    use_local = os.getenv("USE_LOCAL_MODEL", "true").lower() == "true"
+    if not use_local:
+        print("[startup] USE_LOCAL_MODEL=false — skipping local model preload")
+        return
+    try:
+        from local_llm_transformers import TransformersLLM
+        print("[startup] Preloading Qwen model (downloading if not cached)...")
+        TransformersLLM.get()._load()
+        print("[startup] Model ready.")
+    except Exception as exc:
+        print(f"[startup] Model preload failed: {exc}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _preload_model()
+    yield
+
+
+app = FastAPI(title="UniSystem AI Service", version="1.0.0", lifespan=lifespan)
 rag_service = RagService()
 
 
 class AskRequest(BaseModel):
     class_id: int
+    user_id: int
+    question: str
+
+
+class GeneralChatRequest(BaseModel):
     user_id: int
     question: str
 
@@ -41,6 +72,23 @@ class FlashcardsRequest(BaseModel):
     class_id: int
     material_id: int
     num_cards: int = 10
+
+
+@app.post("/ai/chat")
+def general_chat(payload: GeneralChatRequest) -> dict[str, Any]:
+    try:
+        question = (payload.question or "").strip()
+        if not question:
+            raise HTTPException(status_code=400, detail="question is required")
+        answer = rag_service.qwen_service.generate_general_answer(question)
+        if not answer:
+            return {"status": "answered", "answer": "I'm unable to generate a response right now. Please try again."}
+        clean = rag_service.clean_ai_text(answer)
+        return {"status": "answered", "answer": clean}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.post("/rag/ask")
@@ -141,3 +189,16 @@ def material_flashcards(payload: FlashcardsRequest) -> dict[str, Any]:
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/health")
+def health() -> dict[str, Any]:
+    return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    import os
+    import uvicorn
+
+    port = int(os.getenv("PORT", "9000"))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)

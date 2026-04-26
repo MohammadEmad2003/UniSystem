@@ -88,10 +88,12 @@ const getAllStudents = asyncWrapper(async (req, res) => {
 const getPendingStudents = asyncWrapper(async (req, res) => {
   const pendingStudents = await new Promise((resolve, reject) => {
     db.all(
-      `SELECT User_ID, F_Name, L_Name, Email
-       FROM User 
-       WHERE Role = 'Student' 
-       AND Account_Status = 'pending'`,
+      `SELECT u.User_ID, u.F_Name, u.L_Name, u.Email, u.Account_Status, u.Document,
+              s.SSN, s.Academic_Level
+       FROM User u
+       JOIN Student s ON u.User_ID = s.User_ID
+       WHERE u.Role = 'Student'
+       AND u.Account_Status = 'pending'`,
       (err, rows) => {
         if (err) reject(err);
         resolve(rows || []);

@@ -13,13 +13,17 @@ export default function RegisterPage() {
     f_name: '', l_name: '', email: '', password: '', confirm: '',
     ssn: '', academic_level: 1 as AcademicLevel, department_id: '',
   });
+  const [docFile, setDocFile] = useState<File | null>(null);
   const [docName, setDocName] = useState('');
 
   useEffect(() => {
-    departmentService.getAll().then(res => {
-      setDepartments(res.data);
-      if (res.data.length) setForm(f => ({ ...f, department_id: res.data[0].dept_id }));
-    });
+    departmentService.getAll()
+      .then(res => {
+        const depts: Department[] = res.data || [];
+        setDepartments(depts);
+        if (depts.length) setForm(f => ({ ...f, department_id: String(depts[0].dept_id) }));
+      })
+      .catch(() => setError('Could not load departments. Please make sure the server is running.'));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,7 +32,8 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      await authService.register({ ...form, document: docName || undefined });
+      const { confirm: _confirm, ...formData } = form;
+      await authService.register({ ...formData, document: docFile || undefined });
       navigate('/pending-approval');
     } catch (err: any) {
       setError(err.message || 'Registration failed');
@@ -71,7 +76,8 @@ export default function RegisterPage() {
           <div>
             <label className="block text-sm font-medium text-surface-700 mb-1">Department</label>
             <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} className="input-field">
-              {departments.map(d => <option key={d.dept_id} value={d.dept_id}>{d.dept_name}</option>)}
+              {departments.length === 0 && <option value="">Loading...</option>}
+              {departments.map(d => <option key={d.dept_id} value={String(d.dept_id)}>{d.dept_name}</option>)}
             </select>
           </div>
           <div>
@@ -101,7 +107,7 @@ export default function RegisterPage() {
           <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-surface-200 rounded-xl cursor-pointer hover:border-primary-400 hover:bg-primary-50/50 transition-colors">
             <Upload size={18} className="text-surface-400" />
             <span className="text-sm text-surface-500">{docName || 'Click to upload document'}</span>
-            <input type="file" className="hidden" onChange={e => setDocName(e.target.files?.[0]?.name || '')} />
+            <input type="file" className="hidden" onChange={e => { const f = e.target.files?.[0] || null; setDocFile(f); setDocName(f?.name || ''); }} />
           </label>
         </div>
 

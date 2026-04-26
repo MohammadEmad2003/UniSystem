@@ -1,0 +1,59 @@
+# UniSystem stack — backend (Node), ai-service (FastAPI), frontend (nginx).
+# pdf-file-server is intentionally excluded.
+services:
+  backend:
+    build: ./backend
+    container_name: unisystem-backend
+    environment:
+      PORT: 3000
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_prod}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-change_me}
+      AI_SERVICE_URL: http://ai-service:9000
+    ports:
+      - "3000:3000"
+    volumes:
+      - backend-uploads:/app/uploads
+      - backend-db:/app/data
+    restart: unless-stopped
+
+  ai-service:
+    build: ./ai-service
+    container_name: unisystem-ai
+    environment:
+      PORT: 9000
+      BACKEND_API_URL: http://backend:3000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev_internal_api_key_123}
+      QDRANT_IN_MEMORY: "true"
+      EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+      USE_LOCAL_MODEL: "true"
+      LOCAL_MODEL_REPO: Qwen/Qwen2.5-1.5B-Instruct-GGUF
+      LOCAL_MODEL_FILE: qwen2.5-1.5b-instruct-q4_k_m.gguf
+      LOCAL_MODEL_DIR: /app/models
+      ENABLE_OCR: "true"
+      TESSERACT_CMD: /usr/bin/tesseract
+    ports:
+      - "9000:9000"
+    volumes:
+      - ai-models:/app/models
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:3000/api
+        VITE_AI_BASE_URL: http://localhost:9000
+        VITE_USE_MOCK: "false"
+    container_name: unisystem-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend-uploads:
+  backend-db:
+  ai-models:

@@ -239,4 +239,4 @@ The frontend is based on the ERD documented in `docs/ERD_final (6).drawio`. Key 
 
 ## 📝 License
 
-This project is developed for Capital University, Faculty of Computer Science.
+This project is developed for Capital University, Faculty of Computer engineering.

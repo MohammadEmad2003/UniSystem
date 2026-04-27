@@ -7,6 +7,10 @@ const userQueries = genericQueries('User', { primaryKey: 'User_ID' });
 const getStudentStats = asyncWrapper(async (req, res) => {
     const { studentId } = req.params;
 
+    if (!studentId || !studentId.toString().trim()) {
+        return res.status(400).json({ success: false, message: 'Student ID is required' });
+    }
+
     const query = `
         SELECT
             Total_GPA AS gpa,
@@ -23,7 +27,7 @@ const getStudentStats = asyncWrapper(async (req, res) => {
         }
 
         if (!stats) {
-            return res.status(404).json({ success: false, message: "Student not found" });
+            return res.status(404).json({ success: false, message: 'Student not found' });
         }
 
         res.status(200).json({
@@ -46,6 +50,10 @@ const getAllStudents = asyncWrapper(async (req, res) => {
     const studentsWithUserData = await Promise.all(
         students.map(async (student) => {
             const user = await userQueries.getById(student.User_ID);
+            if (!user) {
+                return null;
+            }
+
             return {
                 User_ID: student.User_ID,
                 F_Name: user.F_Name,
@@ -65,7 +73,7 @@ const getAllStudents = asyncWrapper(async (req, res) => {
 
     res.status(200).json({
         success: true,
-        data: studentsWithUserData
+        data: studentsWithUserData.filter(Boolean)
     });
 });
 

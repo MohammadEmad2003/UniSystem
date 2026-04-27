@@ -1,242 +1,199 @@
-# Capital University Management System
+# UniSystem
 
-A modern, production-ready university management system frontend built with React, TypeScript, and TailwindCSS. Features a class-centric architecture with role-based access control for Students, Doctors, and Administrators.
+UniSystem is a multi-service university management project with:
 
-![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react) ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript) ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-06B6D4?logo=tailwindcss) ![Vite](https://img.shields.io/badge/Vite-6.0-646CFF?logo=vite)
+- A Node.js backend API
+- A FastAPI AI service for RAG and material workflows
+- Qdrant vector storage with in-memory support
+- Ollama local model integration
+- PDF processing through PyMuPDF
+- OCR support through Tesseract
+- An optional standalone PDF file server
+- A separate frontend app in `frontend/`
 
----
+## Repository Safety
 
-## 🚀 Features
+- Do not commit `.env` files.
+- Do not commit local SQLite databases.
+- Do not commit uploaded PDFs or generated Office files.
+- Do not commit Ollama models.
+- Each developer must run `ollama pull qwen2.5:1.5b-instruct` locally.
 
-### Authentication & Account Lifecycle
-- Email/password login with JWT token management
-- Student self-registration with document upload
-- Admin approval workflow (pending → approved/rejected)
-- Role-based route protection
+The root `.gitignore` is configured to ignore local environment files, databases, uploads, generated documents, logs, caches, and dependency folders.
 
-### 🏫 Class-Centric Architecture
-Every feature is scoped inside a class workspace:
-- **Stream** — Google Classroom-style discussion (Q&A with threaded replies)
-- **Materials** — Organized file/link repository (doctor upload only)
-- **Lectures** — Schedule with meeting links, room info, type badges
-- **Students** — Enrolled student roster (doctor view only)
-- **Grades** — Per-student grade management with progress bars
+## Setup
 
-### 👤 Role-Based Access
-
-| Feature | Student | Doctor | Admin |
-|---------|---------|--------|-------|
-| Dashboard with stats | ✅ | ✅ | ✅ |
-| Enter class workspace | ✅ | ✅ | ❌ |
-| Upload materials | ❌ | ✅ | ❌ |
-| Post/answer questions | ✅ | ✅ | ❌ |
-| Manage grades | View | Full CRUD | ❌ |
-| Track attendance | View | Manage | ❌ |
-| Approve students | ❌ | ❌ | ✅ |
-| Manage departments/courses/classes | ❌ | ❌ | ✅ |
-| Create doctors/admins | ❌ | ❌ | ✅ |
-
-### 📊 Dashboard Features
-- **Student**: GPA trend chart, credit hours, enrolled classes, upcoming lectures
-- **Doctor**: Teaching stats, class cards with student counts
-- **Admin**: System stats, department chart, pending approvals alert, quick actions
-
-### 🔔 Notifications
-- Real-time notification bell with unread count
-- Class-scoped notifications (new materials, replies, grades, announcements)
-- Click-to-navigate to specific class content
-- Mark individual or all as read
-
-### 🧪 Mock Data System
-- Complete seed data simulating a real university environment
-- 5 students, 2 doctors, 1 admin with realistic Egyptian names
-- 3 departments, 8 courses, 6 classes, 16 lectures
-- 13 materials, 8 discussion threads with replies
-- Grade records, attendance records, notifications
-- Toggle via `VITE_USE_MOCK=true` environment variable
-- Simulated API delays for realistic loading states
-
----
-
-## 🛠 Tech Stack
-
-| Technology | Purpose |
-|-----------|---------|
-| **React 18** | UI framework |
-| **TypeScript** | Type safety |
-| **Vite 6** | Build tool & dev server |
-| **TailwindCSS 3** | Styling (blue university theme) |
-| **React Router 6** | Client-side routing |
-| **TanStack React Query** | Server state management |
-| **Zustand** | Client state management (auth) |
-| **Axios** | HTTP client |
-| **Recharts** | Charts & data visualization |
-| **Lucide React** | Icon library |
-
----
-
-## 📁 Project Structure
-
-```
-src/
-├── App.tsx                    # Main app with routing
-├── main.tsx                   # Entry point
-├── index.css                  # Global styles + Tailwind
-├── types/
-│   └── index.ts               # All TypeScript interfaces
-├── mock/
-│   ├── data.ts                # Seed data for all entities
-│   └── mockServices.ts        # Fake API service layer
-├── services/
-│   └── index.ts               # Service barrel (mock/real toggle)
-├── hooks/
-│   └── useAuthStore.ts        # Zustand auth store
-├── layouts/
-│   ├── AuthLayout.tsx          # Login/register layout
-│   ├── DashboardLayout.tsx     # Sidebar + TopNav + content
-│   ├── Sidebar.tsx             # Role-aware navigation
-│   └── TopNav.tsx              # Search + notifications + avatar
-├── pages/
-│   ├── auth/
-│   │   ├── LoginPage.tsx       # Login with role presets
-│   │   ├── RegisterPage.tsx    # Student registration
-│   │   └── PendingApprovalPage.tsx
-│   ├── dashboard/
-│   │   ├── StudentDashboard.tsx  # GPA chart, stats
-│   │   ├── DoctorDashboard.tsx   # Teaching overview
-│   │   └── AdminDashboard.tsx    # System stats, charts
-│   ├── classes/
-│   │   ├── MyClassesPage.tsx     # Class grid
-│   │   ├── ClassWorkspacePage.tsx # Tabbed workspace
-│   │   ├── ClassStreamTab.tsx    # Discussion Q&A
-│   │   ├── ClassMaterialsTab.tsx # Materials with upload
-│   │   ├── ClassLecturesTab.tsx  # Lecture schedule
-│   │   ├── ClassStudentsTab.tsx  # Student roster
-│   │   └── ClassGradesTab.tsx    # Grade management
-│   ├── admin/
-│   │   ├── ApprovalQueuePage.tsx   # Approve/reject students
-│   │   ├── ManageUsersPage.tsx     # Create doctors/admins
-│   │   ├── ManageDepartmentsPage.tsx
-│   │   ├── ManageCoursesPage.tsx
-│   │   └── ManageClassesPage.tsx
-│   └── ProfilePage.tsx          # User profile
-└── docs/                        # ERD and DB documentation
-```
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js 18+ installed
-- npm 9+
-
-### Installation
+### 1. Clone repository
 
 ```bash
-# Clone the repository
-cd "University Management System"
+git clone <repo-url>
+cd UniSystem
+```
 
-# Install dependencies
+### 2. Backend setup
+
+```bash
+cd backend
 npm install
-
-# Copy environment file
 cp .env.example .env
-
-# Start development server
 npm run dev
 ```
 
-The app will be available at `http://localhost:5173`.
+Backend example environment:
 
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VITE_API_BASE_URL` | `http://localhost:8000/api` | Backend API base URL |
-| `VITE_USE_MOCK` | `true` | Use mock data (`true`) or real API (`false`) |
-
-### Build for Production
-
-```bash
-npm run build
-npm run preview   # Preview production build
+```env
+PORT=3000
+JWT_SECRET=change_me
+INTERNAL_API_KEY=change_me
+AI_SERVICE_URL=http://localhost:9000
+DATABASE_PATH=./database.sqlite
 ```
 
----
+Optional note: email verification and password reset flows also need mail-related environment variables such as `EMAIL_USER`, `EMAIL_PASS`, `EMAIL_FROM_NAME`, and `BASE_URL`.
 
-## 🔐 Demo Login Credentials
+### 3. AI service setup
 
-The login page includes quick-select buttons for each role:
+```bash
+cd ai-service
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn main:app --reload --port 9000
+```
 
-| Role | Email | Password |
-|------|-------|----------|
-| **Student** | ahmed.hassan@capital.edu | any |
-| **Doctor** | mohamed.elsayed@capital.edu | any |
-| **Admin** | admin@capital.edu | any |
+AI service example environment:
 
-> When using mock data, any password works.
+```env
+PORT=9000
 
----
+BACKEND_API_URL=http://localhost:3000
+INTERNAL_API_KEY=change_me
 
-## 📡 API Documentation
+QDRANT_IN_MEMORY=true
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 
-See [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) for the complete REST API specification including:
-- All 49+ endpoints grouped by feature
-- Request/response JSON schemas
-- Authentication headers
-- Access control matrix
-- Entity definitions with field types
+OLLAMA_URL=http://localhost:11434
+QWEN_MODEL=qwen2.5:1.5b-instruct
 
----
+PDF_BASE_URL=http://localhost:3001
+ENABLE_OCR=true
+TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
 
-## 🗺 Routing
+ENABLE_MATERIAL_SUMMARY=false
+PDF_CHUNK_SIZE=900
+PDF_CHUNK_OVERLAP=150
+```
 
-| Path | Page | Access |
-|------|------|--------|
-| `/login` | Login | Public |
-| `/register` | Student Registration | Public |
-| `/pending-approval` | Approval Waiting Screen | Public |
-| `/dashboard` | Role-based Dashboard | All roles |
-| `/classes` | My Classes Grid | Student, Doctor |
-| `/classes/:id/stream` | Class Discussion | Student, Doctor |
-| `/classes/:id/materials` | Class Materials | Student, Doctor |
-| `/classes/:id/lectures` | Class Lectures | Student, Doctor |
-| `/classes/:id/students` | Class Roster | Doctor only |
-| `/classes/:id/grades` | Class Grades | Student, Doctor |
-| `/profile` | User Profile | Student, Doctor |
-| `/admin/approvals` | Approval Queue | Admin only |
-| `/admin/users` | User Management | Admin only |
-| `/admin/departments` | Department CRUD | Admin only |
-| `/admin/courses` | Course CRUD | Admin only |
-| `/admin/classes` | Class Management | Admin only |
+### 4. Ollama setup
 
----
+Install Ollama from `https://ollama.com`.
 
-## 🎨 Design System
+Pull the model:
 
-- **Primary Color**: Blue (#3b82f6 family)
-- **Font**: Inter (Google Fonts)
-- **Border Radius**: Rounded-xl/2xl for modern feel
-- **Animations**: Fade-in, slide-up, scale-in transitions
-- **Components**: Cards with subtle shadows, glassmorphism auth layout
-- **Responsive**: Mobile-first with collapsible sidebar
+```bash
+ollama pull qwen2.5:1.5b-instruct
+```
 
----
+Make sure Ollama runs on:
 
-## 📄 Database Reference
+```text
+http://localhost:11434
+```
 
-The frontend is based on the ERD documented in `docs/ERD_final (6).drawio`. Key entities:
+### 5. Tesseract OCR setup
 
-- **Users** → Students, Doctors, Admins (ISA hierarchy)
-- **Departments** → Courses → Classes (academic hierarchy)
-- **Classes** → Lectures → Materials (content hierarchy)
-- **Classes** → Questions → Answers (discussion)
-- **Grades**, **Attendance**, **Enrollment** (student-class junction)
-- **Notifications** (cross-cutting)
+Install Tesseract OCR.
 
----
+Default Windows path:
 
-## 📝 License
+```text
+C:\Program Files\Tesseract-OCR\tesseract.exe
+```
 
+<<<<<<< HEAD
 This project is developed for Capital University, Faculty of Computer engineering.
+=======
+Set in `.env`:
+
+```env
+TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
+ENABLE_OCR=true
+```
+
+### 6. PDF file server setup
+
+```bash
+cd pdf-file-server
+npm install
+cp .env.example .env
+npm start
+```
+
+Files are served from `DOWNLOADS_DIR` and accessed like:
+
+```text
+http://localhost:3001/files/example.pdf
+```
+
+PDF file server example environment:
+
+```env
+PORT=3001
+DOWNLOADS_DIR=C:\Users\ASUS\Downloads
+```
+
+### 7. RAG usage
+
+Index a class:
+
+```bash
+curl -X POST http://127.0.0.1:9000/rag/index/class/1
+```
+
+Ask a question:
+
+```bash
+curl -X POST http://127.0.0.1:9000/rag/ask ^
+-H "Content-Type: application/json" ^
+-d "{\"class_id\":1,\"user_id\":1,\"question\":\"What is Fourier Transform?\"}"
+```
+
+Generate a summary:
+
+```bash
+curl -X POST http://127.0.0.1:9000/rag/material/summary ^
+-H "Content-Type: application/json" ^
+-d "{\"class_id\":1,\"material_id\":4,\"mode\":\"simple\"}"
+```
+
+## Optional Frontend
+
+The frontend app lives in `frontend/` and can be started separately if you want the full UI:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## Git Status Safety Check
+
+Run:
+
+```bash
+git status
+```
+
+Before pushing, confirm that `.env`, databases, PDFs, `node_modules`, `.venv`, and upload folders are not staged.
+
+## Local Run Order
+
+Start the services in this order for a typical local setup:
+
+1. Start Ollama and pull `qwen2.5:1.5b-instruct`.
+2. Start the backend on port `3000`.
+3. Start the optional PDF file server on port `3001`.
+4. Start the AI service on port `9000`.
+5. Start the frontend if you want the web UI.
+>>>>>>> 44ae1d4b042a94570896a14e5d20a3dfdb2fd827

@@ -1,108 +1,145 @@
-#include <Arduino.h>
 #include "MACROS.h"
+
+// ================================================================
+// 1. كود الـ ESP8266 (الـ NFC والـ Web Server والـ Serial)
+// ================================================================
 #ifdef ESP8266
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <SoftwareSerial.h>
 #include "nfc.h"
-void displayOnLCD(uint8_t line, String text);
 
-SoftwareSerial atmegaSerial(D1, D2); // RX, TX
-
+// إعدادات السيريال والشبكة
+SoftwareSerial atmegaSerial(D1, D2); // D1:RX, D2:TX
 const char* ssid = "Mazen";
 const char* password = "123456789";
 ESP8266WebServer server(80);
 bool hasNewCard = false;
 
+void handleNfcRequest() {
+    String json = "{\"status\":\"Online\", \"uid\":\"" + (hasNewCard ? getUID() : "") + "\"}";
+    server.send(200, "application/json", json);
+    hasNewCard = false;
+}
+
 void setup() {
-    // 1. بدأ السيريال (الأساسي للـ Debug والمخصص للـ ATmega)
     Serial.begin(115200);
-    atmegaSerial.begin(4800); 
+    atmegaSerial.begin(4800); // السرعة المتفق عليها مع بروتس والـ ATmega
     
-    // 2. تهيئة الـ NFC
     initNFC(D8);
     
-    // 3. تأخير زمني (مهم جداً) لضمان استقرار الـ ATmega32 والـ LCD
-    // الـ ATmega بيحتاج وقت بسيط عشان يخلص الـ lcd_init ويعرض رسالته الخاصة
-    delay(2000); 
-
-    // 4. البدء في إرسال أوامر العرض
-    atmegaSerial.print("L0WiFi Connecting\n"); 
-
-    // 5. محاولة الاتصال بالـ WiFi
+    // 1. إرسال كود "جاري الاتصال"
+    atmegaSerial.print('C'); 
+    
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) { 
         delay(500); 
-        Serial.print("."); // طباعة نقط على الـ Serial Monitor لمتابعة الحالة
+        Serial.print("."); 
     }
     
-    // 6. بمجرد الاتصال، تحديث الشاشة
-    atmegaSerial.print("L0WiFi Connected \n");
-    atmegaSerial.print("L1IP:"); 
-    atmegaSerial.print(WiFi.localIP().toString() + "\n"); 
-    
-    // 7. تشغيل الـ Web Server
+    // 2. إرسال كود "تم الاتصال" وعرض الـ IP
+    atmegaSerial.print('D'); 
+    delay(100); // وقت بسيط للـ ATmega يمسح الشاشة
+    atmegaSerial.print(WiFi.localIP().toString());
+    atmegaSerial.print('#'); // علامة نهاية البيانات
+
+    server.on("/nfc", handleNfcRequest);
     server.begin();
-    Serial.println("\nSystem Ready and Connected!");
 }
 
 void loop() {
     server.handleClient();
     
     if (scanCard()) {
+        hasNewCard = true;
         String uid = getUID();
-        atmegaSerial.print("L0ID Detected:   \n");
-        atmegaSerial.print("L1" + uid + "\n");
-        delay(1000);
-    }
-    
-    // استقبال ضغطات الكيباد من ATmega
-    if (atmegaSerial.available()) {
-        char key = atmegaSerial.read();
-        Serial.print("Key from ATmega: ");
-        Serial.println(key);
+        Serial.println("Card Detected: " + uid);
+        
+        // 3. إرسال كود "تم اكتشاف كارت"
+        atmegaSerial.print('U'); 
+        delay(100); 
+        
+        // إرسال الـ UID حرف حرف مع Delay (لحل مشكلة الـ Buffer)
+        for(int i = 0; i < uid.length(); i++) {
+            atmegaSerial.print(uid[i]);
+            delay(15); // الـ Copilot نبهنا إن الـ ATmega محتاج وقت يعرض على الـ LCD
+        }
+        atmegaSerial.print('#'); 
     }
     yield();
 }
-#endif
+#endif // نهاية الـ ESP8266 (ده اللي كان ناقص وعامل Error)
 
 
-//atmega32 code
+// ================================================================
+// 2. كود الـ ATmega32 (الـ LCD والـ Keypad والـ Serial)
+// ================================================================
 #ifdef __AVR_ATmega32__
+#include <avr/io.h>
 #include <util/delay.h>
 #include "lcd.h"
+#include "uart.h"
 #include "keypad.h"
 #include "buzzer.h"
-#include "uart.h"
 
 int main(void) {
+    // Initialization
     lcd_init();
+    uart_init(4800);
     keypad_init();
     buzzer_init();
-    uart_init(4800);
 
-    lcd_print("System Ready...");
+    lcd_print("Mazen System");
+    _delay_ms(2000);
+    lcd_clear();
+    _delay_ms(2); // التأخير الإجباري بعد المسح
 
     while (1) {
-        // 1. إرسال ضغطة الكيباد للـ ESP
-        char key = keypad_get_key();
-        if (key != 0) {
-            uart_send(key);
-            buzzer_beep(50);
+        // 1. استقبال البيانات من الـ ESP بترجمة الـ Mapping
+        if (uart_available()) {
+            char data = uart_receive();
+
+            switch(data) {
+                case 'C': // Connecting
+                    lcd_clear();
+                    _delay_ms(2);
+                    lcd_print("Connecting WiFi");
+                    break;
+
+                case 'D': // Connected
+                    lcd_clear();
+                    _delay_ms(2);
+                    lcd_print("WiFi Online!");
+                    _delay_ms(2);  // ✅ Ensure print completes
+                    lcd_set_cursor(1, 0); // السطر التاني للـ IP
+                    break;
+
+                case 'U': // UID Start
+                    lcd_clear();
+                    _delay_ms(2);
+                    lcd_print("Card Detected:");
+                    lcd_set_cursor(1, 0); // السطر التاني للـ ID
+                    buzzer_beep(100);
+                    break;
+
+                case '#': // End of data stream
+                    _delay_ms(1);  // ✅ Allow buffer to settle
+                    break;
+
+                default:
+                    // أي حرف عادي (أرقام الـ IP أو الـ UID) يتم طبعه فوراً
+                    lcd_char(data);
+                    break;
+            }
         }
 
-        // 2. استقبال أوامر العرض من الـ ESP
-        if (UCSRA & (1<<RXC)) {
-            char cmd = uart_receive();
-            _delay_ms(1);
-            if (cmd == 'L') { // بروتوكول بسيط لتحديد السطر
-                char line = uart_receive();
-                lcd_set_cursor((line == '0' ? 0 : 1), 0);
-                lcd_print("                "); // مسح السطر
-                lcd_set_cursor((line == '0' ? 0 : 1), 0);
-            } else {
-                lcd_char(cmd);
-            }
+        // 2. معالجة الكيباد (اختياري)
+        char key = keypad_get_key();
+        if (key != 0) {
+            lcd_set_cursor(0, 15); 
+            lcd_char(key);
+            uart_send(key); // إرسال الزر للـ ESP لو حبيت تطور السيستم
         }
     }
     return 0;

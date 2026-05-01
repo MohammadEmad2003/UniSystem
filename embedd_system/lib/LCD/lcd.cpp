@@ -52,6 +52,7 @@ void lcd_print(const char* str) {
 
 void lcd_clear() {
     lcd_cmd(0x01);
+    _delay_ms(2);  // ✅ Give LCD time to clear completely
 }
 
 void lcd_set_cursor(uint8_t row, uint8_t col) {

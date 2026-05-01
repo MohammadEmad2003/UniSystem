@@ -5,5 +5,6 @@
 void uart_init(uint32_t baud);
 void uart_send(char data);
 char uart_receive(void);
+uint8_t uart_available(void);
 #endif
 #endif

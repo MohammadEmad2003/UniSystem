@@ -8,6 +8,8 @@ export default function ManageUsersPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [tab, setTab] = useState<'students' | 'doctors'>('doctors');
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ f_name: '', l_name: '', email: '', password: '', specialization: '', department_id: '', permissions_level: 'admin', createType: 'doctor' as 'doctor' | 'admin' });
@@ -17,19 +19,25 @@ export default function ManageUsersPage() {
       adminService.getAllStudents(), adminService.getAllDoctors(), departmentService.getAll()
     ]).then(([s, d, dept]) => {
       setStudents(s.data); setDoctors(d.data); setDepartments(dept.data);
-      if (dept.data.length) setForm(f => ({ ...f, department_id: dept.data[0].dept_id }));
-    }).finally(() => setLoading(false));
+      if (dept.data.length) setForm(f => ({ ...f, department_id: String(dept.data[0].dept_id) }));
+    }).catch(e => setError(e instanceof Error ? e.message : 'Failed to load users'))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleCreate = async () => {
-    if (form.createType === 'doctor') {
-      const res = await adminService.createDoctor({ f_name: form.f_name, l_name: form.l_name, email: form.email, specialization: form.specialization, department_id: form.department_id });
-      setDoctors(prev => [...prev, res.data]);
-    } else {
-      await adminService.createAdmin({ f_name: form.f_name, l_name: form.l_name, email: form.email, permissions_level: form.permissions_level });
+    setCreateError(null);
+    try {
+      if (form.createType === 'doctor') {
+        const res = await adminService.createDoctor({ f_name: form.f_name, l_name: form.l_name, email: form.email, password: form.password, specialization: form.specialization, department_id: form.department_id });
+        setDoctors(prev => [...prev, res.data]);
+      } else {
+        await adminService.createAdmin({ f_name: form.f_name, l_name: form.l_name, email: form.email, password: form.password, permissions_level: form.permissions_level });
+      }
+      setShowCreate(false);
+      setForm({ f_name: '', l_name: '', email: '', password: '', specialization: '', department_id: String(departments[0]?.dept_id || ''), permissions_level: 'admin', createType: 'doctor' });
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : 'Failed to create user');
     }
-    setShowCreate(false);
-    setForm({ f_name: '', l_name: '', email: '', password: '', specialization: '', department_id: departments[0]?.dept_id || '', permissions_level: 'admin', createType: 'doctor' });
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
@@ -45,6 +53,8 @@ export default function ManageUsersPage() {
           <UserPlus size={18} /> Create User
         </button>
       </div>
+
+      {error && <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm">{error}</div>}
 
       {/* Tabs */}
       <div className="flex gap-2">
@@ -108,10 +118,11 @@ export default function ManageUsersPage() {
                 <>
                   <input value={form.specialization} onChange={e => setForm({ ...form, specialization: e.target.value })} placeholder="Specialization" className="input-field" />
                   <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} className="input-field">
-                    {departments.map(d => <option key={d.dept_id} value={d.dept_id}>{d.dept_name}</option>)}
+                    {departments.map(d => <option key={d.dept_id} value={String(d.dept_id)}>{d.dept_name}</option>)}
                   </select>
                 </>
               )}
+              {createError && <div className="p-2 rounded-lg bg-red-50 text-red-700 text-xs">{createError}</div>}
               <button onClick={handleCreate} className="btn-primary w-full">Create {form.createType === 'doctor' ? 'Doctor' : 'Admin'}</button>
             </div>
           </div>

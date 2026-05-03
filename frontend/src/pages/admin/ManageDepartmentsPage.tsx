@@ -6,12 +6,16 @@ import type { Department } from '../../types';
 export default function ManageDepartmentsPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Department | null>(null);
   const [name, setName] = useState('');
 
   useEffect(() => {
-    departmentService.getAll().then(r => setDepartments(r.data)).finally(() => setLoading(false));
+    departmentService.getAll()
+      .then(r => setDepartments(r.data))
+      .catch(e => setError(e instanceof Error ? e.message : 'Failed to load departments'))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleSave = async () => {
@@ -46,6 +50,8 @@ export default function ManageDepartmentsPage() {
           <Plus size={18} /> Add Department
         </button>
       </div>
+
+      {error && <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm">{error}</div>}
 
       <div className="grid gap-4">
         {departments.map((d, i) => (

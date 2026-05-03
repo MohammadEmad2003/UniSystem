@@ -4,7 +4,7 @@ import { useAuthStore } from '../hooks/useAuthStore';
 import {
   LayoutDashboard, BookOpen, Users, Building2, GraduationCap,
   ShieldCheck, UserPlus, LogOut, Menu, X, ChevronDown,
-  ClipboardList, FolderOpen
+  ClipboardList, FolderOpen, Search
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -56,30 +56,28 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          <NavLink to="/dashboard" className={linkClass} onClick={() => setOpen(false)}>
+          <NavLink to="/dashboard" end className={linkClass} onClick={() => setOpen(false)}>
             <LayoutDashboard size={20} /> Dashboard
           </NavLink>
 
-          {/* Student & Doctor: My Classes */}
+          {/* Student & Doctor: My Classes — use `end` so /classes/browse doesn't highlight this */}
           {(user?.role === 'student' || user?.role === 'doctor') && (
-            <NavLink to="/classes" className={linkClass} onClick={() => setOpen(false)}>
+            <NavLink to="/classes" end className={linkClass} onClick={() => setOpen(false)}>
               <BookOpen size={20} /> My Classes
             </NavLink>
           )}
 
-          {/* Student: Profile */}
+          {/* Browse Classes: students only */}
           {user?.role === 'student' && (
-            <NavLink to="/profile" className={linkClass} onClick={() => setOpen(false)}>
-              <Users size={20} /> My Profile
+            <NavLink to="/classes/browse" className={linkClass} onClick={() => setOpen(false)}>
+              <Search size={20} /> Browse Classes
             </NavLink>
           )}
 
-          {/* Doctor specific */}
-          {user?.role === 'doctor' && (
-            <NavLink to="/profile" className={linkClass} onClick={() => setOpen(false)}>
-              <Users size={20} /> My Profile
-            </NavLink>
-          )}
+          {/* Profile — all roles */}
+          <NavLink to="/profile" className={linkClass} onClick={() => setOpen(false)}>
+            <Users size={20} /> My Profile
+          </NavLink>
 
           {/* Admin section */}
           {user?.role === 'admin' && (

@@ -8,6 +8,7 @@ export default function ManageClassesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ course_code: '', doctor_id: '', semester: 'Fall' as Semester, level: 1 as AcademicLevel, capacity: '30' });
 
@@ -15,8 +16,9 @@ export default function ManageClassesPage() {
     Promise.all([classService.getAll(), courseService.getAll(), adminService.getAllDoctors()]).then(([c, co, d]) => {
       setClasses(c.data); setCourses(co.data); setDoctors(d.data);
       if (co.data.length) setForm(f => ({ ...f, course_code: co.data[0].course_code }));
-      if (d.data.length) setForm(f => ({ ...f, doctor_id: d.data[0].user_id }));
-    }).finally(() => setLoading(false));
+      if (d.data.length) setForm(f => ({ ...f, doctor_id: String(d.data[0].user_id) }));
+    }).catch(e => setError(e instanceof Error ? e.message : 'Failed to load data'))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleCreate = async () => {
@@ -27,7 +29,7 @@ export default function ManageClassesPage() {
 
   const handleDelete = async (id: string) => {
     await classService.delete(id);
-    setClasses(prev => prev.filter(c => c.class_id !== id));
+    setClasses(prev => prev.filter(c => String(c.class_id) !== String(id)));
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
@@ -38,6 +40,8 @@ export default function ManageClassesPage() {
         <div><h1 className="text-2xl font-bold text-surface-900">Classes</h1><p className="text-surface-500 mt-1">Manage class instances</p></div>
         <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2"><Plus size={18} /> Create Class</button>
       </div>
+
+      {error && <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm">{error}</div>}
 
       <div className="card overflow-hidden">
         <table className="w-full">
@@ -57,7 +61,7 @@ export default function ManageClassesPage() {
                 <td className="px-4 py-3"><span className="badge bg-primary-50 text-primary-700">{c.semester}</span></td>
                 <td className="px-4 py-3 text-sm text-surface-600">Level {c.level}</td>
                 <td className="px-4 py-3 text-sm text-surface-600 flex items-center gap-1"><Users size={14} /> {c.enrolled_count}/{c.capacity}</td>
-                <td className="px-4 py-3"><button onClick={() => handleDelete(c.class_id)} className="p-2 hover:bg-red-50 rounded-lg text-surface-400 hover:text-red-500"><Trash2 size={16} /></button></td>
+                <td className="px-4 py-3"><button onClick={() => handleDelete(String(c.class_id))} className="p-2 hover:bg-red-50 rounded-lg text-surface-400 hover:text-red-500"><Trash2 size={16} /></button></td>
               </tr>
             ))}
           </tbody>

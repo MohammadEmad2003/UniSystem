@@ -1,4 +1,3 @@
-
 #ifdef __AVR_ATmega32__
 #ifndef LCD_H
 #define LCD_H
@@ -10,7 +9,6 @@
 #include <avr/io.h>
 #include <util/delay.h>
 
-// الدبابيس اللى أنت حددتها
 #define LCD_PORT   PORTA
 #define LCD_DDR    DDRA
 #define RS         PA1
@@ -20,7 +18,6 @@
 #define D6         PA5
 #define D7         PA6
 
-// الدوال
 void lcd_init();
 void lcd_cmd(uint8_t cmd);
 void lcd_char(char c);

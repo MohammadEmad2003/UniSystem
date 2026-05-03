@@ -18,15 +18,27 @@ SYSTEM_PROMPT = (
     "Do not invent citations or page numbers."
 )
 
+GENERAL_SYSTEM_PROMPT = (
+    "You are a helpful university academic assistant.\n"
+    "Answer student questions clearly, concisely, and helpfully.\n"
+    "You can help with academic topics, study advice, or general university questions.\n"
+    "Keep answers student-friendly and well-structured.\n"
+    "Do not hallucinate facts. If you are unsure, say so."
+)
+
 
 class QwenService:
     def __init__(self) -> None:
         self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
         self.model = os.getenv("QWEN_MODEL", "qwen2.5:1.5b-instruct").strip()
-        print("🔥 USING LOCAL OLLAMA MODEL")
+        self.use_local = os.getenv("USE_LOCAL_MODEL", "true").lower() == "true"
+        if self.use_local:
+            print("[qwen_service] Using local Qwen2.5 (transformers)")
+        else:
+            print("[qwen_service] Using Ollama")
 
     def rewrite_question(self, question: str) -> str | None:
-        print("✍️ USING OLLAMA FOR QUERY REWRITE")
+        print("[qwen_service] rewriting query...")
         prompt = (
             "Rewrite the student question into a concise academic search query. "
             "Do not answer it.\n"
@@ -159,7 +171,7 @@ class QwenService:
         return self._generate_text(prompt, "flashcards generation")
 
     def generate_answer(self, context: str, question: str) -> str | None:
-        print("🔥 USING OLLAMA FOR ANSWER GENERATION")
+        print("[qwen_service] generating answer...")
         print("Answer context length:", len(context or ""))
         print("Answer question:", question)
         prompt = (
@@ -230,7 +242,47 @@ class QwenService:
             "confidence": 0.7,
         }
 
-    def _generate_text(self, prompt: str, operation_name: str) -> str | None:
+    def generate_general_answer(self, question: str) -> str | None:
+        prompt = (
+            f"{GENERAL_SYSTEM_PROMPT}\n\n"
+            f"Student question:\n{question}\n\n"
+            "Return only the final answer.\n"
+            "Return clean Markdown only.\n"
+            "Do not wrap the output in code fences.\n"
+            "Do not return JSON."
+        )
+        result = self._generate_text(prompt, "general answer generation", system=GENERAL_SYSTEM_PROMPT)
+        if result is not None:
+            return result
+        return self._generate_with_anthropic(question)
+
+    def _generate_with_anthropic(self, question: str) -> str | None:
+        api_key = os.getenv("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            print("[anthropic] ANTHROPIC_API_KEY not set — cannot use Anthropic fallback")
+            return None
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=api_key)
+            message = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1024,
+                system=GENERAL_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": question}],
+            )
+            return message.content[0].text.strip() or None
+        except Exception as exc:
+            print(f"[anthropic] generation failed: {exc}")
+            return None
+
+    def _generate_text(self, prompt: str, operation_name: str, system: str | None = None) -> str | None:
+        system_prompt = system if system is not None else SYSTEM_PROMPT
+        if self.use_local:
+            from local_llm_transformers import TransformersLLM
+            result = TransformersLLM.get().generate(prompt, system=system_prompt)
+            if result is not None:
+                return result
+            print(f"[transformers_llm] {operation_name} returned None, falling back to Ollama")
         try:
             response = requests.post(
                 f"{self.ollama_url}/api/generate",

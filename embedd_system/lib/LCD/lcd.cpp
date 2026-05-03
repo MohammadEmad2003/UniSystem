@@ -10,13 +10,11 @@ void lcd_pulse_enable() {
 }
 
 void lcd_send_nibble(uint8_t nibble) {
-    // تنظيف أماكن الداتا قبل الإرسال
     clear_bit(LCD_PORT, D4);
     clear_bit(LCD_PORT, D5);
     clear_bit(LCD_PORT, D6);
     clear_bit(LCD_PORT, D7);
 
-    // توزيع الـ 4 بت على الدبابيس المحددة
     if (read_bit(nibble, 0)) set_bit(LCD_PORT, D4);
     if (read_bit(nibble, 1)) set_bit(LCD_PORT, D5);
     if (read_bit(nibble, 2)) set_bit(LCD_PORT, D6);
@@ -27,12 +25,12 @@ void lcd_send_nibble(uint8_t nibble) {
 
 void lcd_send_byte(uint8_t byte, uint8_t mode) {
     if (mode == 0)
-        clear_bit(LCD_PORT, RS); // Command mode
+        clear_bit(LCD_PORT, RS);
     else
-        set_bit(LCD_PORT, RS);   // Data mode
+        set_bit(LCD_PORT, RS);
 
-    lcd_send_nibble(byte >> 4);   // إرسال النص العلوى (High Nibble)
-    lcd_send_nibble(byte & 0x0F); // إرسال النص السفلى (Low Nibble)
+    lcd_send_nibble(byte >> 4);
+    lcd_send_nibble(byte & 0x0F);
 }
 
 void lcd_cmd(uint8_t cmd) {
@@ -52,7 +50,7 @@ void lcd_print(const char* str) {
 
 void lcd_clear() {
     lcd_cmd(0x01);
-    _delay_ms(2);  // ✅ Give LCD time to clear completely
+    _delay_ms(2);
 }
 
 void lcd_set_cursor(uint8_t row, uint8_t col) {
@@ -61,26 +59,24 @@ void lcd_set_cursor(uint8_t row, uint8_t col) {
 }
 
 void lcd_init() {
-    // ضبط كل الدبابيس كـ Output باستخدام الماكرو بتاعك
     set_bit(LCD_DDR, RS);
     set_bit(LCD_DDR, EN);
     set_bit(LCD_DDR, D4);
     set_bit(LCD_DDR, D5);
     set_bit(LCD_DDR, D6);
     set_bit(LCD_DDR, D7);
-    
+
     _delay_ms(50);
 
-    // خطوات تفعيل الـ 4-bit mode (Standard Procedure)
     lcd_send_nibble(0x03); _delay_ms(5);
     lcd_send_nibble(0x03); _delay_ms(1);
     lcd_send_nibble(0x03); _delay_ms(1);
-    lcd_send_nibble(0x02); _delay_ms(1); // switch to 4-bit
+    lcd_send_nibble(0x02); _delay_ms(1);
 
-    lcd_cmd(0x28); // 2 lines, 5x8 matrix
-    lcd_cmd(0x0C); // Display ON, Cursor OFF
-    lcd_cmd(0x06); // Increment cursor
-    lcd_cmd(0x01); // Clear
+    lcd_cmd(0x28);
+    lcd_cmd(0x0C);
+    lcd_cmd(0x06);
+    lcd_cmd(0x01);
     _delay_ms(2);
 }
 #endif

@@ -1,4 +1,3 @@
-
 #ifdef __AVR_ATmega32__
 #ifndef BUZZER_H
 #define BUZZER_H
@@ -6,7 +5,6 @@
 #include <avr/io.h>
 #include <util/delay.h>
 
-// بناءً على المخطط: الـ Buzzer متوصل بـ PC5
 #define BUZZER_PORT PORTC
 #define BUZZER_DDR  DDRC
 #define BUZZER_PIN  PC5

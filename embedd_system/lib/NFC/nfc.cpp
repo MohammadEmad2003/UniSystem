@@ -1,7 +1,6 @@
 #ifdef ESP8266
 #include "nfc.h"
 
-// متغيرات داخلية للموديول
 static Adafruit_PN532* nfcPtr = nullptr;
 static String currentUID = "";
 static bool isReady = false;
@@ -17,9 +16,8 @@ void initNFC(uint8_t csPin) {
         return;
     }
 
-    // إعدادات الموديول لأقصى استقرار وقوة قراءة
     nfcPtr->SAMConfig();
-    nfcPtr->setPassiveActivationRetries(0xFF); // يحاول بقوة يلقط الكارت
+    nfcPtr->setPassiveActivationRetries(0xFF);
     isReady = true;
     Serial.println("NFC Module is Online and Ready.");
 }
@@ -30,7 +28,6 @@ bool scanCard() {
     uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
     uint8_t uidLength;
 
-    // مهلة قراءة 150ms موازنة بين السرعة والدقة
     if (nfcPtr->readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength, 200)) {
         currentUID = "";
         for (uint8_t i = 0; i < uidLength; i++) {
@@ -52,6 +49,4 @@ bool nfcIsOnline() {
     return isReady;
 }
 
-
-  // كل الكود اللي جوه الملف هنا
 #endif

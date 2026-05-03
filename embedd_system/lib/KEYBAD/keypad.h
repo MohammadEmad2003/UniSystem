@@ -1,4 +1,3 @@
-
 #ifdef __AVR_ATmega32__
 #ifndef KEYPAD_H
 #define KEYPAD_H
@@ -10,7 +9,6 @@
 #include <avr/io.h>
 #include <util/delay.h>
 
-// بناءً على الرسمة: Rows على PORTB و Columns على PORTD
 #define KEYPAD_ROW_PORT PORTB
 #define KEYPAD_ROW_DDR  DDRB
 

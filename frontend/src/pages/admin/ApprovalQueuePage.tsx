@@ -30,17 +30,17 @@ export default function ApprovalQueuePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-surface-900">Student Approvals</h1>
-        <p className="text-surface-500 mt-1">Review and approve student registrations</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">Student Approvals</h1>
+        <p className="text-slate-600 dark:text-slate-400 mt-1">Review and approve student registrations</p>
       </div>
 
-      {error && <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm">{error}</div>}
+      {error && <div className="p-3 rounded-xl bg-red-500/10 text-red-400 text-sm">{error}</div>}
 
       {pending.length === 0 ? (
         <div className="card p-12 text-center">
           <CheckCircle size={48} className="mx-auto text-emerald-400 mb-4" />
-          <h3 className="text-lg font-semibold text-surface-700">All Clear!</h3>
-          <p className="text-surface-500 mt-1">No pending student registrations.</p>
+          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">All Clear!</h3>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">No pending student registrations.</p>
         </div>
       ) : (
         <div className="grid gap-4">
@@ -52,13 +52,13 @@ export default function ApprovalQueuePage() {
                     {s.f_name[0]}{s.l_name[0]}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-surface-800">{s.f_name} {s.l_name}</h3>
-                    <p className="text-sm text-surface-500">{s.email}</p>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-200">{s.f_name} {s.l_name}</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{s.email}</p>
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {s.academic_level && <span className="badge bg-primary-50 text-primary-700">Level {s.academic_level}</span>}
-                      {s.ssn && <span className="badge bg-surface-100 text-surface-600">SSN: {s.ssn.slice(0, 4)}****</span>}
+                      {s.academic_level && <span className="badge bg-[#00e5ff]/10 text-[#00e5ff]">Level {s.academic_level}</span>}
+                      {s.ssn && <span className="badge bg-surface-100 text-slate-600 dark:text-slate-400">SSN: {s.ssn.slice(0, 4)}****</span>}
                       {s.document && (
-                        <span className="badge bg-blue-50 text-blue-600 flex items-center gap-1">
+                        <span className="badge bg-blue-500/10 text-blue-400 flex items-center gap-1">
                           <FileText size={12} /> {s.document}
                         </span>
                       )}
@@ -82,3 +82,5 @@ export default function ApprovalQueuePage() {
     </div>
   );
 }
+
+

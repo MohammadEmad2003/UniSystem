@@ -46,22 +46,22 @@ export default function ManageUsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-surface-900">Manage Users</h1>
-          <p className="text-surface-500 mt-1">Create and manage doctors and admins</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">Manage Users</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Create and manage doctors and admins</p>
         </div>
         <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2">
           <UserPlus size={18} /> Create User
         </button>
       </div>
 
-      {error && <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm">{error}</div>}
+      {error && <div className="p-3 rounded-xl bg-red-500/10 text-red-400 text-sm">{error}</div>}
 
       {/* Tabs */}
       <div className="flex gap-2">
-        <button onClick={() => setTab('doctors')} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${tab === 'doctors' ? 'bg-primary-600 text-white' : 'bg-surface-100 text-surface-600'}`}>
+        <button onClick={() => setTab('doctors')} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${tab === 'doctors' ? 'bg-primary-600 text-white' : 'bg-surface-100 text-slate-600 dark:text-slate-400'}`}>
           <span className="flex items-center gap-2"><Users size={16} /> Doctors ({doctors.length})</span>
         </button>
-        <button onClick={() => setTab('students')} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${tab === 'students' ? 'bg-primary-600 text-white' : 'bg-surface-100 text-surface-600'}`}>
+        <button onClick={() => setTab('students')} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${tab === 'students' ? 'bg-primary-600 text-white' : 'bg-surface-100 text-slate-600 dark:text-slate-400'}`}>
           <span className="flex items-center gap-2"><GraduationCap size={16} /> Students ({students.filter(s => s.account_status === 'approved').length})</span>
         </button>
       </div>
@@ -70,25 +70,25 @@ export default function ManageUsersPage() {
       <div className="card overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="bg-surface-50">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Name</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Email</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">{tab === 'doctors' ? 'Specialization' : 'Level'}</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase">Status</th>
+            <tr className="bg-slate-100 dark:bg-[#050b14]">
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">Name</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">Email</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">{tab === 'doctors' ? 'Specialization' : 'Level'}</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-100">
             {(tab === 'doctors' ? doctors : students.filter(s => s.account_status === 'approved')).map((u: any) => (
-              <tr key={u.user_id} className="hover:bg-surface-50/50">
+              <tr key={u.user_id} className="hover:bg-slate-100 dark:bg-[#050b14]/50">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-xs font-semibold">{u.f_name[0]}{u.l_name[0]}</div>
-                    <span className="text-sm font-medium text-surface-800">{u.f_name} {u.l_name}</span>
+                    <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{u.f_name} {u.l_name}</span>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-sm text-surface-500">{u.email}</td>
-                <td className="px-4 py-3 text-sm text-surface-600">{tab === 'doctors' ? u.specialization : `Level ${u.academic_level}`}</td>
-                <td className="px-4 py-3"><span className="badge bg-emerald-50 text-emerald-700 capitalize">{u.account_status}</span></td>
+                <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{u.email}</td>
+                <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{tab === 'doctors' ? u.specialization : `Level ${u.academic_level}`}</td>
+                <td className="px-4 py-3"><span className="badge bg-emerald-500/10 text-emerald-400 capitalize">{u.account_status}</span></td>
               </tr>
             ))}
           </tbody>
@@ -98,15 +98,15 @@ export default function ManageUsersPage() {
       {/* Create modal */}
       {showCreate && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
+          <div className="bg-slate-50 dark:bg-[#0a192f] border border-slate-300 dark:border-slate-700/50 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8)] w-full max-w-md p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Create User</h3>
               <button onClick={() => setShowCreate(false)} className="p-1 hover:bg-surface-100 rounded-lg"><X size={18} /></button>
             </div>
             <div className="space-y-3">
               <div className="flex gap-2">
-                <button onClick={() => setForm({ ...form, createType: 'doctor' })} className={`flex-1 py-2 rounded-lg text-sm font-medium ${form.createType === 'doctor' ? 'bg-primary-600 text-white' : 'bg-surface-100 text-surface-600'}`}>Doctor</button>
-                <button onClick={() => setForm({ ...form, createType: 'admin' })} className={`flex-1 py-2 rounded-lg text-sm font-medium ${form.createType === 'admin' ? 'bg-primary-600 text-white' : 'bg-surface-100 text-surface-600'}`}>Admin</button>
+                <button onClick={() => setForm({ ...form, createType: 'doctor' })} className={`flex-1 py-2 rounded-lg text-sm font-medium ${form.createType === 'doctor' ? 'bg-primary-600 text-white' : 'bg-surface-100 text-slate-600 dark:text-slate-400'}`}>Doctor</button>
+                <button onClick={() => setForm({ ...form, createType: 'admin' })} className={`flex-1 py-2 rounded-lg text-sm font-medium ${form.createType === 'admin' ? 'bg-primary-600 text-white' : 'bg-surface-100 text-slate-600 dark:text-slate-400'}`}>Admin</button>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <input value={form.f_name} onChange={e => setForm({ ...form, f_name: e.target.value })} placeholder="First Name" className="input-field" />
@@ -122,7 +122,7 @@ export default function ManageUsersPage() {
                   </select>
                 </>
               )}
-              {createError && <div className="p-2 rounded-lg bg-red-50 text-red-700 text-xs">{createError}</div>}
+              {createError && <div className="p-2 rounded-lg bg-red-500/10 text-red-400 text-xs">{createError}</div>}
               <button onClick={handleCreate} className="btn-primary w-full">Create {form.createType === 'doctor' ? 'Doctor' : 'Admin'}</button>
             </div>
           </div>
@@ -131,3 +131,5 @@ export default function ManageUsersPage() {
     </div>
   );
 }
+
+

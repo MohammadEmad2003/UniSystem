@@ -7,7 +7,7 @@ import type { Material, User } from '../../types';
 interface Ctx { classId: string; user: User }
 
 const typeIcons: Record<string, typeof FileText> = { pdf: FileText, link: Link2, video: Video, image: Image, document: FileText };
-const typeColors: Record<string, string> = { pdf: 'bg-red-50 text-red-600', link: 'bg-blue-50 text-blue-600', video: 'bg-purple-50 text-purple-600', image: 'bg-green-50 text-green-600', document: 'bg-amber-50 text-amber-600' };
+const typeColors: Record<string, string> = { pdf: 'bg-red-500/10 text-red-400', link: 'bg-blue-500/10 text-blue-400', video: 'bg-purple-500/10 text-purple-600', image: 'bg-green-50 text-green-600', document: 'bg-amber-500/10 text-amber-400' };
 
 export default function ClassMaterialsTab() {
   const { classId, user } = useOutletContext<Ctx>();
@@ -51,7 +51,7 @@ export default function ClassMaterialsTab() {
       {/* Upload modal */}
       {showUpload && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUpload(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
+          <div className="bg-slate-50 dark:bg-[#0a192f] border border-slate-300 dark:border-slate-700/50 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8)] w-full max-w-md p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Upload Material</h3>
               <button onClick={() => setShowUpload(false)} className="p-1 hover:bg-surface-100 rounded-lg"><X size={18} /></button>
@@ -68,9 +68,9 @@ export default function ClassMaterialsTab() {
               </select>
               <textarea value={form.summarize} onChange={e => setForm({ ...form, summarize: e.target.value })} placeholder="Summary (optional)" className="input-field resize-none" rows={2} />
               {/* Drag & Drop zone */}
-              <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-surface-200 rounded-xl cursor-pointer hover:border-primary-400 hover:bg-primary-50/30 transition-colors">
+              <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl cursor-pointer hover:border-primary-400 hover:bg-[#00e5ff]/10/30 transition-colors">
                 <Upload size={24} className="text-surface-400 mb-2" />
-                <span className="text-sm text-surface-500">Drag & drop files here, or click to browse</span>
+                <span className="text-sm text-slate-600 dark:text-slate-400">Drag & drop files here, or click to browse</span>
                 <input type="file" className="hidden" onChange={e => { if (e.target.files?.[0]) setForm(f => ({ ...f, name: f.name || e.target.files![0].name })); }} />
               </label>
               <button onClick={handleUpload} className="btn-primary w-full">Upload</button>
@@ -90,25 +90,25 @@ export default function ClassMaterialsTab() {
                 <Icon size={22} />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-surface-800">{mat.name}</h3>
-                {mat.summarize && <p className="text-sm text-surface-500 mt-1 line-clamp-2">{mat.summarize}</p>}
+                <h3 className="font-semibold text-slate-800 dark:text-slate-200">{mat.name}</h3>
+                {mat.summarize && <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">{mat.summarize}</p>}
                 <div className="flex items-center gap-3 mt-2 text-xs text-surface-400">
-                  <span className="badge bg-surface-100 text-surface-600 uppercase">{mat.type}</span>
+                  <span className="badge bg-surface-100 text-slate-600 dark:text-slate-400 uppercase">{mat.type}</span>
                   <span>{formatDate(mat.uploaded_at)}</span>
                 </div>
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
                 {mat.type === 'link' || mat.type === 'video' ? (
-                  <a href={mat.url} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-surface-100 rounded-lg transition-colors text-surface-500">
+                  <a href={mat.url} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-surface-100 rounded-lg transition-colors text-slate-600 dark:text-slate-400">
                     <ExternalLink size={16} />
                   </a>
                 ) : (
-                  <button className="p-2 hover:bg-surface-100 rounded-lg transition-colors text-surface-500">
+                  <button className="p-2 hover:bg-surface-100 rounded-lg transition-colors text-slate-600 dark:text-slate-400">
                     <Download size={16} />
                   </button>
                 )}
                 {user.role === 'doctor' && (
-                  <button onClick={() => handleDelete(mat.material_id)} className="p-2 hover:bg-red-50 rounded-lg transition-colors text-surface-400 hover:text-red-500">
+                  <button onClick={() => handleDelete(mat.material_id)} className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-surface-400 hover:text-red-500">
                     <Trash2 size={16} />
                   </button>
                 )}
@@ -121,10 +121,12 @@ export default function ClassMaterialsTab() {
       {materials.length === 0 && (
         <div className="card p-12 text-center">
           <FileText size={48} className="mx-auto text-surface-300 mb-4" />
-          <h3 className="text-lg font-semibold text-surface-700">No Materials Yet</h3>
-          <p className="text-surface-500 mt-1">{user.role === 'doctor' ? 'Upload materials for your students.' : 'No materials have been uploaded yet.'}</p>
+          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">No Materials Yet</h3>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">{user.role === 'doctor' ? 'Upload materials for your students.' : 'No materials have been uploaded yet.'}</p>
         </div>
       )}
     </div>
   );
 }
+
+

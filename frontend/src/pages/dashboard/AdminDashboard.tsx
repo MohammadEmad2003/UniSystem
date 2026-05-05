@@ -33,8 +33,8 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-surface-900">Admin Dashboard</h1>
-        <p className="text-surface-500 mt-1">System overview and management</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">Admin Dashboard</h1>
+        <p className="text-slate-600 dark:text-slate-400 mt-1">System overview and management</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -42,8 +42,8 @@ export default function AdminDashboard() {
           <div key={i} className="card p-5 animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-surface-500 font-medium">{s.label}</p>
-                <p className="text-2xl font-bold text-surface-900 mt-1">{s.value}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">{s.label}</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md mt-1">{s.value}</p>
               </div>
               <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center`}>
                 <s.icon size={22} className="text-white" />
@@ -56,7 +56,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Department chart */}
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-surface-800 mb-4">Students per Department</h2>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Students per Department</h2>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={deptData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -71,45 +71,45 @@ export default function AdminDashboard() {
 
         {/* Quick actions */}
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-surface-800 mb-4">Quick Actions</h2>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Quick Actions</h2>
           <div className="space-y-3">
             {stats?.pending_approvals ? (
-              <Link to="/admin/approvals" className="flex items-center justify-between p-4 rounded-xl bg-red-50 border border-red-100 hover:bg-red-100 transition-colors">
+              <Link to="/admin/approvals" className="flex items-center justify-between p-4 rounded-xl bg-red-500/10 border border-red-100 hover:bg-red-100 transition-colors">
                 <div className="flex items-center gap-3">
                   <ShieldCheck size={20} className="text-red-500" />
                   <div>
-                    <p className="font-medium text-red-700">{stats.pending_approvals} Pending Approvals</p>
+                    <p className="font-medium text-red-400">{stats.pending_approvals} Pending Approvals</p>
                     <p className="text-xs text-red-500">Students waiting for account review</p>
                   </div>
                 </div>
                 <ArrowRight size={18} className="text-red-400" />
               </Link>
             ) : null}
-            <Link to="/admin/users" className="flex items-center justify-between p-4 rounded-xl bg-surface-50 border border-surface-100 hover:bg-surface-100 transition-colors">
+            <Link to="/admin/users" className="flex items-center justify-between p-4 rounded-xl bg-slate-100 dark:bg-[#050b14] border border-slate-200 dark:border-slate-800 hover:bg-surface-100 transition-colors">
               <div className="flex items-center gap-3">
                 <Users size={20} className="text-primary-500" />
-                <span className="font-medium text-surface-700">Manage Users</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">Manage Users</span>
               </div>
               <ArrowRight size={18} className="text-surface-400" />
             </Link>
-            <Link to="/admin/departments" className="flex items-center justify-between p-4 rounded-xl bg-surface-50 border border-surface-100 hover:bg-surface-100 transition-colors">
+            <Link to="/admin/departments" className="flex items-center justify-between p-4 rounded-xl bg-slate-100 dark:bg-[#050b14] border border-slate-200 dark:border-slate-800 hover:bg-surface-100 transition-colors">
               <div className="flex items-center gap-3">
                 <Building2 size={20} className="text-emerald-500" />
-                <span className="font-medium text-surface-700">Manage Departments</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">Manage Departments</span>
               </div>
               <ArrowRight size={18} className="text-surface-400" />
             </Link>
-            <Link to="/admin/courses" className="flex items-center justify-between p-4 rounded-xl bg-surface-50 border border-surface-100 hover:bg-surface-100 transition-colors">
+            <Link to="/admin/courses" className="flex items-center justify-between p-4 rounded-xl bg-slate-100 dark:bg-[#050b14] border border-slate-200 dark:border-slate-800 hover:bg-surface-100 transition-colors">
               <div className="flex items-center gap-3">
                 <FolderOpen size={20} className="text-violet-500" />
-                <span className="font-medium text-surface-700">Manage Courses</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">Manage Courses</span>
               </div>
               <ArrowRight size={18} className="text-surface-400" />
             </Link>
-            <Link to="/admin/classes" className="flex items-center justify-between p-4 rounded-xl bg-surface-50 border border-surface-100 hover:bg-surface-100 transition-colors">
+            <Link to="/admin/classes" className="flex items-center justify-between p-4 rounded-xl bg-slate-100 dark:bg-[#050b14] border border-slate-200 dark:border-slate-800 hover:bg-surface-100 transition-colors">
               <div className="flex items-center gap-3">
                 <BookOpen size={20} className="text-amber-500" />
-                <span className="font-medium text-surface-700">Manage Classes</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">Manage Classes</span>
               </div>
               <ArrowRight size={18} className="text-surface-400" />
             </Link>
@@ -119,3 +119,5 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+

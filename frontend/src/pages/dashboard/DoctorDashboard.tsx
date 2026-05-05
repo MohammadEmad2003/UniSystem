@@ -34,8 +34,8 @@ export default function DoctorDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-surface-900">Welcome, Dr. {user?.l_name}! 👋</h1>
-        <p className="text-surface-500 mt-1">Manage your classes and students</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">Welcome, Dr. {user?.l_name}! 👋</h1>
+        <p className="text-slate-600 dark:text-slate-400 mt-1">Manage your classes and students</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -43,8 +43,8 @@ export default function DoctorDashboard() {
           <div key={i} className="card p-5 animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-surface-500 font-medium">{s.label}</p>
-                <p className="text-2xl font-bold text-surface-900 mt-1">{s.value}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">{s.label}</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md mt-1">{s.value}</p>
               </div>
               <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center`}>
                 <s.icon size={22} className="text-white" />
@@ -57,8 +57,8 @@ export default function DoctorDashboard() {
       {/* Teaching Classes */}
       <div className="card p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-surface-800">Teaching Classes</h2>
-          <Link to="/classes" className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Teaching Classes</h2>
+          <Link to="/classes" className="text-sm text-[#00b8d4] hover:text-[#00e5ff] font-medium flex items-center gap-1">
             View All <ArrowRight size={14} />
           </Link>
         </div>
@@ -67,18 +67,18 @@ export default function DoctorDashboard() {
             <Link
               key={cls.class_id}
               to={`/classes/${cls.class_id}/stream`}
-              className="p-4 rounded-xl border border-surface-100 hover:border-primary-200 hover:bg-primary-50/50 transition-all group"
+              className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-primary-200 hover:bg-[#00e5ff]/10/50 transition-all group"
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white font-bold text-sm">
                   {cls.course_code?.slice(0, 4)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-surface-800 truncate group-hover:text-primary-600 transition-colors">{cls.course_name}</p>
-                  <p className="text-xs text-surface-500">{cls.semester} • Level {cls.level}</p>
+                  <p className="font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-[#00b8d4] transition-colors">{cls.course_name}</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">{cls.semester} • Level {cls.level}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-xs text-surface-500">
+              <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-400">
                 <span className="flex items-center gap-1"><Users size={14} /> {cls.enrolled_count}/{cls.capacity}</span>
                 <span className="flex items-center gap-1"><MessageSquare size={14} /> Active</span>
               </div>
@@ -89,3 +89,5 @@ export default function DoctorDashboard() {
     </div>
   );
 }
+
+

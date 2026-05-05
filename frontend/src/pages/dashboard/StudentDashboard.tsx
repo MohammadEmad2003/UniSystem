@@ -41,8 +41,8 @@ export default function StudentDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-surface-900">Welcome back, {user?.f_name}! 👋</h1>
-        <p className="text-surface-500 mt-1">Here's your academic overview</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">Welcome back, {user?.f_name}! 👋</h1>
+        <p className="text-slate-600 dark:text-slate-400 mt-1">Here's your academic overview</p>
       </div>
 
       {/* Stats Grid */}
@@ -51,8 +51,8 @@ export default function StudentDashboard() {
           <div key={i} className="card p-5 animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-surface-500 font-medium">{s.label}</p>
-                <p className="text-2xl font-bold text-surface-900 mt-1">{s.value}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">{s.label}</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md mt-1">{s.value}</p>
               </div>
               <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center`}>
                 <s.icon size={22} className="text-white" />
@@ -65,7 +65,7 @@ export default function StudentDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* GPA Chart */}
         <div className="lg:col-span-2 card p-6">
-          <h2 className="text-lg font-semibold text-surface-800 mb-4">GPA Trend</h2>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">GPA Trend</h2>
           <ResponsiveContainer width="100%" height={250}>
             <AreaChart data={gpaHistory}>
               <defs>
@@ -86,8 +86,8 @@ export default function StudentDashboard() {
         {/* My Classes Quick List */}
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-surface-800">My Classes</h2>
-            <Link to="/classes" className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">My Classes</h2>
+            <Link to="/classes" className="text-sm text-[#00b8d4] hover:text-[#00e5ff] font-medium flex items-center gap-1">
               View All <ArrowRight size={14} />
             </Link>
           </div>
@@ -96,15 +96,15 @@ export default function StudentDashboard() {
               <Link
                 key={cls.class_id}
                 to={`/classes/${cls.class_id}/stream`}
-                className="block p-3 rounded-xl hover:bg-surface-50 transition-colors group"
+                className="block p-3 rounded-xl hover:bg-slate-100 dark:bg-[#050b14] transition-colors group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center text-primary-600 font-bold text-xs">
+                  <div className="w-10 h-10 rounded-lg bg-[#00e5ff]/10 flex items-center justify-center text-[#00b8d4] font-bold text-xs">
                     {cls.course_code?.slice(0, 2)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-surface-800 truncate group-hover:text-primary-600 transition-colors">{cls.course_name}</p>
-                    <p className="text-xs text-surface-500">{cls.doctor_name}</p>
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate group-hover:text-[#00b8d4] transition-colors">{cls.course_name}</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">{cls.doctor_name}</p>
                   </div>
                 </div>
               </Link>
@@ -115,3 +115,5 @@ export default function StudentDashboard() {
     </div>
   );
 }
+
+

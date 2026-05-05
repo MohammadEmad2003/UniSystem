@@ -37,16 +37,16 @@ export default function LoginPage() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-surface-900 mb-1">Welcome back</h2>
-      <p className="text-surface-500 mb-6">Sign in to your account</p>
+      <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Welcome back</h2>
+      <p className="text-slate-600 dark:text-slate-400 mb-8 font-medium">Sign in to your account</p>
 
       {/* Quick login */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-3 mb-8">
         {presets.map(p => (
           <button
             key={p.label}
             onClick={() => { setEmail(p.email); setPassword('password'); }}
-            className="flex-1 py-2 px-3 text-xs font-medium bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100 transition-colors"
+            className="flex-1 py-2.5 px-3 text-xs font-bold uppercase tracking-wider bg-white dark:bg-[#111111] text-[#00b8d4] border border-[#00b8d4]/30 rounded-xl hover:bg-[#00b8d4]/10 transition-all duration-300"
           >
             {p.label}
           </button>
@@ -54,14 +54,14 @@ export default function LoginPage() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-red-600 text-sm animate-fade-in">
-          <AlertCircle size={16} /> {error}
+        <div className="mb-6 p-4 bg-red-900/30 border border-red-500/50 rounded-xl flex items-center gap-3 text-red-400 text-sm animate-fade-in shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+          <AlertCircle size={18} className="flex-shrink-0" /> {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label className="block text-sm font-medium text-surface-700 mb-1.5">Email</label>
+          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">Email</label>
           <input
             type="email"
             value={email}
@@ -72,44 +72,51 @@ export default function LoginPage() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-surface-700 mb-1.5">Password</label>
+          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">Password</label>
           <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={e => setPassword(e.target.value)}
               className="input-field pr-12"
-              placeholder="Enter your password"
+              placeholder="••••••••"
               required
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-[#00e5ff] transition-colors"
             >
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
           </div>
         </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="btn-primary w-full flex items-center justify-center gap-2"
-        >
-          {loading ? (
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <>
-              <LogIn size={18} /> Sign In
-            </>
-          )}
-        </button>
+        
+        <div className="pt-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-primary w-full flex items-center justify-center gap-2 py-4 text-lg"
+          >
+            {loading ? (
+              <div className="w-6 h-6 border-2 border-[#0a192f]/30 border-t-[#0a192f] rounded-full animate-spin" />
+            ) : (
+              <>
+                <LogIn size={20} /> LAUNCH LOGIN
+              </>
+            )}
+          </button>
+        </div>
       </form>
 
-      <p className="text-center text-sm text-surface-500 mt-6">
-        Don't have an account?{' '}
-        <Link to="/register" className="text-primary-600 font-semibold hover:text-primary-700">Register</Link>
-      </p>
+      <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800 text-center">
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Don't have an account?{' '}
+          <Link to="/register" className="text-[#00e5ff] font-bold hover:text-white hover:drop-shadow-[0_0_8px_rgba(0,229,255,0.8)] transition-all">Register</Link>
+        </p>
+      </div>
     </div>
   );
 }
+
+

@@ -18,7 +18,7 @@ export default function ClassWorkspacePage() {
   }, [classId]);
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
-  if (!cls) return <div className="text-center py-12 text-surface-500">Class not found</div>;
+  if (!cls) return <div className="text-center py-12 text-slate-600 dark:text-slate-400">Class not found</div>;
 
   const tabs = [
     { path: 'stream', label: 'Stream', icon: MessageSquare },
@@ -31,19 +31,19 @@ export default function ClassWorkspacePage() {
   const tabClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
       isActive
-        ? 'border-primary-600 text-primary-600'
-        : 'border-transparent text-surface-500 hover:text-surface-700 hover:border-surface-200'
+        ? 'border-primary-600 text-[#00b8d4]'
+        : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:border-slate-700'
     }`;
 
   return (
     <div className="space-y-0">
       {/* Header */}
       <div className="gradient-header -mx-6 -mt-6 px-6 py-8 mb-0">
-        <button onClick={() => navigate('/classes')} className="flex items-center gap-2 text-white/70 hover:text-white text-sm mb-4 transition-colors">
+        <button onClick={() => navigate('/classes')} className="flex items-center gap-2 text-slate-500 dark:text-white/70 hover:text-slate-900 dark:hover:text-white text-sm mb-4 transition-colors">
           <ArrowLeft size={16} /> Back to Classes
         </button>
-        <h1 className="text-2xl font-bold text-white">{cls.course_name}</h1>
-        <div className="flex items-center gap-4 mt-2 text-white/80 text-sm">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{cls.course_name}</h1>
+        <div className="flex items-center gap-4 mt-2 text-slate-600 dark:text-white/80 text-sm">
           <span>{cls.course_code}</span>
           <span>•</span>
           <span>{cls.doctor_name}</span>
@@ -55,7 +55,7 @@ export default function ClassWorkspacePage() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white -mx-6 px-6 border-b border-surface-100 sticky top-[57px] z-10 overflow-x-auto">
+      <div className="bg-white/80 dark:bg-[#111111]/80 backdrop-blur-md border border-slate-200 dark:border-slate-800 -mx-6 px-6 border-b border-slate-200 dark:border-slate-800 sticky top-[57px] z-10 overflow-x-auto">
         <div className="flex">
           {tabs.map(tab => (
             <NavLink key={tab.path} to={`/classes/${classId}/${tab.path}`} className={tabClass}>
@@ -72,3 +72,5 @@ export default function ClassWorkspacePage() {
     </div>
   );
 }
+
+

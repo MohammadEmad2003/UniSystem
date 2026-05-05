@@ -83,22 +83,22 @@ export default function BrowseClassesPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-surface-900">Browse Classes</h1>
-          <p className="text-surface-500 mt-1">Enroll or drop classes</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">Browse Classes</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Enroll or drop classes</p>
         </div>
         <div className="relative w-full max-w-md">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
+          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 dark:text-slate-400" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by course, code, or instructor"
-            className="w-full pl-9 pr-3 py-2 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-[#111111]/80 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#00e5ff] focus:border-[#00e5ff] shadow-inner hover:border-slate-500 transition-colors"
           />
         </div>
       </div>
 
       {error && (
-        <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm">{error}</div>
+        <div className="p-3 rounded-xl bg-red-500/10 text-red-400 text-sm">{error}</div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -112,14 +112,14 @@ export default function BrowseClassesPage() {
           return (
             <div key={id} className="card p-5 flex flex-col gap-3">
               <div>
-                <h3 className="font-bold text-surface-900">{cls.course_name}</h3>
-                <p className="text-sm text-surface-500">{cls.course_code}</p>
+                <h3 className="font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">{cls.course_name}</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">{cls.course_code}</p>
               </div>
-              <div className="text-sm text-surface-600">{cls.doctor_name}</div>
-              <div className="flex items-center gap-3 text-xs text-surface-500">
+              <div className="text-sm text-slate-600 dark:text-slate-400">{cls.doctor_name}</div>
+              <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
                 <span className="flex items-center gap-1"><Users size={14} /> {cls.enrolled_count ?? 0}/{cls.capacity}</span>
-                <span className="badge bg-primary-50 text-primary-700">{cls.semester}</span>
-                <span className="badge bg-surface-100 text-surface-600">Level {cls.level}</span>
+                <span className="badge bg-[#00e5ff]/10 text-[#00e5ff]">{cls.semester}</span>
+                <span className="badge bg-surface-100 text-slate-600 dark:text-slate-400">Level {cls.level}</span>
               </div>
 
               <div className="mt-auto flex items-center gap-2">
@@ -136,7 +136,7 @@ export default function BrowseClassesPage() {
                       onClick={() => handleDrop(id)}
                       disabled={isDropping}
                       title="Drop class"
-                      className="p-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50 transition-colors"
+                      className="p-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-500/10 disabled:opacity-50 transition-colors"
                     >
                       {isDropping
                         ? <div className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
@@ -163,8 +163,10 @@ export default function BrowseClassesPage() {
       </div>
 
       {filtered.length === 0 && !error && (
-        <div className="card p-12 text-center text-surface-500">No classes match your search.</div>
+        <div className="card p-12 text-center text-slate-600 dark:text-slate-400">No classes match your search.</div>
       )}
     </div>
   );
 }
+
+

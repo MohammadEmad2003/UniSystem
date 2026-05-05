@@ -10,14 +10,14 @@ import type { Student, Doctor, Admin } from '../types';
 
 function InfoCard({ icon, label, value, color = 'primary' }: { icon: React.ReactNode; label: string; value: React.ReactNode; color?: string }) {
   const colors: Record<string, string> = {
-    primary: 'bg-primary-50 text-primary-600',
-    emerald: 'bg-emerald-50 text-emerald-600',
-    violet: 'bg-violet-50 text-violet-600',
-    amber: 'bg-amber-50 text-amber-600',
-    blue: 'bg-blue-50 text-blue-600',
-    rose: 'bg-rose-50 text-rose-600',
-    surface: 'bg-surface-100 text-surface-600',
-    indigo: 'bg-indigo-50 text-indigo-600',
+    primary: 'bg-[#00e5ff]/10 text-[#00e5ff]',
+    emerald: 'bg-emerald-500/10 text-emerald-400',
+    violet: 'bg-violet-500/10 text-violet-400',
+    amber: 'bg-amber-500/10 text-amber-400',
+    blue: 'bg-blue-500/10 text-blue-400',
+    rose: 'bg-rose-500/10 text-rose-400',
+    surface: 'bg-slate-50 dark:bg-[#0a192f] text-slate-600 dark:text-slate-400',
+    indigo: 'bg-indigo-500/10 text-indigo-400',
   };
   return (
     <div className="card p-4 flex items-center gap-4 hover:shadow-md transition-shadow">
@@ -25,8 +25,8 @@ function InfoCard({ icon, label, value, color = 'primary' }: { icon: React.React
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-xs text-surface-500 mb-0.5">{label}</p>
-        <p className="text-sm font-semibold text-surface-800 truncate">{value}</p>
+        <p className="text-xs text-slate-600 dark:text-slate-400 mb-0.5">{label}</p>
+        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{value}</p>
       </div>
     </div>
   );
@@ -55,8 +55,8 @@ export default function ProfilePage() {
   };
 
   const statusBadge = user.account_status === 'approved'
-    ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700"><CheckCircle size={12} /> Active</span>
-    : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700"><AlertCircle size={12} /> {user.account_status}</span>;
+    ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400"><CheckCircle size={12} /> Active</span>
+    : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400"><AlertCircle size={12} /> {user.account_status}</span>;
 
   const handleLogout = () => {
     logout();
@@ -67,48 +67,28 @@ export default function ProfilePage() {
     <div className="max-w-3xl mx-auto space-y-6">
 
       {/* Header card */}
-      <div className="card overflow-hidden">
-        <div className={`h-28 bg-gradient-to-r ${roleColors[user.role] ?? roleColors.student}`} />
-        <div className="px-6 pb-6">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 -mt-12">
-            <div className="flex items-end gap-4">
-              <div className={`w-24 h-24 rounded-2xl bg-gradient-to-br ${roleColors[user.role] ?? roleColors.student} flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-lg`}>
-                {initials}
-              </div>
-              <div className="pb-1">
-                <h2 className={`text-xl font-bold bg-gradient-to-r ${roleColors[user.role] ?? roleColors.student} bg-clip-text text-transparent`}>{user.f_name} {user.l_name}</h2>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm text-surface-500 capitalize">{user.role}</span>
-                  <span className="text-surface-300">·</span>
-                  {statusBadge}
-                </div>
-              </div>
+      <div className="card relative overflow-hidden">
+        {/* Glowing background effects */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <div className={`absolute -top-32 -right-32 w-96 h-96 rounded-full blur-[100px] opacity-20 bg-gradient-to-br ${roleColors[user.role] ?? roleColors.student}`} />
+          <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#ffffff]/5 to-transparent border-b border-white/5" />
+        </div>
+        
+        <div className="relative px-6 py-8 sm:px-10 sm:py-12 flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
+          <div className="relative group">
+            <div className={`absolute inset-0 rounded-2xl blur-xl opacity-50 bg-gradient-to-br ${roleColors[user.role] ?? roleColors.student} group-hover:opacity-80 transition-opacity duration-500`} />
+            <div className={`relative w-28 h-28 rounded-2xl bg-gradient-to-br ${roleColors[user.role] ?? roleColors.student} flex items-center justify-center text-white text-4xl font-black border border-white/20 shadow-[0_0_30px_rgba(0,0,0,0.5)]`}>
+              {initials}
             </div>
-
-            {/* Action buttons */}
-            <div className="flex items-center gap-2 pb-1">
-              {isStudent && (
-                <button
-                  onClick={() => navigate('/classes')}
-                  className="btn-secondary flex items-center gap-2 text-sm"
-                >
-                  <BookOpen size={16} /> My Classes
-                </button>
-              )}
-              {isAdmin && (
-                <button
-                  onClick={() => navigate('/admin/approvals')}
-                  className="btn-secondary flex items-center gap-2 text-sm"
-                >
-                  <Shield size={16} /> Admin Panel
-                </button>
-              )}
-              <button
-                onClick={() => setShowLogoutConfirm(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium transition-colors"
-              >
-                <LogOut size={16} /> Sign Out
-              </button>
+          </div>
+          
+          <div className="flex-1 mt-2">
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white drop-shadow-md mb-2">{user.f_name} {user.l_name}</h2>
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
+              <span className="px-3 py-1 rounded-full bg-white dark:bg-[#111111]/80 border border-slate-300 dark:border-slate-700/50 text-sm font-bold text-slate-700 dark:text-slate-300 capitalize shadow-inner">
+                {user.role}
+              </span>
+              {statusBadge}
             </div>
           </div>
         </div>
@@ -116,13 +96,13 @@ export default function ProfilePage() {
 
       {/* Logout confirmation */}
       {showLogoutConfirm && (
-        <div className="card p-5 border border-red-100 bg-red-50/50">
-          <p className="text-sm font-medium text-surface-800 mb-3">Are you sure you want to sign out?</p>
+        <div className="card p-5 border border-red-100 bg-red-500/10/50">
+          <p className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-3">Are you sure you want to sign out?</p>
           <div className="flex gap-2">
-            <button onClick={handleLogout} className="px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors">
+            <button onClick={handleLogout} className="px-4 py-2 rounded-xl bg-red-500/100 text-white text-sm font-medium hover:bg-red-600 transition-colors">
               Yes, Sign Out
             </button>
-            <button onClick={() => setShowLogoutConfirm(false)} className="px-4 py-2 rounded-xl border border-surface-200 text-surface-600 text-sm font-medium hover:bg-surface-50 transition-colors">
+            <button onClick={() => setShowLogoutConfirm(false)} className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-sm font-medium hover:bg-slate-100 dark:bg-[#050b14] transition-colors">
               Cancel
             </button>
           </div>
@@ -140,7 +120,7 @@ export default function ProfilePage() {
               icon={<TrendingUp size={20} />}
               label="Cumulative GPA"
               value={
-                <span className={`font-bold ${(student.total_gpa ?? 0) >= 3.5 ? 'text-emerald-600' : (student.total_gpa ?? 0) >= 2.5 ? 'text-amber-600' : 'text-red-500'}`}>
+                <span className={`font-bold ${(student.total_gpa ?? 0) >= 3.5 ? 'text-emerald-400' : (student.total_gpa ?? 0) >= 2.5 ? 'text-amber-400' : 'text-red-500'}`}>
                   {(student.total_gpa ?? 0).toFixed(2)} / 4.00
                 </span>
               }
@@ -152,7 +132,7 @@ export default function ProfilePage() {
               icon={<CreditCard size={20} />}
               label="Payment Status"
               value={
-                <span className={`capitalize ${student.payment_status === 'paid' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                <span className={`capitalize ${student.payment_status === 'paid' ? 'text-emerald-400' : 'text-amber-400'}`}>
                   {student.payment_status ?? '—'}
                 </span>
               }
@@ -184,3 +164,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+

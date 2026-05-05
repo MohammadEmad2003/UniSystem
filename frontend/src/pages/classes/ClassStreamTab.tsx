@@ -70,7 +70,7 @@ export default function ClassStreamTab() {
               value={newText}
               onChange={e => setNewText(e.target.value)}
               placeholder="Ask a question or share something with the class..."
-              className="w-full px-4 py-3 rounded-xl bg-surface-50 border border-surface-100 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none text-sm"
+              className="w-full px-4 py-3 rounded-xl bg-white dark:bg-[#111111]/80 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-[#00e5ff] focus:border-[#00e5ff] resize-none text-sm transition-all"
               rows={2}
             />
             <div className="flex justify-end mt-2">
@@ -92,11 +92,11 @@ export default function ClassStreamTab() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-sm text-surface-800">{q.user_name}</span>
-                  {q.user_role === 'doctor' && <span className="badge bg-emerald-50 text-emerald-700 text-xs">Instructor</span>}
+                  <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">{q.user_name}</span>
+                  {q.user_role === 'doctor' && <span className="badge bg-emerald-500/10 text-emerald-400 text-xs">Instructor</span>}
                   <span className="text-xs text-surface-400">{formatTime(q.time)}</span>
                 </div>
-                <p className="text-surface-700 mt-2 text-sm whitespace-pre-wrap">{q.text}</p>
+                <p className="text-slate-700 dark:text-slate-300 mt-2 text-sm whitespace-pre-wrap">{q.text}</p>
               </div>
             </div>
           </div>
@@ -105,7 +105,7 @@ export default function ClassStreamTab() {
           {q.answers.length > 0 && (
             <button
               onClick={() => toggleExpand(q.q_id)}
-              className="w-full px-4 py-2 text-xs font-medium text-primary-600 bg-primary-50/50 hover:bg-primary-50 flex items-center gap-1 transition-colors"
+              className="w-full px-4 py-2 text-xs font-medium text-[#00b8d4] bg-[#00e5ff]/10/50 hover:bg-[#00e5ff]/10 flex items-center gap-1 transition-colors"
             >
               {expandedQ.has(q.q_id) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               {q.answers.length} {q.answers.length === 1 ? 'reply' : 'replies'}
@@ -114,20 +114,20 @@ export default function ClassStreamTab() {
 
           {/* Answers */}
           {expandedQ.has(q.q_id) && (
-            <div className="bg-surface-50/50 border-t border-surface-100">
+            <div className="bg-slate-100 dark:bg-[#050b14]/50 border-t border-slate-200 dark:border-slate-800">
               {q.answers.map(a => (
-                <div key={a.a_id} className="px-4 py-3 border-b border-surface-100 last:border-b-0">
+                <div key={a.a_id} className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 last:border-b-0">
                   <div className="flex items-start gap-3 ml-6">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0 ${a.user_role === 'doctor' ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : 'bg-gradient-to-br from-primary-400 to-primary-600'}`}>
                       {a.user_name.split(' ').map(n => n[0]).join('')}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm text-surface-800">{a.user_name}</span>
-                        {a.user_role === 'doctor' && <span className="badge bg-emerald-50 text-emerald-700 text-xs">Instructor</span>}
+                        <span className="font-medium text-sm text-slate-800 dark:text-slate-200">{a.user_name}</span>
+                        {a.user_role === 'doctor' && <span className="badge bg-emerald-500/10 text-emerald-400 text-xs">Instructor</span>}
                         <span className="text-xs text-surface-400">{formatTime(a.time)}</span>
                       </div>
-                      <p className="text-surface-600 mt-1 text-sm">{a.text}</p>
+                      <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm">{a.text}</p>
                     </div>
                   </div>
                 </div>
@@ -136,22 +136,22 @@ export default function ClassStreamTab() {
           )}
 
           {/* Reply input */}
-          <div className="px-4 py-3 border-t border-surface-100">
+          <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800">
             {replyTo === q.q_id ? (
               <div className="flex items-center gap-2 ml-6">
                 <input
                   value={replyText}
                   onChange={e => setReplyText(e.target.value)}
                   placeholder="Write a reply..."
-                  className="flex-1 px-3 py-2 rounded-lg bg-surface-50 border border-surface-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-white dark:bg-[#111111]/80 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 border border-slate-300 dark:border-slate-700 text-sm focus:outline-none focus:ring-1 focus:ring-[#00e5ff] focus:border-[#00e5ff] transition-all"
                   onKeyDown={e => e.key === 'Enter' && handleReply(q.q_id)}
                   autoFocus
                 />
                 <button onClick={() => handleReply(q.q_id)} className="btn-primary text-sm py-2 px-3"><Send size={14} /></button>
-                <button onClick={() => { setReplyTo(null); setReplyText(''); }} className="text-sm text-surface-500 hover:text-surface-700">Cancel</button>
+                <button onClick={() => { setReplyTo(null); setReplyText(''); }} className="text-sm text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:text-slate-300">Cancel</button>
               </div>
             ) : (
-              <button onClick={() => setReplyTo(q.q_id)} className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1 ml-6">
+              <button onClick={() => setReplyTo(q.q_id)} className="text-sm text-[#00b8d4] hover:text-[#00e5ff] font-medium flex items-center gap-1 ml-6">
                 <MessageSquare size={14} /> Reply
               </button>
             )}
@@ -162,10 +162,12 @@ export default function ClassStreamTab() {
       {questions.length === 0 && (
         <div className="card p-12 text-center">
           <MessageSquare size={48} className="mx-auto text-surface-300 mb-4" />
-          <h3 className="text-lg font-semibold text-surface-700">No posts yet</h3>
-          <p className="text-surface-500 mt-1">Be the first to start a discussion!</p>
+          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">No posts yet</h3>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Be the first to start a discussion!</p>
         </div>
       )}
     </div>
   );
 }
+
+

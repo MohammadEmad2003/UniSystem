@@ -8,8 +8,8 @@ interface Ctx { classId: string; user: User }
 
 const typeConfig: Record<string, { icon: typeof Wifi; color: string; bg: string }> = {
   online: { icon: Wifi, color: 'text-green-600', bg: 'bg-green-50' },
-  offline: { icon: Monitor, color: 'text-blue-600', bg: 'bg-blue-50' },
-  hybrid: { icon: Video, color: 'text-purple-600', bg: 'bg-purple-50' },
+  offline: { icon: Monitor, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+  hybrid: { icon: Video, color: 'text-purple-600', bg: 'bg-purple-500/10' },
 };
 
 export default function ClassLecturesTab() {
@@ -46,7 +46,7 @@ export default function ClassLecturesTab() {
       {/* Create modal */}
       {showCreate && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
+          <div className="bg-slate-50 dark:bg-[#0a192f] border border-slate-300 dark:border-slate-700/50 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8)] w-full max-w-md p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Create Lecture</h3>
               <button onClick={() => setShowCreate(false)} className="p-1 hover:bg-surface-100 rounded-lg"><X size={18} /></button>
@@ -88,8 +88,8 @@ export default function ClassLecturesTab() {
                 <TypeIcon size={22} className={cfg.color} />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-surface-800">{lec.title || `Lecture ${lec.lec_id}`}</h3>
-                <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-surface-500">
+                <h3 className="font-semibold text-slate-800 dark:text-slate-200">{lec.title || `Lecture ${lec.lec_id}`}</h3>
+                <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-slate-600 dark:text-slate-400">
                   <span className="flex items-center gap-1"><Calendar size={14} /> {lec.day}{lec.date ? ` • ${lec.date}` : ''}</span>
                   <span className="flex items-center gap-1"><Clock size={14} /> {lec.time}</span>
                   {lec.room_id && <span className="flex items-center gap-1"><MapPin size={14} /> {lec.room_id}</span>}
@@ -111,10 +111,12 @@ export default function ClassLecturesTab() {
       {lectures.length === 0 && (
         <div className="card p-12 text-center">
           <Video size={48} className="mx-auto text-surface-300 mb-4" />
-          <h3 className="text-lg font-semibold text-surface-700">No Lectures Yet</h3>
-          <p className="text-surface-500 mt-1">{user.role === 'doctor' ? 'Create your first lecture.' : 'No lectures have been scheduled.'}</p>
+          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">No Lectures Yet</h3>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">{user.role === 'doctor' ? 'Create your first lecture.' : 'No lectures have been scheduled.'}</p>
         </div>
       )}
     </div>
   );
 }
+
+

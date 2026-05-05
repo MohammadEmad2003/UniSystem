@@ -43,31 +43,31 @@ export default function ManageDepartmentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-surface-900">Departments</h1>
-          <p className="text-surface-500 mt-1">Manage academic departments</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">Departments</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Manage academic departments</p>
         </div>
         <button onClick={() => { setShowForm(true); setEditing(null); setName(''); }} className="btn-primary flex items-center gap-2">
           <Plus size={18} /> Add Department
         </button>
       </div>
 
-      {error && <div className="p-3 rounded-xl bg-red-50 text-red-700 text-sm">{error}</div>}
+      {error && <div className="p-3 rounded-xl bg-red-500/10 text-red-400 text-sm">{error}</div>}
 
       <div className="grid gap-4">
         {departments.map((d, i) => (
           <div key={d.dept_id} className="card p-4 flex items-center justify-between animate-slide-up" style={{ animationDelay: `${i * 60}ms` }}>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center">
-                <Building2 size={20} className="text-primary-600" />
+              <div className="w-10 h-10 rounded-xl bg-[#00e5ff]/10 flex items-center justify-center">
+                <Building2 size={20} className="text-[#00b8d4]" />
               </div>
               <div>
-                <h3 className="font-semibold text-surface-800">{d.dept_name}</h3>
+                <h3 className="font-semibold text-slate-800 dark:text-slate-200">{d.dept_name}</h3>
                 <p className="text-xs text-surface-400">ID: {d.dept_id}</p>
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => startEdit(d)} className="p-2 hover:bg-surface-100 rounded-lg text-surface-500"><Pencil size={16} /></button>
-              <button onClick={() => handleDelete(d.dept_id)} className="p-2 hover:bg-red-50 rounded-lg text-surface-400 hover:text-red-500"><Trash2 size={16} /></button>
+              <button onClick={() => startEdit(d)} className="p-2 hover:bg-surface-100 rounded-lg text-slate-600 dark:text-slate-400"><Pencil size={16} /></button>
+              <button onClick={() => handleDelete(d.dept_id)} className="p-2 hover:bg-red-500/10 rounded-lg text-surface-400 hover:text-red-500"><Trash2 size={16} /></button>
             </div>
           </div>
         ))}
@@ -75,7 +75,7 @@ export default function ManageDepartmentsPage() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
+          <div className="bg-slate-50 dark:bg-[#0a192f] border border-slate-300 dark:border-slate-700/50 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8)] w-full max-w-sm p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">{editing ? 'Edit' : 'Add'} Department</h3>
               <button onClick={() => setShowForm(false)} className="p-1 hover:bg-surface-100 rounded-lg"><X size={18} /></button>
@@ -88,3 +88,5 @@ export default function ManageDepartmentsPage() {
     </div>
   );
 }
+
+

@@ -1,6 +1,7 @@
 // Real backend services. Each function returns { success, data, message? }
 // to match the existing mock service shape so pages don't need changes.
-import { apiClient, normalizeUser } from './apiClient';
+import axios from 'axios';
+import { apiClient, normalizeUser, AI_BASE_URL } from './apiClient';
 import type {
   User, Student, Doctor, Admin, Department, Course, Class,
   Lecture, Material, Attendance, Grade, Question, Answer,
@@ -20,7 +21,7 @@ export const realAuthService = {
     const user = normalizeUser(body.user || body.data || body);
     return ok({ token, user });
   },
-  async register(data: Partial<Student> & { password?: string; document?: File; image?: File }): Promise<ApiResponse<User>> {
+  async register(data: Omit<Partial<Student>, 'document'> & { password?: string; document?: File; image?: File }): Promise<ApiResponse<User>> {
     const fd = new FormData();
     Object.entries(data).forEach(([k, v]) => {
       if (v === undefined || v === null) return;
@@ -38,8 +39,23 @@ export const realAuthService = {
     const res = await apiClient.post('/auth/forgot-password', { email });
     return ok(null, res.data.message);
   },
-  async resetPassword(token: string, password: string) {
-    const res = await apiClient.post(`/auth/reset-password/${token}`, { password });
+  async resetPassword(token: string, password: string, confirmPassword?: string) {
+    const res = await apiClient.post(`/auth/reset-password/${token}`, { 
+      password, 
+      confirmPassword: confirmPassword || password // Fallback if not provided to avoid breaking other calls
+    });
+    return ok(null, res.data.message);
+  },
+  async verifyEmail(token: string) {
+    const res = await apiClient.get(`/auth/verify/${token}`);
+    return ok(null, res.data.message);
+  },
+  async resendVerification(email: string) {
+    const res = await apiClient.post('/auth/resend-verification', { email });
+    return ok(null, res.data.message);
+  },
+  async resendPasswordReset(email: string) {
+    const res = await apiClient.post('/auth/resend-password-reset', { email });
     return ok(null, res.data.message);
   },
 };
@@ -182,6 +198,59 @@ export const realClassService = {
   },
 };
 
+// Helper to wrap AI calls with an auto-index retry
+const withAutoIndex = async <T>(classId: string, materialId: string, requestFn: () => Promise<any>): Promise<ApiResponse<T>> => {
+  try {
+    const res = await requestFn();
+    if (res.data?.status === 'error' && res.data?.message?.includes('Material not indexed')) {
+      // Try to index the material first
+      try {
+        await axios.post(`${AI_BASE_URL}/rag/index/material/${materialId}`, { class_id: Number(classId) });
+        // Retry the original request
+        const retryRes = await requestFn();
+        if (retryRes.data?.status === 'error') throw new Error(retryRes.data.message);
+        return ok(retryRes.data);
+      } catch (retryErr: any) {
+        throw new Error(`Failed to index and process material: ${retryErr?.response?.data?.detail || retryErr.message}`);
+      }
+    }
+    if (res.data?.status === 'error') throw new Error(res.data.message);
+    return ok(res.data);
+  } catch (err: any) {
+    const errMsg = err?.response?.data?.detail || err?.response?.data?.message || err?.message || '';
+    throw new Error(errMsg);
+  }
+};
+
+// ---- AI RAG Actions (Direct to AI service or via backend) ----
+export const realAIRagService = {
+  async summarizeMaterial(classId: string, materialId: string): Promise<ApiResponse<any>> {
+    return withAutoIndex(classId, materialId, () => 
+      axios.post(`${AI_BASE_URL}/rag/material/summary`, { class_id: Number(classId), material_id: Number(materialId), mode: 'detailed' })
+    );
+  },
+  async getPageSummaries(classId: string, materialId: string): Promise<ApiResponse<any>> {
+    return withAutoIndex(classId, materialId, () => 
+      axios.post(`${AI_BASE_URL}/rag/material/page-summaries`, { class_id: Number(classId), material_id: Number(materialId) })
+    );
+  },
+  async getNotes(classId: string, materialId: string): Promise<ApiResponse<any>> {
+    return withAutoIndex(classId, materialId, () => 
+      axios.post(`${AI_BASE_URL}/rag/material/notes`, { class_id: Number(classId), material_id: Number(materialId) })
+    );
+  },
+  async getQuiz(classId: string, materialId: string): Promise<ApiResponse<any>> {
+    return withAutoIndex(classId, materialId, () => 
+      axios.post(`${AI_BASE_URL}/rag/material/quiz`, { class_id: Number(classId), material_id: Number(materialId), num_questions: 5 })
+    );
+  },
+  async getFlashcards(classId: string, materialId: string): Promise<ApiResponse<any>> {
+    return withAutoIndex(classId, materialId, () => 
+      axios.post(`${AI_BASE_URL}/rag/material/flashcards`, { class_id: Number(classId), material_id: Number(materialId), num_cards: 10 })
+    );
+  }
+};
+
 // ---- Lectures (/api/classes/:classId/lectures via lectureRouter mounted on /api/classes) ----
 export const realLectureService = {
   async getByClass(classId: string): Promise<ApiResponse<Lecture[]>> {
@@ -226,15 +295,54 @@ export const realMaterialService = {
 export const realDiscussionService = {
   async getQuestions(classId: string): Promise<ApiResponse<Question[]>> {
     const res = await apiClient.get(`/classes/${classId}/questions`);
-    return ok(res.data.data);
+    const mapped = (res.data.data || []).map((q: any) => ({
+      q_id: String(q.Questions_ID || q.q_id),
+      class_id: String(q.Class_ID || q.class_id),
+      text: q.Text || q.text,
+      user_id: String(q.User_ID || q.user_id),
+      user_name: q.User_Name || q.user_name,
+      user_role: (q.User_Role || q.user_role)?.toLowerCase(),
+      user_image: q.User_Image || q.user_image,
+      time: q.Time || q.time,
+      answers: (q.answers || []).map((a: any) => ({
+        a_id: String(a.Answer_ID || a.a_id),
+        question_id: String(a.Questions_ID || a.q_id || a.question_id),
+        text: a.Text || a.text,
+        user_id: String(a.User_ID || a.user_id),
+        user_name: a.User_Name || a.user_name,
+        user_role: (a.User_Role || a.user_role)?.toLowerCase(),
+        time: a.Time || a.time
+      }))
+    }));
+    return ok(mapped);
   },
   async postQuestion(data: Partial<Question> & { class_id: string }): Promise<ApiResponse<Question>> {
     const res = await apiClient.post(`/classes/${data.class_id}/questions`, { text: data.text });
-    return ok(res.data.data, res.data.message);
+    // Backend doesn't return the full object, so we construct one for the UI state
+    const newQuestion: Question = {
+      q_id: String(res.data.data?.q_id || Math.random().toString()),
+      class_id: data.class_id,
+      text: data.text || '',
+      user_id: data.user_id || '',
+      user_name: data.user_name || '',
+      user_role: data.user_role || 'student',
+      time: new Date().toISOString(),
+      answers: []
+    };
+    return ok(newQuestion, res.data.message);
   },
   async postAnswer(questionId: string, data: Partial<Answer>): Promise<ApiResponse<Answer>> {
     const res = await apiClient.post(`/questions/${questionId}/answers`, { text: data.text });
-    return ok(res.data.data, res.data.message);
+    const newAnswer: Answer = {
+      a_id: String(res.data.data?.a_id || Math.random().toString()),
+      question_id: questionId,
+      text: data.text || '',
+      user_id: data.user_id || '',
+      user_name: data.user_name || '',
+      user_role: data.user_role || 'student',
+      time: new Date().toISOString(),
+    };
+    return ok(newAnswer, res.data.message);
   },
 };
 

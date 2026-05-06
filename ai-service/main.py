@@ -6,6 +6,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import Body, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from rag_service import RagService
@@ -37,6 +38,16 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="UniSystem AI Service", version="1.0.0", lifespan=lifespan)
+
+# Enable CORS for frontend requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:3001"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 rag_service = RagService()
 
 

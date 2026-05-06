@@ -34,7 +34,7 @@ export default function RegisterPage() {
     try {
       const { confirm: _confirm, ...formData } = form;
       await authService.register({ ...formData, document: docFile || undefined });
-      navigate('/pending-approval');
+      navigate('/check-email', { state: { email: formData.email } });
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     } finally {

@@ -12,7 +12,7 @@ import {
   realCourseService, realClassService, realLectureService,
   realMaterialService, realDiscussionService, realGradeService,
   realAttendanceService, realNotificationService, realDoctorService,
-  realStudentService,
+  realStudentService, realAIRagService
 } from './realServices';
 
 const useMock = import.meta.env.VITE_USE_MOCK !== 'false';
@@ -42,3 +42,12 @@ export const aiService = {
     return realClassService.askGeneralAI(question);
   },
 };
+
+// Also expose rag service for AI Toolbar
+export const aiRagService = useMock ? {
+  async summarizeMaterial() { await new Promise(r=>setTimeout(r, 800)); return { success: true, data: { summary: "This is a mock summary of the document." }}; },
+  async getPageSummaries() { await new Promise(r=>setTimeout(r, 800)); return { success: true, data: { summaries: ["Page 1 mock", "Page 2 mock"] }}; },
+  async getNotes() { await new Promise(r=>setTimeout(r, 800)); return { success: true, data: { notes: "Mock Notes: - Study hard - Sleep well" }}; },
+  async getQuiz() { await new Promise(r=>setTimeout(r, 800)); return { success: true, data: { quiz: "1. What is Mock?\n2. Why mock?" }}; },
+  async getFlashcards() { await new Promise(r=>setTimeout(r, 800)); return { success: true, data: { flashcards: "Card 1: Front / Back" }}; },
+} : realAIRagService;

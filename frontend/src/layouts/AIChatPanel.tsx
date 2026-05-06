@@ -76,10 +76,9 @@ export default function AIChatPanel() {
         onClick={() => setOpen((v) => !v)}
         title="AI Assistant"
         className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300
-          ${
-            open
-              ? "bg-slate-100 dark:bg-[#1a1a24] hover:bg-slate-200 dark:hover:bg-[#232332] text-slate-900 dark:text-white"
-              : "bg-[#00b8d4] hover:bg-[#00e5ff] text-[#050b14] shadow-[0_0_15px_rgba(0,229,255,0.5)] hover:shadow-[0_0_25px_rgba(0,229,255,0.8)] hover:-translate-y-1"
+          ${open
+            ? "bg-slate-100 dark:bg-[#1a1a24] hover:bg-slate-200 dark:hover:bg-[#232332] text-slate-900 dark:text-white"
+            : "bg-[#00b8d4] hover:bg-[#00e5ff] text-[#050b14] shadow-[0_0_15px_rgba(0,229,255,0.5)] hover:shadow-[0_0_25px_rgba(0,229,255,0.8)] hover:-translate-y-1"
           }`}
       >
         {open ? <X size={22} /> : <Sparkles size={22} />}
@@ -136,11 +135,10 @@ export default function AIChatPanel() {
               </div>
               <div
                 className={`px-4 py-2.5 rounded-2xl text-sm max-w-[210px] whitespace-pre-wrap break-words leading-relaxed
-                ${
-                  m.role === "user"
+                ${m.role === "user"
                     ? "bg-[#00e5ff]/20 text-slate-900 dark:text-white border border-[#00e5ff]/30 rounded-tr-sm shadow-[0_0_10px_rgba(0,229,255,0.1)]"
                     : "bg-white dark:bg-[#111111] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-tl-sm shadow-md"
-                }`}
+                  }`}
               >
                 {m.text}
               </div>

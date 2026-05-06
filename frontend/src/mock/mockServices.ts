@@ -45,7 +45,7 @@ export const mockAuthService = {
     return { success: true, data: { token: `mock-jwt-${user.user_id}`, user } };
   },
 
-  async register(data: Partial<Student>): Promise<ApiResponse<User>> {
+  async register(data: Omit<Partial<Student>, 'document'> & { password?: string; document?: File | string; image?: File }): Promise<ApiResponse<User>> {
     await delay();
     const newStudent: Student = {
       user_id: `student-${Date.now()}`,
@@ -61,7 +61,7 @@ export const mockAuthService = {
       total_hours: 0,
       total_gpa: 0,
       department_id: data.department_id || 'dept-1',
-      document: data.document,
+      document: typeof data.document === 'string' ? data.document : (data.document ? (data.document as File).name : undefined),
       image_url: '',
       created_at: new Date().toISOString(),
     };
@@ -75,6 +75,31 @@ export const mockAuthService = {
                  students.find(u => u.user_id === userId);
     if (!user) throw new Error('User not found');
     return { success: true, data: user };
+  },
+
+  async forgotPassword(email: string): Promise<ApiResponse<null>> {
+    await delay();
+    return { success: true, data: null, message: "Password reset instructions sent." };
+  },
+
+  async resetPassword(token: string, password: string): Promise<ApiResponse<null>> {
+    await delay();
+    return { success: true, data: null, message: "Password reset successful." };
+  },
+
+  async verifyEmail(token: string): Promise<ApiResponse<null>> {
+    await delay();
+    return { success: true, data: null, message: "Email verified successfully." };
+  },
+
+  async resendVerification(email: string): Promise<ApiResponse<null>> {
+    await delay();
+    return { success: true, data: null, message: "Verification email resent." };
+  },
+
+  async resendPasswordReset(email: string): Promise<ApiResponse<null>> {
+    await delay();
+    return { success: true, data: null, message: "Password reset email resent." };
   },
 };
 

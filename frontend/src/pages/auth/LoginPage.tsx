@@ -29,7 +29,14 @@ export default function LoginPage() {
       login(res.data.user, res.data.token);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Login failed');
+      const errorMessage = err.message || 'Login failed';
+      if (errorMessage.includes("verify your email")) {
+        navigate('/check-email', { state: { email } });
+      } else if (errorMessage.includes("pending approval")) {
+        navigate('/pending-approval');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -89,6 +96,11 @@ export default function LoginPage() {
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
+          </div>
+          <div className="flex justify-end mt-2">
+            <Link to="/forgot-password" className="text-sm font-medium text-[#00b8d4] hover:text-[#00e5ff] transition-colors">
+              Forgot your password?
+            </Link>
           </div>
         </div>
         

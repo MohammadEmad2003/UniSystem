@@ -61,7 +61,8 @@ const isGmailAddress = (email) => {
 
 // ================== Email Verification Template ==================
 const buildEmailVerificationHTML = (user, verificationToken) => {
-  const verificationUrl = `${process.env.BASE_URL}/api/auth/verify/${verificationToken}`;
+  const frontendUrl = process.env.BASE_URL|| "http://localhost:5173";
+  const verificationUrl = `${frontendUrl}/verify/${verificationToken}`;
 
   return `
   <div style="font-family: Arial; max-width: 600px; margin: auto;">
@@ -90,7 +91,8 @@ const buildEmailVerificationHTML = (user, verificationToken) => {
 
 // ================== Password Reset Template ==================
 const buildPasswordResetHTML = (user, resetToken) => {
-  const resetUrl = `${process.env.BASE_URL}/api/auth/reset-password/${resetToken}`;
+  const frontendUrl = process.env.BASE_URL || "http://localhost:5173";
+  const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
 
   return `
   <div style="font-family: Arial; max-width: 600px; margin: auto;">

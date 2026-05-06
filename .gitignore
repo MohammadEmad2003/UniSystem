@@ -78,3 +78,5 @@ out/
 *.pid.lock
 *.seed
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+seed.js

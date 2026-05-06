@@ -8,6 +8,11 @@ import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import PendingApprovalPage from "./pages/auth/PendingApprovalPage";
+import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
+import VerifyEmailPage from "./pages/auth/VerifyEmailPage";
+import CheckEmailPage from "./pages/auth/CheckEmailPage";
+import CheckResetEmailPage from "./pages/auth/CheckResetEmailPage";
 import StudentDashboard from "./pages/dashboard/StudentDashboard";
 import DoctorDashboard from "./pages/dashboard/DoctorDashboard";
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
@@ -69,6 +74,11 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/pending-approval" element={<PendingApprovalPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/verify/:token" element={<VerifyEmailPage />} />
+        <Route path="/check-email" element={<CheckEmailPage />} />
+        <Route path="/check-reset-email" element={<CheckResetEmailPage />} />
       </Route>
 
       {/* Protected dashboard routes */}

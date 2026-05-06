@@ -1,6 +1,9 @@
 const path = require("path");
 const asyncWrapper = require("../middleware/asyncWrapper");
 const db = require("../utilities/database");
+const axios = require("axios");
+
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:9000";
 
 const logSqlError = (label, err, query, params) => {
   console.error(`[AI][SQL] ${label} failed: ${err.message}`);
@@ -212,9 +215,45 @@ const getInternalMaterial = asyncWrapper(async (req, res) => {
   });
 });
 
+// Index material in AI service (called after material is fetched)
+const indexMaterialInAI = asyncWrapper(async (req, res) => {
+  const { classId, materialId } = req.params;
+
+  try {
+    console.log(`[AI] Indexing material ${materialId} for class ${classId}...`);
+    
+    const response = await axios.post(
+      `${AI_SERVICE_URL}/rag/index/material/${materialId}`,
+      { class_id: classId, material_id: materialId },
+      { timeout: 30000 }
+    );
+
+    console.log(`[AI] Material ${materialId} indexed successfully:`, response.data);
+
+    return res.status(200).json({
+      success: true,
+      message: "Material indexed successfully",
+      data: response.data,
+    });
+  } catch (error) {
+    console.error(
+      `[AI] Error indexing material ${materialId}:`,
+      error.response?.data || error.message
+    );
+
+    // Return success even if indexing fails (material might not have documents)
+    return res.status(200).json({
+      success: true,
+      message: "Index request sent to AI service",
+      indexed: false,
+    });
+  }
+});
+
 module.exports = {
   getInternalClassQuestions,
   getInternalClassMaterials,
   getInternalQuestion,
   getInternalMaterial,
+  indexMaterialInAI,
 };

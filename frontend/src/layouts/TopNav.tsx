@@ -27,7 +27,11 @@ export default function TopNav() {
     setNotifications(prev => prev.map(n => n.notification_id === notif.notification_id ? { ...n, is_read: true } : n));
     setShowNotifs(false);
     if (notif.class_id) {
-      navigate(`/classes/${notif.class_id}/stream`);
+      const streamTypes = ['doctor_question_pending', 'ai_answer_ready', 'doctor_answer_ready'];
+      const qParam = streamTypes.includes(notif.type) && notif.reference_id
+        ? `?questionId=${notif.reference_id}`
+        : '';
+      navigate(`/classes/${notif.class_id}/stream${qParam}`);
     }
   };
 

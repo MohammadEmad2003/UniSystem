@@ -15,20 +15,15 @@ load_dotenv()
 
 
 def _preload_model() -> None:
-    """Download + load the LLM into memory at startup.
-    If the model is already in the HuggingFace cache it won't be re-downloaded.
-    """
-    use_local = os.getenv("USE_LOCAL_MODEL", "true").lower() == "true"
-    if not use_local:
-        print("[startup] USE_LOCAL_MODEL=false — skipping local model preload")
-        return
+    """Verify Ollama is reachable at startup."""
+    import requests as _req
+    ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
     try:
-        from local_llm_transformers import TransformersLLM
-        print("[startup] Preloading Qwen model (downloading if not cached)...")
-        TransformersLLM.get()._load()
-        print("[startup] Model ready.")
+        r = _req.get(f"{ollama_url}/api/tags", timeout=5)
+        models = [m.get("name", "") for m in (r.json().get("models") or [])]
+        print(f"[startup] Ollama reachable at {ollama_url}. Available models: {models or '(none)'}")
     except Exception as exc:
-        print(f"[startup] Model preload failed: {exc}")
+        print(f"[startup] WARNING — cannot reach Ollama at {ollama_url}: {exc}")
 
 
 @asynccontextmanager
@@ -65,7 +60,32 @@ class GeneralChatRequest(BaseModel):
 class MaterialSummaryRequest(BaseModel):
     class_id: int
     material_id: int
+    # legacy param kept for backward compat
     mode: str = "simple"
+    # new options
+    length: str = "medium"           # short | medium | detailed
+    format: str = "study_notes"      # paragraph | bullet_points | study_notes
+    include_formulas: bool = True
+    force_refresh: bool = False
+
+
+class PageSummaryRequest(BaseModel):
+    class_id: int
+    material_id: int
+    detail_level: str = "normal"     # brief | normal | detailed
+    include_key_terms: bool = True
+    include_formulas: bool = True
+    force_refresh: bool = False
+
+
+class NotesRequest(BaseModel):
+    class_id: int
+    material_id: int
+    notes_style: str = "bullet_notes"   # cornell | bullet_notes | exam_revision
+    detail_level: str = "detailed"      # normal | detailed | very_detailed
+    include_examples: bool = True
+    include_formulas: bool = True
+    force_refresh: bool = False
 
 
 class MaterialRequest(BaseModel):
@@ -76,13 +96,19 @@ class MaterialRequest(BaseModel):
 class QuizRequest(BaseModel):
     class_id: int
     material_id: int
-    num_questions: int = 5
+    num_questions: int = 10
+    difficulty: str = "mixed"        # easy | medium | hard | mixed
+    question_type: str = "mcq"       # mcq | true_false | mixed
+    force_refresh: bool = False
 
 
 class FlashcardsRequest(BaseModel):
     class_id: int
     material_id: int
     num_cards: int = 10
+    focus: str = "mixed"             # key_terms | definitions | formulas | mixed
+    include_examples: bool = False
+    force_refresh: bool = False
 
 
 @app.post("/ai/chat")
@@ -151,28 +177,39 @@ def summarize_material(payload: MaterialSummaryRequest) -> dict[str, Any]:
             class_id=payload.class_id,
             material_id=payload.material_id,
             mode=payload.mode,
+            length=payload.length,
+            format=payload.format,
+            include_formulas=payload.include_formulas,
+            force_refresh=payload.force_refresh,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.post("/rag/material/page-summaries")
-def material_page_summaries(payload: MaterialRequest) -> dict[str, Any]:
+def material_page_summaries(payload: PageSummaryRequest) -> dict[str, Any]:
     try:
         return rag_service.generate_page_summaries(
             class_id=payload.class_id,
             material_id=payload.material_id,
+            detail_level=payload.detail_level,
+            include_key_terms=payload.include_key_terms,
+            include_formulas=payload.include_formulas,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.post("/rag/material/notes")
-def material_notes(payload: MaterialRequest) -> dict[str, Any]:
+def material_notes(payload: NotesRequest) -> dict[str, Any]:
     try:
         return rag_service.generate_material_notes(
             class_id=payload.class_id,
             material_id=payload.material_id,
+            notes_style=payload.notes_style,
+            detail_level=payload.detail_level,
+            include_examples=payload.include_examples,
+            include_formulas=payload.include_formulas,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -185,6 +222,8 @@ def material_quiz(payload: QuizRequest) -> dict[str, Any]:
             class_id=payload.class_id,
             material_id=payload.material_id,
             num_questions=payload.num_questions,
+            difficulty=payload.difficulty,
+            question_type=payload.question_type,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -197,6 +236,8 @@ def material_flashcards(payload: FlashcardsRequest) -> dict[str, Any]:
             class_id=payload.class_id,
             material_id=payload.material_id,
             num_cards=payload.num_cards,
+            focus=payload.focus,
+            include_examples=payload.include_examples,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc

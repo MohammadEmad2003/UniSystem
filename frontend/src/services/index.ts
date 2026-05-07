@@ -12,7 +12,8 @@ import {
   realCourseService, realClassService, realLectureService,
   realMaterialService, realDiscussionService, realGradeService,
   realAttendanceService, realNotificationService, realDoctorService,
-  realStudentService, realAIRagService
+  realStudentService, realAIRagService, realStudyOutputService,
+  buildStudyOptionsKey,
 } from './realServices';
 
 const useMock = import.meta.env.VITE_USE_MOCK !== 'false';
@@ -42,6 +43,10 @@ export const aiService = {
     return realClassService.askGeneralAI(question);
   },
 };
+
+// Real-only: study output persistence (no mock needed — gracefully returns null)
+export const studyOutputService = realStudyOutputService;
+export { buildStudyOptionsKey };
 
 // Also expose rag service for AI Toolbar
 export const aiRagService = useMock ? {

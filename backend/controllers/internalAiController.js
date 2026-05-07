@@ -43,8 +43,11 @@ const getQuestionAnswers = (questionId) =>
         a.Text AS answer_text,
         a.Time AS answer_time,
         a.Doctor_ID AS doctor_id,
-        a.User_ID AS user_id
+        a.User_ID AS user_id,
+        COALESCE(u.F_Name || ' ' || u.L_Name, '') AS answered_by_name,
+        CASE WHEN a.Doctor_ID IS NOT NULL THEN 'doctor' ELSE 'student' END AS answered_by_role
        FROM Answer a
+       LEFT JOIN User u ON u.User_ID = COALESCE(a.Doctor_ID, a.User_ID)
        WHERE a.Questions_ID = ?
        ORDER BY
         CASE WHEN a.Doctor_ID IS NOT NULL THEN 0 ELSE 1 END,
@@ -66,8 +69,11 @@ const getQuestionsForClass = (classId) =>
         q.Class_ID AS class_id,
         q.Text AS question_text,
         q.User_ID AS user_id,
-        q.Doctor_ID AS doctor_id
+        q.Doctor_ID AS doctor_id,
+        COALESCE(u.F_Name || ' ' || u.L_Name, '') AS asked_by_name,
+        CASE WHEN q.Doctor_ID IS NOT NULL THEN 'doctor' ELSE 'student' END AS asked_by_role
        FROM Questions q
+       LEFT JOIN User u ON u.User_ID = COALESCE(q.User_ID, q.Doctor_ID)
        WHERE q.Class_ID = ?
        ORDER BY q.Questions_ID ASC`,
       [classId],
@@ -86,8 +92,11 @@ const getQuestionById = (questionId) =>
         q.Class_ID AS class_id,
         q.Text AS question_text,
         q.User_ID AS user_id,
-        q.Doctor_ID AS doctor_id
+        q.Doctor_ID AS doctor_id,
+        COALESCE(u.F_Name || ' ' || u.L_Name, '') AS asked_by_name,
+        CASE WHEN q.Doctor_ID IS NOT NULL THEN 'doctor' ELSE 'student' END AS asked_by_role
        FROM Questions q
+       LEFT JOIN User u ON u.User_ID = COALESCE(q.User_ID, q.Doctor_ID)
        WHERE q.Questions_ID = ?`,
       [questionId],
       (err, row) => {

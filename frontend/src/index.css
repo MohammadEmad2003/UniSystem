@@ -2,6 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── KaTeX error override ──────────────────────────────────────────────────
+   By default KaTeX renders broken formulas as harsh red text with a raw
+   backslash dump. We override this so failures look like a clean code span
+   instead of a jarring red error inside student-facing content.          */
+.katex-error {
+  color: inherit !important;
+  background: rgba(248, 250, 252, 0.8);
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 1px 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.dark .katex-error {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: #334155;
+  color: #94a3b8 !important;
+}
+
+/* Prevent KaTeX display blocks from overflowing flashcard cards */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
 :root {
   --surface-50: #f8fafc;
   --surface-100: #f1f5f9;

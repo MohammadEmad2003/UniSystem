@@ -67,10 +67,39 @@ const indexClass = async (classId, payload = {}) => {
   }
 };
 
+// ── Auto re-index with per-class debounce ────────────────────────────────────
+// Debounce prevents rapid back-to-back index calls (e.g. bulk uploads).
+// The timer is reset each time a new trigger arrives within the window.
+
+const _reindexTimers = new Map(); // classId -> NodeJS.Timeout
+const REINDEX_DEBOUNCE_MS = 8000; // 8 s
+
+const triggerReindex = (classId, source = 'unknown') => {
+  const key = String(classId);
+
+  if (_reindexTimers.has(key)) {
+    clearTimeout(_reindexTimers.get(key));
+  }
+
+  const timer = setTimeout(async () => {
+    _reindexTimers.delete(key);
+    try {
+      await indexClass(classId);
+      console.log(`[RAG] Auto re-index OK  class=${classId}  source=${source}`);
+    } catch (err) {
+      console.error(`[RAG] Auto re-index FAIL  class=${classId}  source=${source}:`, err.message);
+    }
+  }, REINDEX_DEBOUNCE_MS);
+
+  _reindexTimers.set(key, timer);
+  console.log(`[RAG] Re-index scheduled  class=${classId}  source=${source}  delay=${REINDEX_DEBOUNCE_MS}ms`);
+};
+
 module.exports = {
   askQuestion,
   askGeneral,
   indexQuestion,
   indexMaterial,
   indexClass,
+  triggerReindex,
 };

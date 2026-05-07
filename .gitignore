@@ -5,6 +5,9 @@
 .env.*
 !.env.example
 
+# Qdrant persistent storage
+ai-service/qdrant_storage/
+
 # Python
 __pycache__/
 *.pyc

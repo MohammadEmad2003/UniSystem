@@ -31,7 +31,10 @@ export type NotificationType =
   | "new_grade"
   | "announcement"
   | "approval"
-  | "enrollment";
+  | "enrollment"
+  | "doctor_question_pending"
+  | "ai_answer_ready"
+  | "doctor_answer_ready";
 export type AcademicLevel = 1 | 2 | 3 | 4;
 export type Semester = "Fall" | "Spring" | "Summer";
 
@@ -195,10 +198,16 @@ export interface Answer {
   question_id: string;
   user_id: string;
   user_name: string;
-  user_role: UserRole;
+  user_role: UserRole | 'ai';
   user_image?: string;
   text: string;
   time: string;
+  // AI answer fields
+  is_ai_generated?: boolean;
+  source_type?: string;
+  source_id?: string;
+  confidence?: number;
+  ai_metadata?: string;
 }
 
 // ---- Enrollment ----

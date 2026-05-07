@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { classService } from '../../services';
 import { useAuthStore } from '../../hooks/useAuthStore';
-import { MessageSquare, FileText, Video, Users, Award, ArrowLeft } from 'lucide-react';
+import { MessageSquare, FileText, Video, Users, Award, ArrowLeft, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import type { Class } from '../../types';
+
+const AI_URL = (import.meta.env.VITE_AI_BASE_URL || 'http://127.0.0.1:9000').replace(/\/$/, '');
 
 export default function ClassWorkspacePage() {
   const { classId } = useParams<{ classId: string }>();
@@ -11,6 +13,27 @@ export default function ClassWorkspacePage() {
   const navigate = useNavigate();
   const [cls, setCls] = useState<Class | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reindexing, setReindexing] = useState(false);
+  const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const showToast = (ok: boolean, msg: string) => {
+    setToast({ ok, msg });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const handleReindex = useCallback(async () => {
+    if (!classId || reindexing) return;
+    setReindexing(true);
+    try {
+      const res = await fetch(`${AI_URL}/rag/index/class/${classId}`, { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast(true, 'AI data re-indexed successfully');
+    } catch {
+      showToast(false, 'Failed to re-index AI data');
+    } finally {
+      setReindexing(false);
+    }
+  }, [classId, reindexing]);
 
   useEffect(() => {
     if (!classId) return;
@@ -37,20 +60,51 @@ export default function ClassWorkspacePage() {
 
   return (
     <div className="space-y-0">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-5 right-5 z-[200] flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium animate-slide-in transition-all ${
+          toast.ok
+            ? 'bg-emerald-50 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-300'
+            : 'bg-red-50 dark:bg-red-900/40 border-red-200 dark:border-red-700/50 text-red-700 dark:text-red-300'
+        }`}>
+          {toast.ok
+            ? <CheckCircle2 size={16} className="flex-shrink-0" />
+            : <AlertCircle   size={16} className="flex-shrink-0" />}
+          {toast.msg}
+        </div>
+      )}
+
       {/* Header */}
       <div className="gradient-header -mx-6 -mt-6 px-6 py-8 mb-0">
-        <button onClick={() => navigate('/classes')} className="flex items-center gap-2 text-slate-500 dark:text-white/70 hover:text-slate-900 dark:hover:text-white text-sm mb-4 transition-colors">
-          <ArrowLeft size={16} /> Back to Classes
-        </button>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{cls.course_name}</h1>
-        <div className="flex items-center gap-4 mt-2 text-slate-600 dark:text-white/80 text-sm">
-          <span>{cls.course_code}</span>
-          <span>•</span>
-          <span>{cls.doctor_name}</span>
-          <span>•</span>
-          <span>{cls.semester} Semester</span>
-          <span>•</span>
-          <span className="flex items-center gap-1"><Users size={14} /> {cls.enrolled_count}/{cls.capacity}</span>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <button onClick={() => navigate('/classes')} className="flex items-center gap-2 text-slate-500 dark:text-white/70 hover:text-slate-900 dark:hover:text-white text-sm mb-4 transition-colors">
+              <ArrowLeft size={16} /> Back to Classes
+            </button>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{cls.course_name}</h1>
+            <div className="flex items-center gap-4 mt-2 text-slate-600 dark:text-white/80 text-sm flex-wrap">
+              <span>{cls.course_code}</span>
+              <span>•</span>
+              <span>{cls.doctor_name}</span>
+              <span>•</span>
+              <span>{cls.semester} Semester</span>
+              <span>•</span>
+              <span className="flex items-center gap-1"><Users size={14} /> {cls.enrolled_count}/{cls.capacity}</span>
+            </div>
+          </div>
+
+          {/* Re-index button — doctor/admin only */}
+          {(user?.role === 'doctor' || user?.role === 'admin') && (
+            <button
+              onClick={handleReindex}
+              disabled={reindexing}
+              className="flex-shrink-0 mt-8 flex items-center gap-2 px-4 py-2 rounded-xl border border-[#00e5ff]/30 bg-[#00e5ff]/10 text-[#00b8d4] dark:text-[#00e5ff] hover:bg-[#00e5ff]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-semibold shadow-sm"
+              title="Refresh the AI knowledge base for this class"
+            >
+              <RefreshCw size={15} className={reindexing ? 'animate-spin' : ''} />
+              {reindexing ? 'Re-indexing…' : 'Re-index AI Data'}
+            </button>
+          )}
         </div>
       </div>
 

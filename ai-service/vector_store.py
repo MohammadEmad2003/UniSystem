@@ -17,13 +17,16 @@ class VectorStore:
 
     def __init__(self, vector_size: int) -> None:
         use_memory = os.getenv("QDRANT_IN_MEMORY", "true").lower() == "true"
+        qdrant_path = os.getenv("QDRANT_PATH", "./qdrant_storage")
 
         if use_memory:
+            print("[Qdrant] mode: in-memory (data lost on restart)")
             self.client = QdrantClient(":memory:")
         else:
-            self.client = QdrantClient(
-                url=os.getenv("QDRANT_URL", "http://localhost:6333")
-            )
+            import pathlib
+            pathlib.Path(qdrant_path).mkdir(parents=True, exist_ok=True)
+            print(f"[Qdrant] mode: persistent at {qdrant_path}")
+            self.client = QdrantClient(path=qdrant_path)
 
         self.vector_size = vector_size
         self._ensure_collection(self.QA_COLLECTION)
@@ -75,22 +78,32 @@ class VectorStore:
 
     def replace_question(self, record: dict[str, Any]) -> None:
         self.delete_by_field(self.QA_COLLECTION, "question_id", record["question_id"])
-        self._upsert(
-            self.QA_COLLECTION,
-            [
-                {
-                    "id": self._question_point_id(record["question_id"]),
-                    "vector": record["vector"],
-                    "payload": {
-                        "class_id": record["class_id"],
-                        "question_id": record["question_id"],
-                        "answer_id": record["answer_id"],
-                        "question_text": record["question_text"],
-                        "answer_text": record["answer_text"],
-                    },
-                }
-            ],
-        )
+        self._upsert(self.QA_COLLECTION, [self._qa_point(record)])
+
+    @staticmethod
+    def _qa_payload(record: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "class_id":         record["class_id"],
+            "question_id":      record["question_id"],
+            "answer_id":        record.get("answer_id"),
+            "question_text":    record["question_text"],
+            "answer_text":      record["answer_text"],
+            "asked_by_id":      record.get("asked_by_id", ""),
+            "asked_by_name":    record.get("asked_by_name", ""),
+            "asked_by_role":    record.get("asked_by_role", "student"),
+            "asked_at":         record.get("asked_at", ""),
+            "answered_by_id":   record.get("answered_by_id", ""),
+            "answered_by_name": record.get("answered_by_name", ""),
+            "answered_by_role": record.get("answered_by_role", "doctor"),
+            "answered_at":      record.get("answered_at", ""),
+        }
+
+    def _qa_point(self, record: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id":      self._question_point_id(record["question_id"]),
+            "vector":  record["vector"],
+            "payload": self._qa_payload(record),
+        }
 
     def replace_material_chunks(self, material_id: int, chunks: list[dict[str, Any]]) -> None:
         self.delete_by_field(self.MATERIAL_COLLECTION, "material_id", material_id)
@@ -123,24 +136,7 @@ class VectorStore:
 
     def bulk_replace_questions(self, class_id: int, records: list[dict[str, Any]]) -> None:
         self.delete_by_field(self.QA_COLLECTION, "class_id", class_id)
-        points = []
-
-        for record in records:
-            points.append(
-                {
-                    "id": self._question_point_id(record["question_id"]),
-                    "vector": record["vector"],
-                    "payload": {
-                        "class_id": record["class_id"],
-                        "question_id": record["question_id"],
-                        "answer_id": record["answer_id"],
-                        "question_text": record["question_text"],
-                        "answer_text": record["answer_text"],
-                    },
-                }
-            )
-
-        self._upsert(self.QA_COLLECTION, points)
+        self._upsert(self.QA_COLLECTION, [self._qa_point(r) for r in records])
 
     def bulk_replace_materials(self, class_id: int, chunks: list[dict[str, Any]]) -> None:
         self.delete_by_field(self.MATERIAL_COLLECTION, "class_id", class_id)

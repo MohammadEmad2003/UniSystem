@@ -314,6 +314,14 @@ export const realClassService = {
     const res = await apiClient.post(`/classes/ai/ask`, { question });
     return ok(res.data.data ?? res.data);
   },
+  // Ask AI + persist question & answer in DB in one call
+  async askAndSave(
+    classId: string,
+    text: string,
+  ): Promise<ApiResponse<{ status: string; question: any }>> {
+    const res = await apiClient.post(`/classes/${classId}/ai/ask-and-save`, { text });
+    return ok(res.data.data ?? res.data);
+  },
 };
 
 // Helper to wrap AI calls with an auto-index retry
@@ -361,58 +369,91 @@ export const realAIRagService = {
   async summarizeMaterial(
     classId: string,
     materialId: string,
+    opts?: Record<string, any>,
+    forceRefresh = false,
   ): Promise<ApiResponse<any>> {
+    console.debug('[STUDY_AI_OPTIONS] summary', opts, forceRefresh ? '[FORCE_REFRESH]' : '');
     return withAutoIndex(classId, materialId, () =>
       axios.post(`${AI_BASE_URL}/rag/material/summary`, {
-        class_id: Number(classId),
-        material_id: Number(materialId),
-        mode: "detailed",
+        class_id:         Number(classId),
+        material_id:      Number(materialId),
+        length:           opts?.length           ?? 'medium',
+        format:           opts?.format           ?? 'study_notes',
+        include_formulas: opts?.include_formulas ?? true,
+        force_refresh:    forceRefresh,
       }),
     );
   },
   async getPageSummaries(
     classId: string,
     materialId: string,
+    opts?: Record<string, any>,
+    forceRefresh = false,
   ): Promise<ApiResponse<any>> {
+    console.debug('[STUDY_AI_OPTIONS] page_summaries', opts, forceRefresh ? '[FORCE_REFRESH]' : '');
     return withAutoIndex(classId, materialId, () =>
       axios.post(`${AI_BASE_URL}/rag/material/page-summaries`, {
-        class_id: Number(classId),
-        material_id: Number(materialId),
+        class_id:          Number(classId),
+        material_id:       Number(materialId),
+        detail_level:      opts?.detail_level      ?? 'normal',
+        include_key_terms: opts?.include_key_terms ?? true,
+        include_formulas:  opts?.include_formulas  ?? true,
+        force_refresh:     forceRefresh,
       }),
     );
   },
   async getNotes(
     classId: string,
     materialId: string,
+    opts?: Record<string, any>,
+    forceRefresh = false,
   ): Promise<ApiResponse<any>> {
+    console.debug('[STUDY_AI_OPTIONS] notes', opts, forceRefresh ? '[FORCE_REFRESH]' : '');
     return withAutoIndex(classId, materialId, () =>
       axios.post(`${AI_BASE_URL}/rag/material/notes`, {
-        class_id: Number(classId),
-        material_id: Number(materialId),
+        class_id:         Number(classId),
+        material_id:      Number(materialId),
+        notes_style:      opts?.notes_style      ?? 'bullet_notes',
+        detail_level:     opts?.detail_level     ?? 'detailed',
+        include_examples: opts?.include_examples ?? true,
+        include_formulas: opts?.include_formulas ?? true,
+        force_refresh:    forceRefresh,
       }),
     );
   },
   async getQuiz(
     classId: string,
     materialId: string,
+    opts?: Record<string, any>,
+    forceRefresh = false,
   ): Promise<ApiResponse<any>> {
+    console.debug('[STUDY_AI_OPTIONS] quiz', opts, forceRefresh ? '[FORCE_REFRESH]' : '');
     return withAutoIndex(classId, materialId, () =>
       axios.post(`${AI_BASE_URL}/rag/material/quiz`, {
-        class_id: Number(classId),
-        material_id: Number(materialId),
-        num_questions: 5,
+        class_id:      Number(classId),
+        material_id:   Number(materialId),
+        num_questions: opts?.count         ?? 10,
+        difficulty:    opts?.difficulty    ?? 'mixed',
+        question_type: opts?.question_type ?? 'mcq',
+        force_refresh: forceRefresh,
       }),
     );
   },
   async getFlashcards(
     classId: string,
     materialId: string,
+    opts?: Record<string, any>,
+    forceRefresh = false,
   ): Promise<ApiResponse<any>> {
+    console.debug('[STUDY_AI_OPTIONS] flashcards', opts, forceRefresh ? '[FORCE_REFRESH]' : '');
     return withAutoIndex(classId, materialId, () =>
       axios.post(`${AI_BASE_URL}/rag/material/flashcards`, {
-        class_id: Number(classId),
-        material_id: Number(materialId),
-        num_cards: 10,
+        class_id:         Number(classId),
+        material_id:      Number(materialId),
+        num_cards:        opts?.count            ?? 10,
+        focus:            opts?.focus            ?? 'mixed',
+        include_examples: opts?.include_examples ?? false,
+        force_refresh:    forceRefresh,
       }),
     );
   },
@@ -486,10 +527,15 @@ export const realDiscussionService = {
         a_id: String(a.Answer_ID || a.a_id),
         question_id: String(a.Questions_ID || a.q_id || a.question_id),
         text: a.Text || a.text,
-        user_id: String(a.User_ID || a.user_id),
-        user_name: a.User_Name || a.user_name,
-        user_role: (a.User_Role || a.user_role)?.toLowerCase(),
+        user_id: String(a.User_ID ?? a.user_id ?? ''),
+        user_name: a.User_Name || a.user_name || 'AI Assistant',
+        user_role: (a.User_Role || a.user_role)?.toLowerCase() || 'ai',
         time: a.Time || a.time,
+        is_ai_generated: Boolean(a.Is_AI_Generated || a.is_ai_generated),
+        source_type: a.Source_Type || a.source_type || undefined,
+        source_id: a.Source_ID || a.source_id || undefined,
+        confidence: a.Confidence ?? a.confidence ?? undefined,
+        ai_metadata: a.AI_Metadata || a.ai_metadata || undefined,
       })),
     }));
     return ok(mapped);
@@ -624,5 +670,59 @@ export const realStudentService = {
   async getAll(): Promise<ApiResponse<Student[]>> {
     const res = await apiClient.get("/students");
     return ok(res.data.data);
+  },
+};
+
+// ---- Study Output Cache (/api/classes/:classId/study-outputs) ----
+export interface StudyOutputRecord {
+  output_id: number;
+  tool_type: string;
+  options_key: string;
+  options: Record<string, any>;
+  content: any;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Build a deterministic options key (must match backend buildOptionsKey). */
+export function buildStudyOptionsKey(toolType: string, options: Record<string, any>): string {
+  const sorted = Object.keys(options)
+    .sort()
+    .map(k => `${k}=${options[k]}`)
+    .join('|');
+  return `${toolType}::${sorted}`;
+}
+
+export const realStudyOutputService = {
+  async get(
+    classId: string,
+    materialId: string,
+    toolType: string,
+    options: Record<string, any>,
+  ): Promise<StudyOutputRecord | null> {
+    const optionsKey = buildStudyOptionsKey(toolType, options);
+    try {
+      const res = await apiClient.get(`/classes/${classId}/study-outputs`, {
+        params: { material_id: materialId, tool_type: toolType, options_key: optionsKey },
+      });
+      return res.data.data as StudyOutputRecord;
+    } catch {
+      return null;
+    }
+  },
+
+  async save(
+    classId: string,
+    materialId: string,
+    toolType: string,
+    options: Record<string, any>,
+    content: any,
+  ): Promise<void> {
+    await apiClient.post(`/classes/${classId}/study-outputs`, {
+      material_id: materialId,
+      tool_type:   toolType,
+      options,
+      content,
+    });
   },
 };

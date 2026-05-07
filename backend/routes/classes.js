@@ -9,7 +9,8 @@ const {
   getClassGrades, getStudentGrades, addGrade
 } = require('../controllers/classController');
 const verifyToken = require('../middleware/verifytoken');
-const { getClassQuestions, postQuestion } = require('../controllers/discussionController');
+const { getClassQuestions, postQuestion, askAndSave } = require('../controllers/discussionController');
+const { getStudyOutput, saveStudyOutput, deleteStudyOutput } = require('../controllers/studyOutputController');
 
 router.use(verifyToken);
 
@@ -25,6 +26,10 @@ router.post('/', allowedTo(userRoles.ADMIN), createClass);
 router.post('/:classId/enroll', enrollStudent);
 router.delete('/:classId/enroll/:studentId', dropStudent);
 router.post('/:classId/questions', allowedTo(userRoles.DOCTOR , userRoles.STUDENT), postQuestion);
+router.post('/:classId/ai/ask-and-save', allowedTo(userRoles.DOCTOR , userRoles.STUDENT), askAndSave);
+router.get('/:classId/study-outputs',    allowedTo(userRoles.DOCTOR , userRoles.STUDENT), getStudyOutput);
+router.post('/:classId/study-outputs',   allowedTo(userRoles.DOCTOR , userRoles.STUDENT), saveStudyOutput);
+router.delete('/:classId/study-outputs', allowedTo(userRoles.DOCTOR , userRoles.STUDENT), deleteStudyOutput);
 router.post('/:classId/grades', allowedTo(userRoles.DOCTOR), addGrade);
 router.delete('/:classId', allowedTo(userRoles.ADMIN), deleteClass);
 

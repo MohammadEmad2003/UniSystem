@@ -22,6 +22,7 @@ require("./models/questionModel");
 require("./models/answerModel");
 require("./models/attendanceModel");
 require("./models/notificationModel");
+require("./models/academicLevelFeesModel");
 
 // const httpstatustext=require('./utilities/httpstatustext');
 // const createuser = require("./controllers/test");

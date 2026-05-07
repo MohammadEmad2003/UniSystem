@@ -45,13 +45,14 @@ const createMaterial = asyncWrapper(async (req, res) => {
         success: true,
         message: "Material created successfully",
         data: {
-            id: result.lastID, 
+            material_id: result.lastID, 
             name: name,
             lecture_id: lecture_id,
             type: type,
             url: finalURL,
             document: req.file ? `/uploads/${req.file.filename}` : null,
-            summarize: summarize
+            summarize: summarize,
+            uploaded_at: new Date().toISOString()
         }
     });
 });
@@ -69,6 +70,7 @@ const getMaterialsByClass = asyncWrapper(async (req, res) => {
             m.Document AS document,
             m.Type AS type,
             m.Summarize AS summarize,
+            m.Uploaded_At AS uploaded_at,
             (u.F_Name || ' ' || u.L_Name) AS uploaded_by 
        FROM Material m
         LEFT JOIN Lecture l ON m.Lec_ID = l.Lec_ID

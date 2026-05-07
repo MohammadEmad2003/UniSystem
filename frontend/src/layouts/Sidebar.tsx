@@ -16,6 +16,8 @@ import {
   ClipboardList,
   FolderOpen,
   Search,
+  DollarSign,
+  Award,
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -52,9 +54,8 @@ export default function Sidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full z-40 transition-transform duration-500 ease-out ${
-          open ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 w-72 bg-white dark:bg-[#050b14]/95 backdrop-blur-3xl border-r border-slate-200 dark:border-slate-800/50 shadow-[4px_0_10px_rgba(0,0,0,0.08)] dark:shadow-[4px_0_30px_rgba(0,0,0,0.8)] flex flex-col`}
+        className={`fixed top-0 left-0 h-full z-40 transition-transform duration-500 ease-out ${open ? "translate-x-0" : "-translate-x-full"
+          } lg:translate-x-0 w-72 bg-white dark:bg-[#050b14]/95 backdrop-blur-3xl border-r border-slate-200 dark:border-slate-800/50 shadow-[4px_0_10px_rgba(0,0,0,0.08)] dark:shadow-[4px_0_30px_rgba(0,0,0,0.8)] flex flex-col`}
       >
         {/* Logo */}
         <div className="p-6 border-b border-slate-200 dark:border-slate-800/50">
@@ -94,7 +95,7 @@ export default function Sidebar() {
           </NavLink>
 
           {/* Student & Doctor: My Classes - use end prop so /classes/browse doesn't highlight this */}
-          {(user?.role === "student" || user?.role === "doctor") && (
+          {(user?.role === 'student' || user?.role === 'doctor') && (
             <NavLink
               to="/classes"
               end
@@ -105,15 +106,41 @@ export default function Sidebar() {
             </NavLink>
           )}
 
-          {/* Browse Classes: students only */}
-          {user?.role === "student" && (
+          {user?.role === 'student' && (
             <NavLink
-              to="/classes/browse"
+              to="/grades"
               className={linkClass}
               onClick={() => setOpen(false)}
             >
-              <Search size={20} /> Browse Classes
+              <Award size={20} /> My Grades
             </NavLink>
+          )}
+
+          {/* Department Management - only for Doctor Heads */}
+          {user?.role === 'doctor' && Number((user as any).permissions_level) === 1 && (
+            <NavLink to="/admin/dept-management" className={linkClass} onClick={() => setOpen(false)}>
+              <Building2 size={20} /> Dept Management
+            </NavLink>
+          )}
+
+          {/* Browse Classes: students only */}
+          {user?.role === "student" && (
+            <>
+              <NavLink
+                to="/classes/browse"
+                className={linkClass}
+                onClick={() => setOpen(false)}
+              >
+                <Search size={20} /> Browse Classes
+              </NavLink>
+              <NavLink
+                to="/payments"
+                className={linkClass}
+                onClick={() => setOpen(false)}
+              >
+                <ClipboardList size={20} /> Payments
+              </NavLink>
+            </>
           )}
 
           {/* Profile — all roles */}
@@ -126,7 +153,7 @@ export default function Sidebar() {
           </NavLink>
 
           {/* Admin section */}
-          {user?.role === "admin" && (
+          {(user?.role?.toLowerCase() === "admin" || (user as any)?.Role?.toLowerCase() === "admin") && (
             <>
               <div className="pt-6 pb-2">
                 <button
@@ -142,41 +169,34 @@ export default function Sidebar() {
               </div>
               {adminExpanded && (
                 <div className="space-y-1.5 animate-slide-up">
-                  <NavLink
-                    to="/admin/approvals"
-                    className={linkClass}
-                    onClick={() => setOpen(false)}
-                  >
-                    <ShieldCheck size={20} /> Approvals
-                  </NavLink>
-                  <NavLink
-                    to="/admin/users"
-                    className={linkClass}
-                    onClick={() => setOpen(false)}
-                  >
-                    <UserPlus size={20} /> Manage Users
-                  </NavLink>
-                  <NavLink
-                    to="/admin/departments"
-                    className={linkClass}
-                    onClick={() => setOpen(false)}
-                  >
-                    <Building2 size={20} /> Departments
-                  </NavLink>
-                  <NavLink
-                    to="/admin/courses"
-                    className={linkClass}
-                    onClick={() => setOpen(false)}
-                  >
-                    <FolderOpen size={20} /> Courses
-                  </NavLink>
-                  <NavLink
-                    to="/admin/classes"
-                    className={linkClass}
-                    onClick={() => setOpen(false)}
-                  >
-                    <ClipboardList size={20} /> Classes
-                  </NavLink>
+                  {/* Role based split for Admins */}
+                  {Number((user as any)?.permissions_level || (user as any)?.Permissions_Level) === 1 ? (
+                    // Dean (Level 1) Links
+                    <>
+                      <NavLink to="/admin/users" className={linkClass} onClick={() => setOpen(false)}>
+                        <UserPlus size={20} /> Manage Staff
+                      </NavLink>
+                      <NavLink to="/admin/departments" className={linkClass} onClick={() => setOpen(false)}>
+                        <Building2 size={20} /> Departments
+                      </NavLink>
+                      <NavLink to="/admin/courses" className={linkClass} onClick={() => setOpen(false)}>
+                        <FolderOpen size={20} /> Courses
+                      </NavLink>
+                      <NavLink to="/admin/classes" className={linkClass} onClick={() => setOpen(false)}>
+                        <ClipboardList size={20} /> Classes
+                      </NavLink>
+                      <NavLink to="/admin/fees" className={linkClass} onClick={() => setOpen(false)}>
+                        <DollarSign size={20} /> Manage Fees
+                      </NavLink>
+                    </>
+                  ) : (
+                    // Student Affairs (Level 2) Links
+                    <>
+                      <NavLink to="/admin/student-management" className={linkClass} onClick={() => setOpen(false)}>
+                        <Users size={20} /> Student Management
+                      </NavLink>
+                    </>
+                  )}
                 </div>
               )}
             </>

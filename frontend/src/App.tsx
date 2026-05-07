@@ -5,6 +5,8 @@ import { useThemeStore } from "./hooks/useThemeStore";
 import AuthLayout from "./layouts/AuthLayout";
 import DashboardLayout from "./layouts/DashboardLayout";
 import LandingPage from "./pages/LandingPage";
+import ProfilePage from "./pages/ProfilePage";
+import StudentGradesPage from "./pages/student/GradesPage";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import PendingApprovalPage from "./pages/auth/PendingApprovalPage";
@@ -29,7 +31,17 @@ import ManageUsersPage from "./pages/admin/ManageUsersPage";
 import ManageDepartmentsPage from "./pages/admin/ManageDepartmentsPage";
 import ManageCoursesPage from "./pages/admin/ManageCoursesPage";
 import ManageClassesPage from "./pages/admin/ManageClassesPage";
-import ProfilePage from "./pages/ProfilePage";
+import ManageFeesPage from "./pages/admin/ManageFeesPage";
+import StudentAffairsDashboard from "./pages/dashboard/StudentAffairsDashboard";
+import StudentManagementPage from "./pages/admin/StudentManagementPage";
+import DeptManagementPage from "./pages/admin/DeptManagementPage";
+import PaymentPage from "./pages/student/PaymentPage";
+import LandingLayout from "./layouts/LandingLayout";
+import AcademicsPage from "./pages/landing/AcademicsPage";
+import AdmissionsPage from "./pages/landing/AdmissionsPage";
+import ResearchPage from "./pages/landing/ResearchPage";
+import CampusLifePage from "./pages/landing/CampusLifePage";
+
 
 // Route guard component
 function ProtectedRoute({
@@ -49,7 +61,13 @@ function ProtectedRoute({
 // Dashboard redirect based on role
 function DashboardRedirect() {
   const { user } = useAuthStore();
-  if (user?.role === "admin") return <AdminDashboard />;
+  if (user?.role === "admin") {
+    const pLevel = Number(
+      (user as any)?.permissions_level || (user as any)?.Permissions_Level,
+    );
+    if (pLevel === 2) return <StudentAffairsDashboard />;
+    return <AdminDashboard />;
+  }
   if (user?.role === "doctor") return <DoctorDashboard />;
   return <StudentDashboard />;
 }
@@ -67,7 +85,14 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route element={<LandingLayout />}>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/academics" element={<AcademicsPage />} />
+        <Route path="/admissions" element={<AdmissionsPage />} />
+        <Route path="/research" element={<ResearchPage />} />
+        <Route path="/campus-life" element={<CampusLifePage />} />
+      </Route>
+
 
       {/* Auth routes */}
       <Route element={<AuthLayout />}>
@@ -91,6 +116,14 @@ export default function App() {
       >
         <Route path="/dashboard" element={<DashboardRedirect />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route
+          path="/grades"
+          element={
+            <ProtectedRoute roles={["student"]}>
+              <StudentGradesPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Classes (student + doctor only) */}
         <Route
@@ -127,6 +160,22 @@ export default function App() {
 
         {/* Admin routes */}
         <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute roles={["admin", "doctor"]}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/dept-management"
+          element={
+            <ProtectedRoute roles={["doctor"]}>
+              <DeptManagementPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/approvals"
           element={
             <ProtectedRoute roles={["admin"]}>
@@ -139,6 +188,14 @@ export default function App() {
           element={
             <ProtectedRoute roles={["admin"]}>
               <ManageUsersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/student-management"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <StudentManagementPage />
             </ProtectedRoute>
           }
         />
@@ -163,6 +220,22 @@ export default function App() {
           element={
             <ProtectedRoute roles={["admin"]}>
               <ManageClassesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/fees"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <ManageFeesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/payments"
+          element={
+            <ProtectedRoute roles={["student"]}>
+              <PaymentPage />
             </ProtectedRoute>
           }
         />

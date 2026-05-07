@@ -39,14 +39,14 @@ export default function ClassStudentsTab() {
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold text-xs">
-                      {s.f_name[0]}{s.l_name[0]}
+                      {(s.f_name?.[0] || '?').toUpperCase()}{(s.l_name?.[0] || '').toUpperCase()}
                     </div>
-                    <span className="font-medium text-sm text-slate-800 dark:text-slate-200">{s.f_name} {s.l_name}</span>
+                    <span className="font-medium text-sm text-slate-800 dark:text-slate-200">{s.f_name || ''} {s.l_name || ''}</span>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1"><Mail size={14} /> {s.email}</td>
-                <td className="px-4 py-3"><span className="badge bg-[#00e5ff]/10 text-[#00e5ff]">Level {s.academic_level}</span></td>
-                <td className="px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300">{s.total_gpa.toFixed(2)}</td>
+                <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1"><Mail size={14} /> {s.email || ''}</td>
+                <td className="px-4 py-3"><span className="badge bg-[#00e5ff]/10 text-[#00e5ff]">Level {s.academic_level || 0}</span></td>
+                <td className="px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300">{(Number(s.total_gpa) || 0).toFixed(2)}</td>
               </tr>
             ))}
           </tbody>

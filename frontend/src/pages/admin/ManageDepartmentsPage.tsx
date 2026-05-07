@@ -1,20 +1,28 @@
 import { useState, useEffect } from 'react';
 import { departmentService } from '../../services';
 import { Building2, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { useAuthStore } from '../../hooks/useAuthStore';
 import type { Department } from '../../types';
 
 export default function ManageDepartmentsPage() {
+  const { token } = useAuthStore();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Department | null>(null);
   const [name, setName] = useState('');
+  const [doctors, setDoctors] = useState<any[]>([]);
+  const [headId, setHeadId] = useState('');
 
   useEffect(() => {
-    departmentService.getAll()
-      .then(r => setDepartments(r.data))
-      .catch(e => setError(e instanceof Error ? e.message : 'Failed to load departments'))
+    Promise.all([
+      departmentService.getAll(),
+      fetch('http://localhost:3000/api/admin/doctors', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+    ]).then(([deptRes, docRes]) => {
+      setDepartments(deptRes.data);
+      if (docRes.success) setDoctors(docRes.data);
+    }).catch(e => setError(e instanceof Error ? e.message : 'Failed to load data'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -24,10 +32,12 @@ export default function ManageDepartmentsPage() {
       const res = await departmentService.update(editing.dept_id, { dept_name: name });
       setDepartments(prev => prev.map(d => d.dept_id === editing.dept_id ? res.data : d));
     } else {
-      const res = await departmentService.create({ dept_name: name });
+      const payload: any = { dept_name: name };
+      if (headId) payload.head_id = headId;
+      const res = await departmentService.create(payload);
       setDepartments(prev => [...prev, res.data]);
     }
-    setShowForm(false); setEditing(null); setName('');
+    setShowForm(false); setEditing(null); setName(''); setHeadId('');
   };
 
   const handleDelete = async (id: string) => {
@@ -46,7 +56,7 @@ export default function ManageDepartmentsPage() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">Departments</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">Manage academic departments</p>
         </div>
-        <button onClick={() => { setShowForm(true); setEditing(null); setName(''); }} className="btn-primary flex items-center gap-2">
+        <button onClick={() => { setShowForm(true); setEditing(null); setName(''); setHeadId(''); }} className="btn-primary flex items-center gap-2">
           <Plus size={18} /> Add Department
         </button>
       </div>
@@ -81,6 +91,14 @@ export default function ManageDepartmentsPage() {
               <button onClick={() => setShowForm(false)} className="p-1 hover:bg-surface-100 rounded-lg"><X size={18} /></button>
             </div>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Department name" className="input-field mb-4" autoFocus />
+            {!editing && (
+              <select value={headId} onChange={e => setHeadId(e.target.value)} className="input-field mb-4">
+                <option value="">Select Head of Department (Optional)</option>
+                {doctors.map(d => (
+                  <option key={d.user_id} value={d.user_id}>{d.f_name} {d.l_name}</option>
+                ))}
+              </select>
+            )}
             <button onClick={handleSave} className="btn-primary w-full">{editing ? 'Update' : 'Create'}</button>
           </div>
         </div>

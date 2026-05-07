@@ -53,9 +53,7 @@ export default function MyClassesPage() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">My Classes</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">{user?.role === 'doctor' ? 'Classes you are teaching' : 'Classes you are enrolled in'}</p>
         </div>
-        <Link to="/classes/browse" className="btn-primary flex items-center gap-2">
-          <Plus size={16} /> Browse & Enroll
-        </Link>
+
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -97,9 +95,11 @@ export default function MyClassesPage() {
           <BookOpen size={48} className="mx-auto text-surface-300 mb-4" />
           <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">No Classes Yet</h3>
           <p className="text-slate-600 dark:text-slate-400 mt-1">{user?.role === 'student' ? "You haven't enrolled in any classes yet." : "You haven't been assigned any classes."}</p>
-          <Link to="/classes/browse" className="btn-primary inline-flex items-center gap-2 mt-4">
-            <Plus size={16} /> Browse Classes
-          </Link>
+          {user?.role === 'student' && (
+            <Link to="/classes/browse" className="btn-primary inline-flex items-center gap-2 mt-4">
+              <Plus size={16} /> Browse Classes
+            </Link>
+          )}
         </div>
       )}
     </div>

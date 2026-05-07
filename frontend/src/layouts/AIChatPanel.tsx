@@ -78,7 +78,7 @@ export default function AIChatPanel() {
         className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300
           ${open
             ? "bg-slate-100 dark:bg-[#1a1a24] hover:bg-slate-200 dark:hover:bg-[#232332] text-slate-900 dark:text-white"
-            : "bg-[#00b8d4] hover:bg-[#00e5ff] text-[#050b14] shadow-[0_0_15px_rgba(0,229,255,0.5)] hover:shadow-[0_0_25px_rgba(0,229,255,0.8)] hover:-translate-y-1"
+            : "bg-[#00b8d4] hover:bg-[#00e5ff] text-[#ececec] dark:text-[#050b14] shadow-[0_0_15px_rgba(0,229,255,0.5)] hover:shadow-[0_0_25px_rgba(0,229,255,0.8)] hover:-translate-y-1"
           }`}
       >
         {open ? <X size={22} /> : <Sparkles size={22} />}

@@ -7,9 +7,10 @@ import type { Lecture, User } from '../../types';
 interface Ctx { classId: string; user: User }
 
 const typeConfig: Record<string, { icon: typeof Wifi; color: string; bg: string }> = {
-  online: { icon: Wifi, color: 'text-green-600', bg: 'bg-green-50' },
-  offline: { icon: Monitor, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-  hybrid: { icon: Video, color: 'text-purple-600', bg: 'bg-purple-500/10' },
+  Lecture: { icon: Monitor, color: 'text-blue-500 dark:text-blue-400', bg: 'bg-blue-500/10' },
+  Section: { icon: Video, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-500/10' },
+  Lab: { icon: Monitor, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10' },
+  Online: { icon: Wifi, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-500/10' },
 };
 
 export default function ClassLecturesTab() {
@@ -17,18 +18,38 @@ export default function ClassLecturesTab() {
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ title: '', day: 'Sunday', time: '09:00', type: 'offline' as Lecture['type'], room_id: '', meeting_link: '', date: '' });
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({ title: '', day: 'Sunday', time: '09:00', type: 'Lecture' as Lecture['type'], room_id: '', meeting_link: '', date: '' });
 
   useEffect(() => {
     lectureService.getByClass(classId).then(r => setLectures(r.data)).finally(() => setLoading(false));
   }, [classId]);
 
   const handleCreate = async () => {
-    if (!form.title.trim()) return;
-    const res = await lectureService.create({ ...form, class_id: classId });
-    setLectures(prev => [...prev, res.data]);
-    setShowCreate(false);
-    setForm({ title: '', day: 'Sunday', time: '09:00', type: 'offline', room_id: '', meeting_link: '', date: '' });
+    if (!form.title.trim() || !form.date) return;
+    
+    const selectedDate = new Date(form.date);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    
+    if (selectedDate < today) {
+      setError("Lecture date cannot be in the past");
+      return;
+    }
+
+    setIsCreating(true);
+    setError(null);
+    try {
+      const res = await lectureService.create({ ...form, class_id: classId });
+      setLectures(prev => [...prev, res.data]);
+      setShowCreate(false);
+      setForm({ title: '', day: 'Sunday', time: '09:00', type: 'Lecture', room_id: '', meeting_link: '', date: '' });
+    } catch (err: any) {
+      setError(err.message || 'Failed to create lecture');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   if (loading) return <div className="flex items-center justify-center h-48"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
@@ -52,6 +73,7 @@ export default function ClassLecturesTab() {
               <button onClick={() => setShowCreate(false)} className="p-1 hover:bg-surface-100 rounded-lg"><X size={18} /></button>
             </div>
             <div className="space-y-3">
+              {error && <div className="p-3 bg-red-500/10 text-red-500 text-xs rounded-xl border border-red-500/20">{error}</div>}
               <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Lecture title" className="input-field" />
               <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="input-field" />
               <div className="grid grid-cols-2 gap-3">
@@ -61,17 +83,24 @@ export default function ClassLecturesTab() {
                 <input type="time" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} className="input-field" />
               </div>
               <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value as Lecture['type'] })} className="input-field">
-                <option value="offline">Offline</option>
-                <option value="online">Online</option>
-                <option value="hybrid">Hybrid</option>
+                <option value="Lecture">Lecture</option>
+                <option value="Section">Section</option>
+                <option value="Lab">Lab</option>
+                <option value="Online">Online</option>
               </select>
-              {(form.type === 'offline' || form.type === 'hybrid') && (
+              {form.type !== 'Online' && (
                 <input value={form.room_id} onChange={e => setForm({ ...form, room_id: e.target.value })} placeholder="Room ID" className="input-field" />
               )}
-              {(form.type === 'online' || form.type === 'hybrid') && (
+              {form.type === 'Online' && (
                 <input value={form.meeting_link} onChange={e => setForm({ ...form, meeting_link: e.target.value })} placeholder="Meeting link" className="input-field" />
               )}
-              <button onClick={handleCreate} className="btn-primary w-full">Create Lecture</button>
+              <button
+                onClick={handleCreate}
+                disabled={isCreating}
+                className="btn-primary w-full flex items-center justify-center gap-2"
+              >
+                {isCreating ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Create Lecture'}
+              </button>
             </div>
           </div>
         </div>
@@ -79,7 +108,7 @@ export default function ClassLecturesTab() {
 
       {/* Lectures list */}
       {lectures.map((lec, i) => {
-        const cfg = typeConfig[lec.type] || typeConfig.offline;
+        const cfg = typeConfig[lec.type] || typeConfig['Lecture'];
         const TypeIcon = cfg.icon;
         return (
           <div key={lec.lec_id} className="card p-4 animate-slide-up" style={{ animationDelay: `${i * 50}ms` }}>
@@ -97,7 +126,7 @@ export default function ClassLecturesTab() {
                 <div className="flex items-center gap-2 mt-2">
                   <span className={`badge ${cfg.bg} ${cfg.color} capitalize`}>{lec.type}</span>
                   {lec.meeting_link && (
-                    <a href={lec.meeting_link} target="_blank" rel="noopener noreferrer" className="badge bg-green-50 text-green-600 hover:bg-green-100 transition-colors flex items-center gap-1">
+                    <a href={lec.meeting_link} target="_blank" rel="noopener noreferrer" className="badge bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 transition-colors flex items-center gap-1">
                       <Link2 size={12} /> Join Meeting
                     </a>
                   )}

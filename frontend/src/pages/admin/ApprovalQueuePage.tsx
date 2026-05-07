@@ -49,14 +49,14 @@ export default function ApprovalQueuePage() {
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-bold">
-                    {s.f_name[0]}{s.l_name[0]}
+                    {(s.f_name?.[0] || '?').toUpperCase()}{(s.l_name?.[0] || '').toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-800 dark:text-slate-200">{s.f_name} {s.l_name}</h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">{s.email}</p>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-200">{s.f_name || ''} {s.l_name || ''}</h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{s.email || ''}</p>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {s.academic_level && <span className="badge bg-[#00e5ff]/10 text-[#00e5ff]">Level {s.academic_level}</span>}
-                      {s.ssn && <span className="badge bg-surface-100 text-slate-600 dark:text-slate-400">SSN: {s.ssn.slice(0, 4)}****</span>}
+                      {s.ssn && <span className="badge bg-surface-100 text-slate-600 dark:text-slate-400">SSN: {String(s.ssn).slice(0, 4)}****</span>}
                       {s.document && (
                         <span className="badge bg-blue-500/10 text-blue-400 flex items-center gap-1">
                           <FileText size={12} /> {s.document}

@@ -137,7 +137,7 @@ export default function TopNav() {
           {/* User avatar */}
           <div className="flex items-center gap-3">
             <Link to="/profile" title="View Profile" className="block transform hover:scale-110 hover:-translate-y-0.5 transition-all duration-300">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00b8d4] to-[#007492] flex items-center justify-center text-[#050b14] font-black text-sm shadow-[0_0_15px_rgba(0,184,212,0.4)] hover:shadow-[0_0_25px_rgba(0,229,255,0.7)] ring-2 ring-transparent hover:ring-[#00e5ff]/50">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00b8d4] to-[#007492] flex items-center justify-center text-[#ecf4ff] dark:text-[#050b14] font-black text-sm shadow-[0_0_15px_rgba(0,184,212,0.4)] hover:shadow-[0_0_25px_rgba(0,229,255,0.7)] ring-2 ring-transparent hover:ring-[#00e5ff]/50">
                 {user?.f_name?.[0]}{user?.l_name?.[0]}
               </div>
             </Link>

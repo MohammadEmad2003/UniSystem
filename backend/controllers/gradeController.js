@@ -14,28 +14,16 @@ const getStudentGrades = asyncWrapper(async (req, res, next) => {
     return next(error);
   }
 
-  // Get all grades for this student using genericQueries customQuery
   const grades = await gradeQueries.customQuery(
     `SELECT 
-      g.Grade_ID,
-      g.User_ID,
-      g.Class_ID,
-      g.Type,
-      g.Generate_At,
-      g.Attendance,
-      g.Practical,
-      g.Project,
-      g.Midterm,
-      g.Final,
-      g.GPA,
-      g.Doctor_ID,
-      c.Course_Code,
-      c.Level,
-      c.Semester
+      g.Grade_ID, g.User_ID, g.Class_ID, g.Type, g.Generate_At,
+      g.Attendance, g.Practical, g.Project, g.Midterm, g.Final, g.GPA,
+      g.Doctor_ID, c.Course_Code, c.Level, c.Semester, co.Name as Course_Name
     FROM Grades g
     LEFT JOIN Class c ON g.Class_ID = c.Class_ID
+    LEFT JOIN Courses co ON c.Course_Code = co.Course_Code
     WHERE g.User_ID = ?
-    ORDER BY g.Generate_At DESC`,
+    ORDER BY c.Level DESC, c.Semester DESC`,
     [studentId]
   );
 
@@ -53,6 +41,7 @@ const getStudentGrades = asyncWrapper(async (req, res, next) => {
     student_id: grade.User_ID,
     class_id: grade.Class_ID,
     course_code: grade.Course_Code,
+    course_name: grade.Course_Name,
     level: grade.Level,
     semester: grade.Semester,
     type: grade.Type,

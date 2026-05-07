@@ -1,6 +1,7 @@
 const cors = require("cors");
 const express = require("express");
 const httpstatustext = require("./utilities/httpstatustext");
+require('dotenv').config();
 const fs = require("fs");
 const path = require("path");
 const app = express();

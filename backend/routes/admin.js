@@ -7,7 +7,10 @@ const {
   getAllDoctors,
   createDoctor,
   createAdmin,
+  linkNfcCard,
+  changeUserRole,
 } = require("../controllers/adminController");
+
 
 const verifyToken = require("../middleware/verifytoken");
 const allowedTo = require("../middleware/allowedTo");
@@ -27,5 +30,8 @@ router.route("/doctors").get(getAllDoctors);
 router.route("/doctors").post(createDoctor);
 
 router.route("/admins").post(createAdmin);
+router.route("/link-card").post(linkNfcCard);
+router.route("/users/:userId/role").patch(changeUserRole);
 
 module.exports = router;
+

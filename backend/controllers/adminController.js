@@ -9,7 +9,12 @@ const departmentQueries = genericQueries("Department", {
 });
 const workInQueries = genericQueries("Work_In", { primaryKey: "Doctor_ID" }); // assuming composite key, but let's see
 const adminQueries = genericQueries("Admin", { primaryKey: "User_ID" });
+const studentQueries = genericQueries("Student", { primaryKey: "User_ID" });
+
+let isScanningSessionActive = false;
+
 const getCount = (table, where = "") => {
+
   return new Promise((resolve, reject) => {
     db.get(`SELECT COUNT(*) as count FROM ${table} ${where}`, (err, row) => {
       if (err) reject(err);
@@ -259,7 +264,150 @@ const createAdmin = asyncWrapper(async (req, res) => {
   });
 });
 
+const linkNfcCard = asyncWrapper(async (req, res) => {
+  const { userId, nfcTagId } = req.body;
+
+  if (!userId || !nfcTagId) {
+    return res.status(400).json({
+      success: false,
+      message: "userId and nfcTagId are required",
+    });
+  }
+
+  // Check if student exists
+  const student = await new Promise((resolve, reject) => {
+    db.get(`SELECT * FROM Student WHERE User_ID = ?`, [userId], (err, row) => {
+      if (err) return reject(err);
+      resolve(row);
+    });
+  });
+
+  if (!student) {
+    return res.status(404).json({
+      success: false,
+      message: "Student not found",
+    });
+  }
+
+  // Update NFC Tag ID
+  await new Promise((resolve, reject) => {
+    db.run(
+      `UPDATE Student SET NFC_Tag_ID = ? WHERE User_ID = ?`,
+      [nfcTagId, userId],
+      (err) => {
+        if (err) return reject(err);
+        resolve();
+      }
+    );
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "NFC Tag linked successfully",
+  });
+});
+
+const changeUserRole = asyncWrapper(async (req, res) => {
+  const { userId } = req.params;
+  const { role: newRole, permissions_level, specialization, academic_level, ssn } = req.body;
+
+  const validRoles = ["Admin", "Doctor", "Student"];
+  if (!newRole || !validRoles.includes(newRole)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid or missing role. Must be 'Admin', 'Doctor', or 'Student'",
+    });
+  }
+
+  const user = await userQueries.getById(userId);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: "User not found",
+    });
+  }
+
+  const currentRole = user.Role;
+  if (currentRole === newRole) {
+    return res.status(200).json({
+      success: true,
+      message: `User is already a ${newRole}`,
+    });
+  }
+
+  // 1. Remove from old specialized table
+  if (currentRole === "Admin") {
+    await adminQueries.delete(userId);
+  } else if (currentRole === "Doctor") {
+    await doctorQueries.delete(userId);
+    // Also remove from Work_In if exists
+    await new Promise((resolve, reject) => {
+      db.run(`DELETE FROM Work_In WHERE Doctor_ID = ?`, [userId], (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+  } else if (currentRole === "Student") {
+    await studentQueries.delete(userId);
+    // Also remove from Enrollment if exists
+    await new Promise((resolve, reject) => {
+      db.run(`DELETE FROM Enrollment WHERE User_ID = ?`, [userId], (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+  }
+
+  // 2. Update Role in User table
+  await userQueries.update(userId, { Role: newRole });
+
+  // 3. Add to new specialized table
+  if (newRole === "Admin") {
+    await adminQueries.create({
+      User_ID: userId,
+      Permissions_Level: permissions_level || 1,
+    });
+  } else if (newRole === "Doctor") {
+    await doctorQueries.create({
+      User_ID: userId,
+      Specialization: specialization || null,
+    });
+  } else if (newRole === "Student") {
+    await studentQueries.create({
+      User_ID: userId,
+      Academic_Level: academic_level || 1,
+      Payment_Status: "Unpaid",
+      SSN: ssn || `MIG-${userId}-${Date.now()}`, // Ensure uniqueness
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: `User role changed from ${currentRole} to ${newRole} successfully`,
+  });
+});
+
+const startScanningSession = asyncWrapper(async (req, res) => {
+  isScanningSessionActive = true;
+  res.status(200).json({
+    success: true,
+    message: "NFC Scanning session started",
+  });
+});
+
+const stopScanningSession = asyncWrapper(async (req, res) => {
+  isScanningSessionActive = false;
+  res.status(200).json({
+    success: true,
+    message: "NFC Scanning session stopped",
+  });
+});
+
+const checkScanningSession = () => isScanningSessionActive;
+
 module.exports = {
+
+
   getStats,
   getAllStudents,
   getPendingStudents,
@@ -267,4 +415,9 @@ module.exports = {
   getAllDoctors,
   createDoctor,
   createAdmin,
+  linkNfcCard,
+  changeUserRole,
 };
+
+
+

@@ -1,0 +1,12 @@
+{
+  "name": "rag-docs-pdf",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "generate": "node generate-pdfs.js"
+  },
+  "dependencies": {
+    "marked": "^12.0.0",
+    "puppeteer": "^22.0.0"
+  }
+}

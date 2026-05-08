@@ -1,4 +1,4 @@
-fastapi
+﻿fastapi
 uvicorn
 uvicorn[standard]
 anthropic
@@ -8,13 +8,10 @@ requests
 python-dotenv
 pypdf
 python-docx
-pymupdf==1.23.26
+pymupdf>=1.27.2.3
 pytesseract
 pillow
-
-# Local model runtime via HuggingFace transformers
 torch
 transformers
 accelerate
 huggingface_hub
-anthropic

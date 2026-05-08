@@ -5,16 +5,38 @@
 
 // ---- Enums ----
 
-export type UserRole = 'student' | 'doctor' | 'admin';
-export type AccountStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
-export type PaymentStatus = 'paid' | 'unpaid' | 'partial';
-export type LectureType = 'online' | 'offline' | 'hybrid';
-export type MaterialType = 'pdf' | 'link' | 'video' | 'document' | 'image';
-export type GradeType = 'midterm' | 'final' | 'project' | 'attendance' | 'practical';
-export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
-export type NotificationType = 'new_material' | 'new_question' | 'new_answer' | 'new_grade' | 'announcement' | 'approval' | 'enrollment';
+export type UserRole = "student" | "doctor" | "admin";
+export type AccountStatus = "pending" | "approved" | "rejected" | "suspended";
+export type PaymentStatus = "paid" | "unpaid" | "partial";
+export type LectureType =
+  | "Lecture"
+  | "Section"
+  | "Lab"
+  | "Online"
+  | "offline"
+  | "online"
+  | "hybrid";
+export type MaterialType = "pdf" | "link" | "video" | "document" | "image";
+export type GradeType =
+  | "midterm"
+  | "final"
+  | "project"
+  | "attendance"
+  | "practical";
+export type AttendanceStatus = "present" | "absent" | "late" | "excused";
+export type NotificationType =
+  | "new_material"
+  | "new_question"
+  | "new_answer"
+  | "new_grade"
+  | "announcement"
+  | "approval"
+  | "enrollment"
+  | "doctor_question_pending"
+  | "ai_answer_ready"
+  | "doctor_answer_ready";
 export type AcademicLevel = 1 | 2 | 3 | 4;
-export type Semester = 'Fall' | 'Spring' | 'Summer';
+export type Semester = "Fall" | "Spring" | "Summer";
 
 // ---- Base Entities ----
 
@@ -32,7 +54,7 @@ export interface User {
 }
 
 export interface Student extends User {
-  role: 'student';
+  role: "student";
   ssn: string;
   nfc_tag_id?: string;
   academic_level: AcademicLevel;
@@ -40,17 +62,19 @@ export interface Student extends User {
   total_hours: number;
   total_gpa: number;
   department_id: string;
+  paid_amount?: number;
+  total_fees?: number;
 }
 
 export interface Doctor extends User {
-  role: 'doctor';
+  role: "doctor";
   specialization: string;
   department_id: string;
 }
 
 export interface Admin extends User {
-  role: 'admin';
-  permissions_level: string;
+  role: "admin";
+  permissions_level: number;
 }
 
 // ---- Academic Structure ----
@@ -58,6 +82,9 @@ export interface Admin extends User {
 export interface Department {
   dept_id: string;
   dept_name: string;
+  total_hours_required?: number;
+  head_id?: string;
+  head_name?: string;
 }
 
 export interface Course {
@@ -78,6 +105,7 @@ export interface Class {
   capacity: number;
   enrolled_count?: number;
   department_id?: string;
+  credit_hours?: number;
 }
 
 // ---- Class Content ----
@@ -103,6 +131,7 @@ export interface Material {
   type: MaterialType;
   summarize?: string;
   document?: string;
+  file?: File;
   uploaded_at: string;
   uploaded_by: string;
 }
@@ -120,15 +149,25 @@ export interface Attendance {
 // ---- Grades ----
 
 export interface Grade {
-  grade_id?: string;
+  grade_id: string;
   class_id: string;
   student_id: string;
   student_name?: string;
+  course_code?: string;
+  course_name?: string;
+  level?: number;
+  semester?: string;
   type: GradeType;
-  grade: number;
-  max_grade: number;
+  attendance: number;
+  practical: number;
+  project: number;
+  midterm: number;
+  final: number;
+  gpa: number;
   generated_at: string;
-  gpa?: number;
+  // New optional fields for adding grades via API
+  grade?: number;
+  max_grade?: number;
 }
 
 export interface StudentGradeSummary {
@@ -139,7 +178,7 @@ export interface StudentGradeSummary {
   final?: number;
   project?: number;
   practical?: number;
-  attendance_grade?: number;
+  attendance?: number;
   total: number;
   gpa: number;
 }
@@ -163,10 +202,16 @@ export interface Answer {
   question_id: string;
   user_id: string;
   user_name: string;
-  user_role: UserRole;
+  user_role: UserRole | 'ai';
   user_image?: string;
   text: string;
   time: string;
+  // AI answer fields
+  is_ai_generated?: boolean;
+  source_type?: string;
+  source_id?: string;
+  confidence?: number;
+  ai_metadata?: string;
 }
 
 // ---- Enrollment ----
@@ -224,7 +269,7 @@ export interface RegisterRequest {
   l_name: string;
   email: string;
   password: string;
-  role: 'student';
+  role: "student";
   ssn: string;
   academic_level: AcademicLevel;
   department_id: string;
@@ -240,6 +285,7 @@ export interface AdminStats {
   total_departments: number;
   total_courses: number;
   pending_approvals: number;
+  dept_stats?: { name: string; students: number; doctors: number }[];
 }
 
 export interface DoctorStats {
@@ -248,6 +294,13 @@ export interface DoctorStats {
   total_lectures: number;
   total_materials: number;
   recent_questions: number;
+  class_enrollment_data: { id: number; name: string; students: number }[];
+  upcoming_lectures: {
+    id: number;
+    title: string;
+    date: string;
+    course: string;
+  }[];
 }
 
 export interface StudentStats {
@@ -256,4 +309,13 @@ export interface StudentStats {
   enrolled_classes: number;
   upcoming_lectures: number;
   unread_notifications: number;
+}
+
+export interface FinancialStats {
+  total_students: number;
+  pending_students: number;
+  approved_students: number;
+  total_expected: number;
+  total_paid: number;
+  total_outstanding: number;
 }

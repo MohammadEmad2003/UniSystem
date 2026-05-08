@@ -2,6 +2,7 @@ const genericQueries = require('../utilities/genericQueries');
 const httpstatustext = require('../utilities/httpstatustext');
 const asyncWrapper = require('../middleware/asyncWrapper');
 const db = require('../utilities/database');
+const gpaService = require('../services/gpaService');
 
 const classQueries = genericQueries('Class', { primaryKey: 'Class_ID' });
 
@@ -10,7 +11,7 @@ const getAllClasses = asyncWrapper(async (req, res) => {
   const classes = await new Promise((resolve, reject) => {
     db.all(
       `SELECT 
-        c.Class_ID, c.Course_Code, co.Name AS Course_Name,
+        c.Class_ID, c.Course_Code, co.Name AS Course_Name, co.Credit_Hours,
         c.Doctor_ID, u.F_Name || ' ' || u.L_Name AS Doctor_Name,
         c.Semester, c.Level, c.Capacity,
         COUNT(e.User_ID) AS Enrolled_Count,
@@ -101,7 +102,7 @@ const getClassesByStudent = asyncWrapper(async (req, res) => {
   const classes = await new Promise((resolve, reject) => {
     db.all(
       `SELECT 
-        c.Class_ID, c.Course_Code, co.Name AS Course_Name,
+        c.Class_ID, c.Course_Code, co.Name AS Course_Name, co.Credit_Hours,
         c.Doctor_ID, u.F_Name || ' ' || u.L_Name AS Doctor_Name,
         c.Semester, c.Level, c.Capacity
        FROM Class c
@@ -189,6 +190,18 @@ const enrollStudent = asyncWrapper(async (req, res) => {
   const cls = await classQueries.getById(classId);
   if (!cls) {
     return res.status(404).json({ success: httpstatustext.error, message: { msg: 'Class not found' } });
+  }
+
+  // تحقق من حدود الساعات المسموح بها
+  const enrollmentCheck = await gpaService.canEnrollInClass(student_id, classId);
+  if (!enrollmentCheck.canEnroll) {
+    return res.status(400).json({ success: httpstatustext.error, message: { msg: enrollmentCheck.message } });
+  }
+
+  // تحقق من المتطلبات السابقة (Prerequisites)
+  const prereqCheck = await gpaService.checkPrerequisites(student_id, classId);
+  if (!prereqCheck.canEnroll) {
+    return res.status(400).json({ success: httpstatustext.error, message: { msg: prereqCheck.message } });
   }
 
   // تأكد إن الـ student مش enrolled بالفعل
@@ -356,6 +369,7 @@ const addGrade = asyncWrapper(async (req, res) => {
 
   const column = columnMap[type];
 
+  // Perform Update or Insert
   if (existing) {
     await new Promise((resolve, reject) => {
       db.run(
@@ -380,7 +394,41 @@ const addGrade = asyncWrapper(async (req, res) => {
     });
   }
 
-  res.status(201).json({ success: httpstatustext.success, message: { msg: 'Grade added successfully' } });
+  // RECALCULATE GPA
+  const updatedGrade = await new Promise((resolve, reject) => {
+    db.get(
+      `SELECT * FROM Grades WHERE User_ID = ? AND Class_ID = ?`,
+      [student_id, classId],
+      (err, row) => {
+        if (err) return reject(err);
+        resolve(row);
+      }
+    );
+  });
+
+  if (updatedGrade) {
+    const totalMarks = (updatedGrade.Midterm || 0) + (updatedGrade.Project || 0) + 
+                       (updatedGrade.Practical || 0) + (updatedGrade.Attendance || 0) + 
+                       (updatedGrade.Final || 0);
+    
+    const courseGPA = gpaService.calculateCourseGPA(totalMarks);
+
+    await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE Grades SET GPA = ? WHERE User_ID = ? AND Class_ID = ?`,
+        [courseGPA, student_id, classId],
+        (err) => {
+          if (err) return reject(err);
+          resolve();
+        }
+      );
+    });
+
+    // Recalculate Student Cumulative GPA and Total Hours
+    await gpaService.recalculateStudentGPA(student_id);
+  }
+
+  res.status(201).json({ success: httpstatustext.success, message: { msg: 'Grade added successfully and GPA recalculated' } });
 });
 
 module.exports = { 

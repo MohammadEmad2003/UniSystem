@@ -5,6 +5,9 @@ const {
   getSingleCourse,
   updateCourse,
   deleteCourse,
+  getPrerequisites,
+  addPrerequisite,
+  removePrerequisite
 } = require("../controllers/coursesController");
 
 const verifyToken = require("../middleware/verifytoken");
@@ -22,5 +25,14 @@ router
   .get(verifyToken, getSingleCourse)
   .patch(verifyToken, allowedTo(userRoles.ADMIN), updateCourse)
   .delete(verifyToken, allowedTo(userRoles.ADMIN), deleteCourse);
+
+router
+  .route("/:courseCode/prerequisites")
+  .get(verifyToken, getPrerequisites)
+  .post(verifyToken, allowedTo(userRoles.ADMIN), addPrerequisite);
+
+router
+  .route("/:courseCode/prerequisites/:prereqCode")
+  .delete(verifyToken, allowedTo(userRoles.ADMIN), removePrerequisite);
 
 module.exports = router;

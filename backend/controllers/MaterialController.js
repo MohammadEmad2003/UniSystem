@@ -41,17 +41,21 @@ const createMaterial = asyncWrapper(async (req, res) => {
         console.error(`[AI] Failed to index material ${result.lastID}: ${error.message}`);
     }
 
+    // Async class re-index so new material is searchable by RAG
+    aiServiceClient.triggerReindex(classId, 'material_upload');
+
     res.status(201).json({
         success: true,
         message: "Material created successfully",
         data: {
-            id: result.lastID, 
+            material_id: result.lastID, 
             name: name,
             lecture_id: lecture_id,
             type: type,
             url: finalURL,
             document: req.file ? `/uploads/${req.file.filename}` : null,
-            summarize: summarize
+            summarize: summarize,
+            uploaded_at: new Date().toISOString()
         }
     });
 });
@@ -69,6 +73,7 @@ const getMaterialsByClass = asyncWrapper(async (req, res) => {
             m.Document AS document,
             m.Type AS type,
             m.Summarize AS summarize,
+            m.Uploaded_At AS uploaded_at,
             (u.F_Name || ' ' || u.L_Name) AS uploaded_by 
        FROM Material m
         LEFT JOIN Lecture l ON m.Lec_ID = l.Lec_ID
@@ -127,6 +132,15 @@ const deleteMaterial = asyncWrapper(async (req, res) => {
         return res.status(404).json({ success: false, message: "Material not found" });
     }
 
+    // Resolve classId before deleting so we can re-index afterwards
+    const lectureRow = await new Promise((resolve, reject) => {
+        db.get('SELECT Class_ID FROM Lecture WHERE Lec_ID = ?', [material.Lec_ID], (err, row) => {
+            if (err) return reject(err);
+            resolve(row);
+        });
+    });
+    const classId = lectureRow?.Class_ID;
+
     const result = await materialModel.delete(materialId);
 
     if (result.changes > 0 && material.Document) {
@@ -137,14 +151,19 @@ const deleteMaterial = asyncWrapper(async (req, res) => {
             if (err && err.code === 'EBUSY' && retries > 0) {
                 console.log(`[RETRY] File is busy, retrying... (${retries} left)`);                    setTimeout(() => attemptDelete(path, retries - 1), 1000);
           } else if (err) {
-                console.error(`[ERROR] Delete failed: ${err.message}`);      
+                console.error(`[ERROR] Delete failed: ${err.message}`);
           } else {
-                console.log("[SUCCESS] File removed from storage successfully.");    
+                console.log("[SUCCESS] File removed from storage successfully.");
             }
             });
         };
 
         attemptDelete(filePath);
+    }
+
+    // Re-index so deleted material is no longer searchable by RAG
+    if (classId) {
+        aiServiceClient.triggerReindex(classId, 'material_delete');
     }
 
     res.status(200).json({

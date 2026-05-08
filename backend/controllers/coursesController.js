@@ -146,10 +146,62 @@ const deleteCourse = asyncWrapper(async (req, res) => {
   });
 });
 
+const getPrerequisites = asyncWrapper(async (req, res) => {
+  const { courseCode } = req.params;
+  db.all(
+    `SELECT p.Prereq_Course_Code, c.Name 
+     FROM Course_Prerequisites p
+     JOIN Courses c ON p.Prereq_Course_Code = c.Course_Code
+     WHERE p.Course_Code = ?`,
+    [courseCode],
+    (err, rows) => {
+      if (err) throw err;
+      res.status(200).json({ success: true, data: rows });
+    }
+  );
+});
+
+const addPrerequisite = asyncWrapper(async (req, res) => {
+  const { courseCode } = req.params;
+  const { prereqCode } = req.body;
+  if (courseCode === prereqCode) {
+    return res.status(400).json({ success: false, message: "A course cannot be a prerequisite of itself" });
+  }
+  await new Promise((resolve, reject) => {
+    db.run(
+      `INSERT INTO Course_Prerequisites (Course_Code, Prereq_Course_Code) VALUES (?, ?)`,
+      [courseCode, prereqCode],
+      (err) => {
+        if (err) reject(err);
+        resolve();
+      }
+    );
+  });
+  res.status(201).json({ success: true, message: "Prerequisite added successfully" });
+});
+
+const removePrerequisite = asyncWrapper(async (req, res) => {
+  const { courseCode, prereqCode } = req.params;
+  await new Promise((resolve, reject) => {
+    db.run(
+      `DELETE FROM Course_Prerequisites WHERE Course_Code = ? AND Prereq_Course_Code = ?`,
+      [courseCode, prereqCode],
+      (err) => {
+        if (err) reject(err);
+        resolve();
+      }
+    );
+  });
+  res.status(200).json({ success: true, message: "Prerequisite removed successfully" });
+});
+
 module.exports = {
   getAllCourses,
   createCourse,
   getSingleCourse,
   updateCourse,
   deleteCourse,
+  getPrerequisites,
+  addPrerequisite,
+  removePrerequisite
 };

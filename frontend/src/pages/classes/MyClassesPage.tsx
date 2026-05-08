@@ -50,12 +50,10 @@ export default function MyClassesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-surface-900">My Classes</h1>
-          <p className="text-surface-500 mt-1">{user?.role === 'doctor' ? 'Classes you are teaching' : 'Classes you are enrolled in'}</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">My Classes</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">{user?.role === 'doctor' ? 'Classes you are teaching' : 'Classes you are enrolled in'}</p>
         </div>
-        <Link to="/classes/browse" className="btn-primary flex items-center gap-2">
-          <Plus size={16} /> Browse & Enroll
-        </Link>
+
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -67,12 +65,12 @@ export default function MyClassesPage() {
                 <p className="text-white/80 text-sm">{cls.course_code}</p>
               </div>
               <div className="p-5">
-                <p className="text-sm text-surface-600 mb-3">{cls.doctor_name}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{cls.doctor_name}</p>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 text-xs text-surface-500">
+                  <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-400">
                     <span className="flex items-center gap-1"><Users size={14} /> {cls.enrolled_count}/{cls.capacity}</span>
-                    <span className="badge bg-primary-50 text-primary-700">{cls.semester}</span>
-                    <span className="badge bg-surface-100 text-surface-600">Level {cls.level}</span>
+                    <span className="badge bg-[#00e5ff]/10 text-[#00e5ff]">{cls.semester}</span>
+                    <span className="badge bg-surface-100 text-slate-600 dark:text-slate-400">Level {cls.level}</span>
                   </div>
                   <ArrowRight size={16} className="text-surface-400 group-hover:text-primary-500 group-hover:translate-x-1 transition-all" />
                 </div>
@@ -83,7 +81,7 @@ export default function MyClassesPage() {
                 onClick={(e) => handleDrop(e, cls.class_id)}
                 disabled={dropping === cls.class_id}
                 title="Drop this class"
-                className="absolute top-2 right-2 p-1.5 rounded-full bg-white/90 hover:bg-red-50 text-surface-500 hover:text-red-600 shadow border border-surface-100 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                className="absolute top-2 right-2 p-1.5 rounded-full bg-white/80 dark:bg-white dark:bg-[#111111]/80 backdrop-blur-md border border-slate-200 dark:border-slate-800/90 hover:bg-red-500/10 text-slate-600 dark:text-slate-400 hover:text-red-400 shadow border border-slate-200 dark:border-slate-800 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
               >
                 <X size={14} />
               </button>
@@ -95,13 +93,17 @@ export default function MyClassesPage() {
       {classes.length === 0 && (
         <div className="card p-12 text-center">
           <BookOpen size={48} className="mx-auto text-surface-300 mb-4" />
-          <h3 className="text-lg font-semibold text-surface-700">No Classes Yet</h3>
-          <p className="text-surface-500 mt-1">{user?.role === 'student' ? "You haven't enrolled in any classes yet." : "You haven't been assigned any classes."}</p>
-          <Link to="/classes/browse" className="btn-primary inline-flex items-center gap-2 mt-4">
-            <Plus size={16} /> Browse Classes
-          </Link>
+          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">No Classes Yet</h3>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">{user?.role === 'student' ? "You haven't enrolled in any classes yet." : "You haven't been assigned any classes."}</p>
+          {user?.role === 'student' && (
+            <Link to="/classes/browse" className="btn-primary inline-flex items-center gap-2 mt-4">
+              <Plus size={16} /> Browse Classes
+            </Link>
+          )}
         </div>
       )}
     </div>
   );
 }
+
+

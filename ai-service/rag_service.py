@@ -25,7 +25,6 @@ load_dotenv()
 
 
 class RagService:
-    QA_MATCH_THRESHOLD = 0.82
     MATERIAL_MATCH_THRESHOLD = 0.50
     ANSWER_CONFIDENCE_THRESHOLD = 0.6
     MATERIAL_CONTEXT_LIMIT = 5
@@ -35,6 +34,9 @@ class RagService:
         self.embedding_service = EmbeddingService()
         self.vector_store = VectorStore(self.embedding_service.vector_size)
         self.qwen_service = QwenService()
+
+        self.qa_match_threshold = float(os.getenv("QA_REUSE_THRESHOLD", "0.78"))
+        print(f"[CONFIG] QA_REUSE_THRESHOLD={self.qa_match_threshold}")
 
         self.enable_material_summary = (
             os.getenv("ENABLE_MATERIAL_SUMMARY", "false").lower() == "true"
@@ -67,27 +69,53 @@ class RagService:
 
         question_vector = self.embedding_service.embed_text(search_question)
 
+        print(f"[ASK] QA collection: {self.vector_store.QA_COLLECTION}")
+        print(f"[ASK] class_id filter: {class_id} (type={type(class_id).__name__})")
         qa_results = self.vector_store.search_questions(
             question_vector, class_id, limit=1
         )
-        print("QA results:", len(qa_results))
-        print("QA best score:", qa_results[0].score if qa_results else None)
+        print(f"QA results: {len(qa_results)}")
+        print(f"QA best score: {qa_results[0].score if qa_results else None}")
+        print(f"[ASK] QA threshold: {self.qa_match_threshold}")
 
         if qa_results:
             top_match = qa_results[0]
+            score = float(top_match.score)
             payload = top_match.payload or {}
-            if (
-                float(top_match.score) >= self.QA_MATCH_THRESHOLD
-                and payload.get("answer_text")
-            ):
+            if score >= self.qa_match_threshold and payload.get("answer_text"):
+                print(f"[ASK] QA match accepted (score={score:.4f} >= threshold={self.qa_match_threshold})")
                 clean_answer = self.clean_ai_text(payload["answer_text"])
                 return {
-                    "status": "answered",
-                    "answer": clean_answer,
+                    "status":      "answered",
+                    "answer":      clean_answer,
+                    "source":      "previous_question",
                     "source_type": "previous_qa",
-                    "source_id": str(payload.get("question_id") or payload.get("answer_id")),
-                    "confidence": round(float(top_match.score), 4),
+                    "source_id":   str(payload.get("question_id") or payload.get("answer_id") or ""),
+                    "confidence":  round(score, 4),
+                    "previous_question": {
+                        "question_id": str(payload.get("question_id") or ""),
+                        "text":        payload.get("question_text", ""),
+                        "asked_by": {
+                            "id":   payload.get("asked_by_id", ""),
+                            "name": payload.get("asked_by_name") or "Unknown student",
+                            "role": payload.get("asked_by_role", "student"),
+                        },
+                        "asked_at": payload.get("asked_at", ""),
+                    },
+                    "previous_answer": {
+                        "answer_id": str(payload.get("answer_id") or ""),
+                        "text":      clean_answer,
+                        "answered_by": {
+                            "id":   payload.get("answered_by_id", ""),
+                            "name": payload.get("answered_by_name") or "Unknown answerer",
+                            "role": payload.get("answered_by_role", "doctor"),
+                        },
+                        "answered_at": payload.get("answered_at", ""),
+                    },
                 }
+            else:
+                reason = f"score={score:.4f} < threshold={self.qa_match_threshold}" if score < self.qa_match_threshold else "answer_text missing"
+                print(f"[ASK] QA match found but skipped ({reason})")
 
         material_results = self.vector_store.search_materials(
             question_vector, class_id, limit=self.MATERIAL_CONTEXT_LIMIT
@@ -105,19 +133,45 @@ class RagService:
         if float(top_material_match.score) < self.MATERIAL_MATCH_THRESHOLD:
             return {"status": "sent_to_doctor"}
 
+        # ── Log all retrieved chunks with scores ──────────────────────────────
+        print(f"[RAG] Retrieved {len(material_results)} chunks:")
+        for i, m in enumerate(material_results):
+            p = m.payload or {}
+            print(
+                f"  [{i}] score={m.score:.4f}  chunk_id={p.get('chunk_index')}  "
+                f"page={p.get('page_number')}  mat={p.get('material_id')}  "
+                f"src={p.get('source_name', '')!r:.40}"
+            )
+
+        # ── Smart chunk selection: if top chunk is far ahead, keep only strong ones
+        scores = [float(m.score) for m in material_results]
+        top_score = scores[0]
+        # Threshold: keep chunks within 15% of top score, minimum 2, maximum all
+        score_cutoff = top_score * 0.85
+        selected_results = [
+            m for m in material_results if float(m.score) >= score_cutoff
+        ]
+        # Always keep at least 2 for context breadth, never more than MATERIAL_CONTEXT_LIMIT
+        if len(selected_results) < 2 and len(material_results) >= 2:
+            selected_results = material_results[:2]
+        print(
+            f"[RAG] Score cutoff={score_cutoff:.4f}  "
+            f"selected {len(selected_results)}/{len(material_results)} chunks"
+        )
+
         context_items = []
-        for match in material_results:
+        for match in selected_results:
             payload = match.payload or {}
             context_items.append(
                 {
-                    "material_id": payload.get("material_id"),
-                    "source_name": payload.get("source_name", "Class Material"),
-                    "page_number": payload.get("page_number"),
-                    "chunk_index": payload.get("chunk_index"),
-                    "chunk_text": payload.get("chunk_text", ""),
-                    "summary": payload.get("summary", ""),
+                    "material_id":    payload.get("material_id"),
+                    "source_name":    payload.get("source_name", "Class Material"),
+                    "page_number":    payload.get("page_number"),
+                    "chunk_index":    payload.get("chunk_index"),
+                    "chunk_text":     payload.get("chunk_text", ""),
+                    "summary":        payload.get("summary", ""),
                     "material_summary": payload.get("material_summary", ""),
-                    "score": float(match.score),
+                    "score":          float(match.score),
                 }
             )
 
@@ -174,22 +228,47 @@ class RagService:
         }
 
     def index_class(self, class_id: int) -> dict[str, Any]:
-        print(f"[INDEX] Indexing class_id: {class_id}")
-        question_payloads = self.backend_client.get_class_questions(class_id)
-        material_rows = self.backend_client.get_class_materials(class_id)
+        print(f"[INDEX] ── class_id={class_id} (type={type(class_id).__name__})")
+        print(f"[INDEX] QA collection: {self.vector_store.QA_COLLECTION}")
+        print(f"[INDEX] class_id filter will use int: {class_id}")
+
+        # ── Fetch questions ────────────────────────────────────────────────────
+        try:
+            question_payloads = self.backend_client.get_class_questions(class_id) or []
+        except Exception as exc:
+            print(f"[INDEX] ERROR fetching questions from backend: {exc}")
+            question_payloads = []
+
+        print(f"[INDEX] Questions fetched from backend: {len(question_payloads)}")
+
+        answered = [q for q in question_payloads if q.get("answers")]
+        unanswered = len(question_payloads) - len(answered)
+        print(f"[INDEX] Answered questions (have ≥1 answer): {len(answered)}")
+        if unanswered:
+            print(f"[INDEX] Skipped (no answers yet): {unanswered}")
 
         indexed_questions = []
         for question in question_payloads:
             record = self._build_indexable_question_record(question)
             if not record:
                 continue
-
             indexed_questions.append(
                 {
                     **record,
                     "vector": self.embedding_service.embed_text(record["question_text"]),
                 }
             )
+
+        print(f"[INDEX] QA records inserted into Qdrant: {len(indexed_questions)}")
+        if len(answered) > 0 and len(indexed_questions) == 0:
+            print("[INDEX] WARNING: answered questions exist but none were indexed — check field names (question_text / answer_text)")
+
+        # ── Fetch materials ────────────────────────────────────────────────────
+        try:
+            material_rows = self.backend_client.get_class_materials(class_id) or []
+        except Exception as exc:
+            print(f"[INDEX] ERROR fetching materials from backend: {exc}")
+            material_rows = []
 
         indexed_material_chunks = []
         for material in material_rows:
@@ -262,14 +341,31 @@ class RagService:
         }
 
     def summarize_material_content(
-        self, class_id: int, material_id: int, mode: str = "simple"
+        self,
+        class_id: int,
+        material_id: int,
+        mode: str = "simple",
+        length: str = "medium",
+        format: str = "study_notes",
+        include_formulas: bool = True,
+        force_refresh: bool = False,
     ) -> dict[str, Any]:
+        print(f"[STUDY_AI_OPTIONS] summary  class_id={class_id}  material_id={material_id}  "
+              f"length={length!r}  format={format!r}  include_formulas={include_formulas}  force_refresh={force_refresh}")
+
+        # Keep legacy mode param for backward compat but don't drive cache on it
         normalized_mode = (mode or "simple").strip().lower() or "simple"
         if normalized_mode not in {"exam", "simple", "detailed"}:
             normalized_mode = "simple"
 
-        cache_key = (class_id, material_id, normalized_mode)
-        if cache_key in self.material_summary_cache:
+        # Cache key now includes all options so different option combos get fresh results
+        cache_key = (class_id, material_id, length, format, include_formulas)
+
+        if force_refresh:
+            print(f"[SUMMARY] force_refresh=true — bypassing in-memory cache for material {material_id}")
+            # Evict stale entry so the fresh result replaces it below
+            self.material_summary_cache.pop(cache_key, None)
+        elif cache_key in self.material_summary_cache:
             cached_summary = self.material_summary_cache[cache_key]
             print(f"[SUMMARY] Using in-memory cached summary for material {material_id}")
             print(f"[SUMMARY] Summary preview: {cached_summary[:200]}")
@@ -292,8 +388,9 @@ class RagService:
                 "message": "Material not indexed",
             }
 
+        # Only use payload-embedded summary when NOT force-refreshing
         cached_payload_summary = ""
-        if normalized_mode == "simple":
+        if normalized_mode == "simple" and not force_refresh:
             cached_payload_summary = (
                 str(chunks[0].get("material_summary") or "").strip()
                 if chunks
@@ -325,7 +422,7 @@ class RagService:
                 }
 
         combined_text = self.build_material_context(chunks, max_chars=100000)
-        limited_context = combined_text[:5000]
+        limited_context = combined_text[:12000]
 
         if not limited_context:
             return {
@@ -341,7 +438,9 @@ class RagService:
 
         summary = self.qwen_service.generate_material_summary(
             limited_context,
-            mode=normalized_mode,
+            length=length,
+            format=format,
+            include_formulas=include_formulas,
         )
         if not summary:
             return {
@@ -349,11 +448,15 @@ class RagService:
                 "message": "Failed to generate summary",
             }
 
-        print(f"[SUMMARY] Raw output preview: {summary[:200]}")
-        normalized_summary = self.clean_ai_text(summary, max_length=800)
+        print(f"[SUMMARY] Raw output length: {len(summary)}")
+        print(f"[SUMMARY] Raw output first 300: {summary[:300]}")
+        print(f"[SUMMARY] Raw output last 300: {summary[-300:]}")
+        normalized_summary = self.clean_ai_text(summary)
+        # Always update the in-memory cache with the fresh result
         self.material_summary_cache[cache_key] = normalized_summary
-        print(f"[SUMMARY] Cleaned output preview: {normalized_summary[:200]}")
         print(f"[SUMMARY] Cleaned output length: {len(normalized_summary)}")
+        print(f"[SUMMARY] Cleaned first 300: {normalized_summary[:300]}")
+        print(f"[SUMMARY] Cleaned last 300: {normalized_summary[-300:]}")
         print(f"[SUMMARY] Sections detected: {self._count_markdown_sections(normalized_summary)}")
         if not normalized_summary:
             return {
@@ -361,15 +464,27 @@ class RagService:
                 "message": "Summary output was empty after cleaning",
             }
 
+        from datetime import datetime, timezone
         return {
             "status": "success",
             "material_id": material_id,
             "mode": normalized_mode,
             "summary": normalized_summary,
+            **({"regenerated": True, "generated_at": datetime.now(timezone.utc).isoformat()} if force_refresh else {}),
         }
 
-    def generate_page_summaries(self, class_id: int, material_id: int) -> dict[str, Any]:
+    def generate_page_summaries(
+        self,
+        class_id: int,
+        material_id: int,
+        detail_level: str = "normal",
+        include_key_terms: bool = True,
+        include_formulas: bool = True,
+    ) -> dict[str, Any]:
         print(f"[PAGE_SUMMARIES] class_id={class_id} material_id={material_id}")
+        print(f"[STUDY_AI_OPTIONS] page_summaries  class_id={class_id}  material_id={material_id}  "
+              f"detail_level={detail_level!r}  include_key_terms={include_key_terms}  "
+              f"include_formulas={include_formulas}")
         chunks = self.get_material_chunks(class_id, material_id)
         if not chunks:
             return {
@@ -389,7 +504,12 @@ class RagService:
         for page_number in sorted(pages.keys()):
             page_chunks = pages[page_number]
             page_text = self.build_material_context(page_chunks, max_chars=6000)
-            raw_summary = self.qwen_service.summarize_page(page_text) or ""
+            raw_summary = self.qwen_service.summarize_page(
+                page_text,
+                detail_level=detail_level,
+                include_key_terms=include_key_terms,
+                include_formulas=include_formulas,
+            ) or ""
             summary = self.clean_ai_text(raw_summary)
             print(
                 f"[PAGE_SUMMARIES] page={page_number} context_length={len(page_text)} "
@@ -414,8 +534,19 @@ class RagService:
             "page_summaries": page_summaries,
         }
 
-    def generate_material_notes(self, class_id: int, material_id: int) -> dict[str, Any]:
+    def generate_material_notes(
+        self,
+        class_id: int,
+        material_id: int,
+        notes_style: str = "bullet_notes",
+        detail_level: str = "detailed",
+        include_examples: bool = True,
+        include_formulas: bool = True,
+    ) -> dict[str, Any]:
         print(f"[NOTES] class_id={class_id} material_id={material_id}")
+        print(f"[STUDY_AI_OPTIONS] notes  class_id={class_id}  material_id={material_id}  "
+              f"notes_style={notes_style!r}  detail_level={detail_level!r}  "
+              f"include_examples={include_examples}  include_formulas={include_formulas}")
         chunks = self.get_material_chunks(class_id, material_id)
         if not chunks:
             return {
@@ -427,8 +558,14 @@ class RagService:
         print(f"[NOTES] Chunks count: {len(chunks)}")
         print(f"[NOTES] Context length: {len(context)}")
 
-        raw_notes = self.qwen_service.generate_study_notes(context) or ""
-        notes = self.clean_ai_text(raw_notes, max_length=1500)
+        raw_notes = self.qwen_service.generate_study_notes(
+            context,
+            notes_style=notes_style,
+            detail_level=detail_level,
+            include_examples=include_examples,
+            include_formulas=include_formulas,
+        ) or ""
+        notes = self.clean_ai_text(raw_notes)
         print(f"[NOTES] Raw output preview: {raw_notes[:200]}")
         print(f"[NOTES] Cleaned output preview: {notes[:200]}")
         print(f"[NOTES] Cleaned output length: {len(notes)}")
@@ -445,45 +582,128 @@ class RagService:
             "notes": notes,
         }
 
+    # ── Quiz / Flashcard validators ──────────────────────────────────────────
+
+    def _validate_quiz(
+        self, items: list[dict], num_questions: int, question_type: str
+    ) -> list[str]:
+        """Return a list of validation failure messages (empty = pass)."""
+        issues: list[str] = []
+        if len(items) < num_questions:
+            issues.append(
+                f"Expected {num_questions} questions, got {len(items)}"
+            )
+        if question_type == "mixed" and len(items) >= 5:
+            mcq_count = sum(1 for q in items if q.get("type") == "mcq")
+            tf_count  = sum(1 for q in items if q.get("type") == "true_false")
+            min_each  = max(1, len(items) * 2 // 5)
+            if mcq_count < min_each:
+                issues.append(f"Mixed quiz needs ≥{min_each} MCQ, got {mcq_count}")
+            if tf_count < min_each:
+                issues.append(f"Mixed quiz needs ≥{min_each} True/False, got {tf_count}")
+        if question_type == "true_false":
+            bad = [q for q in items if len(q.get("options", [])) != 2]
+            if bad:
+                issues.append(f"{len(bad)} true_false items have wrong option count")
+        if question_type == "mcq":
+            bad = [q for q in items if len(q.get("options", [])) != 4]
+            if bad:
+                issues.append(f"{len(bad)} mcq items have wrong option count")
+        return issues
+
+    def _validate_flashcards(
+        self, items: list[dict], num_cards: int, focus: str
+    ) -> list[str]:
+        """Return a list of validation failure messages (empty = pass)."""
+        issues: list[str] = []
+        if len(items) < num_cards:
+            issues.append(f"Expected {num_cards} flashcards, got {len(items)}")
+        if focus == "formulas":
+            no_math = [i for i, c in enumerate(items) if "$" not in c.get("back", "")]
+            if no_math:
+                issues.append(f"{len(no_math)} formula cards have no LaTeX in back")
+        if focus in ("key_terms", "definitions", "formulas"):
+            wrong_type = [
+                i for i, c in enumerate(items) if c.get("focus_type") != focus
+            ]
+            if wrong_type:
+                issues.append(f"{len(wrong_type)} cards have wrong focus_type (expected {focus!r})")
+        return issues
+
     def generate_material_quiz(
-        self, class_id: int, material_id: int, num_questions: int
+        self,
+        class_id: int,
+        material_id: int,
+        num_questions: int = 10,
+        difficulty: str = "mixed",
+        question_type: str = "mcq",
     ) -> dict[str, Any]:
         print(f"[QUIZ] class_id={class_id} material_id={material_id}")
+        print(f"[STUDY_AI_OPTIONS] quiz  class_id={class_id}  material_id={material_id}  "
+              f"num_questions={num_questions}  difficulty={difficulty!r}  question_type={question_type!r}")
         chunks = self.get_material_chunks(class_id, material_id)
         if not chunks:
-            return {
-                "status": "error",
-                "message": "Material not indexed",
-            }
+            return {"status": "error", "message": "Material not indexed"}
 
-        clamped_questions = max(1, min(20, int(num_questions)))
+        clamped = max(1, min(20, int(num_questions)))
         context = self.build_material_context(chunks, max_chars=6000)
-        print(f"[QUIZ] Chunks count: {len(chunks)}")
-        print(f"[QUIZ] Context length: {len(context)}")
+        print(f"[QUIZ] Chunks count: {len(chunks)}  Context length: {len(context)}")
 
-        raw_output = self.qwen_service.generate_quiz(context, clamped_questions) or ""
-        print(f"[QUIZ] Raw output preview: {raw_output[:200]}")
-        print(f"[QUIZ] Cleaned output preview: {self.clean_markdown_fences(raw_output)[:200]}")
-        try:
-            parsed_quiz = self.parse_llm_json_output(raw_output)
-            sanitized_quiz = self._sanitize_quiz_items(parsed_quiz)
-            print(f"[QUIZ] Parse success: {bool(sanitized_quiz)}")
-            print(f"[QUIZ] Valid questions returned: {len(sanitized_quiz)}")
-        except ValueError:
-            print("[QUIZ] Parse failure")
-            return {
-                "status": "error",
-                "message": "Failed to parse LLM JSON output",
-                "raw_output": self.clean_markdown_fences(raw_output),
-            }
+        sanitized_quiz: list[dict] = []
+        raw_output = ""
+
+        for attempt in range(1, 3):
+            retry_hint: str | None = None
+            if attempt > 1:
+                retry_hint = (
+                    "IMPORTANT: Your previous output failed validation. "
+                    "Return ONLY a valid JSON array. "
+                    f"You MUST return EXACTLY {clamped} questions. "
+                    "Each question MUST have 'type', 'difficulty', 'question', 'options', 'answer', 'explanation'. "
+                    "No text, no markdown, no explanations outside the JSON array."
+                )
+            raw_output = self.qwen_service.generate_quiz(
+                context, clamped,
+                difficulty=difficulty,
+                question_type=question_type,
+                retry_prompt=retry_hint,
+            ) or ""
+            print(f"[QUIZ] Attempt {attempt} raw preview: {raw_output[:200]}")
+
+            try:
+                parsed_quiz = self.parse_llm_json_output(raw_output)
+                sanitized_quiz = self._sanitize_quiz_items(parsed_quiz)
+                total   = len(parsed_quiz) if isinstance(parsed_quiz, list) else 0
+                invalid = total - len(sanitized_quiz)
+                print(f"[QUIZ] Attempt {attempt}: {len(sanitized_quiz)} valid, {invalid} invalid")
+
+                if sanitized_quiz:
+                    issues = self._validate_quiz(sanitized_quiz, clamped, question_type)
+                    if issues:
+                        print(f"[STUDY_AI_VALIDATION] quiz attempt={attempt} FAIL: {issues}")
+                        if attempt < 2:
+                            print("[STUDY_AI_RETRY] quiz retrying due to validation failure")
+                            continue
+                        else:
+                            print("[STUDY_AI_VALIDATION] quiz using best-effort result after retry")
+                    else:
+                        print(f"[STUDY_AI_VALIDATION] quiz attempt={attempt} PASS: {len(sanitized_quiz)} questions OK")
+                    break
+                print(f"[QUIZ] Attempt {attempt}: 0 valid — retrying…")
+            except ValueError as exc:
+                print(f"[QUIZ] Attempt {attempt} parse failure: {exc}")
+
         if not sanitized_quiz:
-            print("[QUIZ] Parse failure")
+            print("[QUIZ] All attempts failed")
             return {
                 "status": "error",
-                "message": "Failed to parse LLM JSON output",
+                "message": "Failed to parse LLM JSON output after retry",
                 "raw_output": self.clean_markdown_fences(raw_output),
             }
 
+        # Trim to requested count if LLM over-generated
+        sanitized_quiz = sanitized_quiz[:clamped]
+        print(f"[QUIZ] Final questions returned: {len(sanitized_quiz)}")
         return {
             "status": "success",
             "material_id": material_id,
@@ -491,46 +711,74 @@ class RagService:
         }
 
     def generate_material_flashcards(
-        self, class_id: int, material_id: int, num_cards: int
+        self,
+        class_id: int,
+        material_id: int,
+        num_cards: int = 10,
+        focus: str = "mixed",
+        include_examples: bool = False,
     ) -> dict[str, Any]:
         print(f"[FLASHCARDS] class_id={class_id} material_id={material_id}")
+        print(f"[STUDY_AI_OPTIONS] flashcards  class_id={class_id}  material_id={material_id}  "
+              f"num_cards={num_cards}  focus={focus!r}  include_examples={include_examples}")
         chunks = self.get_material_chunks(class_id, material_id)
         if not chunks:
-            return {
-                "status": "error",
-                "message": "Material not indexed",
-            }
+            return {"status": "error", "message": "Material not indexed"}
 
         clamped_cards = max(1, min(30, int(num_cards)))
         context = self.build_material_context(chunks, max_chars=6000)
-        print(f"[FLASHCARDS] Chunks count: {len(chunks)}")
-        print(f"[FLASHCARDS] Context length: {len(context)}")
+        print(f"[FLASHCARDS] Chunks count: {len(chunks)}  Context length: {len(context)}")
 
-        raw_output = self.qwen_service.generate_flashcards(context, clamped_cards) or ""
-        print(f"[FLASHCARDS] Raw output preview: {raw_output[:200]}")
-        print(
-            f"[FLASHCARDS] Cleaned output preview: {self.clean_markdown_fences(raw_output)[:200]}"
-        )
-        try:
-            parsed_flashcards = self.parse_llm_json_output(raw_output)
-            sanitized_flashcards = self._sanitize_flashcards(parsed_flashcards)
-            print(f"[FLASHCARDS] Parse success: {bool(sanitized_flashcards)}")
-            print(f"[FLASHCARDS] Valid cards returned: {len(sanitized_flashcards)}")
-        except ValueError:
-            print("[FLASHCARDS] Parse failure")
-            return {
-                "status": "error",
-                "message": "Failed to parse LLM JSON output",
-                "raw_output": self.clean_markdown_fences(raw_output),
-            }
+        sanitized_flashcards: list[dict] = []
+        raw_output = ""
+
+        for attempt in range(1, 3):
+            retry_hint: str | None = None
+            if attempt > 1:
+                retry_hint = (
+                    "IMPORTANT: Your previous output failed validation. "
+                    f"You MUST return EXACTLY {clamped_cards} flashcards. "
+                    f"Every card MUST have focus_type={focus!r}. "
+                    "Return ONLY valid JSON array. No text outside the array."
+                )
+            raw_output = self.qwen_service.generate_flashcards(
+                context, clamped_cards,
+                focus=focus,
+                include_examples=include_examples,
+                retry_prompt=retry_hint,
+            ) or ""
+            print(f"[FLASHCARDS] Attempt {attempt} raw preview: {raw_output[:200]}")
+
+            try:
+                parsed_flashcards = self.parse_llm_json_output(raw_output)
+                sanitized_flashcards = self._sanitize_flashcards(parsed_flashcards, focus=focus)
+                print(f"[FLASHCARDS] Attempt {attempt}: {len(sanitized_flashcards)} valid cards")
+
+                if sanitized_flashcards:
+                    issues = self._validate_flashcards(sanitized_flashcards, clamped_cards, focus)
+                    if issues:
+                        print(f"[STUDY_AI_VALIDATION] flashcards attempt={attempt} FAIL: {issues}")
+                        if attempt < 2:
+                            print("[STUDY_AI_RETRY] flashcards retrying due to validation failure")
+                            continue
+                        else:
+                            print("[STUDY_AI_VALIDATION] flashcards using best-effort result after retry")
+                    else:
+                        print(f"[STUDY_AI_VALIDATION] flashcards attempt={attempt} PASS: {len(sanitized_flashcards)} cards OK")
+                    break
+                print(f"[FLASHCARDS] Attempt {attempt}: 0 valid — retrying…")
+            except ValueError:
+                print(f"[FLASHCARDS] Attempt {attempt} parse failure")
+
         if not sanitized_flashcards:
-            print("[FLASHCARDS] Parse failure")
             return {
                 "status": "error",
                 "message": "Failed to parse LLM JSON output",
                 "raw_output": self.clean_markdown_fences(raw_output),
             }
 
+        # Trim to requested count
+        sanitized_flashcards = sanitized_flashcards[:clamped_cards]
         return {
             "status": "success",
             "material_id": material_id,
@@ -547,19 +795,46 @@ class RagService:
         if not answers:
             return None
 
-        top_answer = answers[0]
-        answer_text = (top_answer.get("answer_text") or "").strip()
-        question_text = (question.get("question_text") or "").strip()
+        # Prefer first doctor answer, fall back to first answer
+        top_answer = next(
+            (a for a in answers if a.get("doctor_id") is not None), answers[0]
+        )
 
-        if not answer_text or not question_text:
+        answer_text = (
+            top_answer.get("answer_text") or top_answer.get("text") or ""
+        ).strip()
+        question_text = (
+            question.get("question_text") or question.get("text") or ""
+        ).strip()
+
+        if not answer_text:
+            print(f"[INDEX] question_id={question.get('question_id')} skipped: answer_text empty. answer keys={list(top_answer.keys())}")
+            return None
+        if not question_text:
+            print(f"[INDEX] question_id={question.get('question_id')} skipped: question_text empty. question keys={list(question.keys())}")
             return None
 
+        asked_by_id = question.get("user_id") or question.get("doctor_id")
+        answered_by_id = top_answer.get("doctor_id") or top_answer.get("user_id")
+
         return {
-            "question_id": question["question_id"],
-            "class_id": question["class_id"],
-            "question_text": question_text,
-            "answer_id": top_answer.get("answer_id"),
-            "answer_text": answer_text,
+            "question_id":      int(question["question_id"]),
+            "class_id":         int(question["class_id"]),
+            "question_text":    question_text,
+            "answer_id":        top_answer.get("answer_id"),
+            "answer_text":      answer_text,
+            # asker metadata
+            "asked_by_id":      str(asked_by_id) if asked_by_id is not None else "",
+            "asked_by_name":    str(question.get("asked_by_name") or "").strip(),
+            "asked_by_role":    str(question.get("asked_by_role") or "student"),
+            "asked_at":         str(question.get("time") or question.get("asked_at") or ""),
+            # answerer metadata
+            "answered_by_id":   str(answered_by_id) if answered_by_id is not None else "",
+            "answered_by_name": str(top_answer.get("answered_by_name") or "").strip(),
+            "answered_by_role": str(top_answer.get("answered_by_role") or (
+                "doctor" if top_answer.get("doctor_id") is not None else "student"
+            )),
+            "answered_at":      str(top_answer.get("answer_time") or top_answer.get("answered_at") or ""),
         }
 
     def _build_material_chunks(self, material: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1064,38 +1339,93 @@ class RagService:
         return cleaned.strip()
 
     def parse_llm_json_output(self, raw: str) -> Any:
+        """
+        Multi-stage JSON parser with repair pipeline.
+
+        Stages:
+          1. Strip fences, control chars, smart quotes
+          2. Extract the largest JSON array/object via depth-tracking
+          3. json.loads on the raw candidate
+          4. LaTeX-escape repair  → json.loads
+          5. Auto-close truncated arrays → json.loads
+          6. Regex fallback to grab largest [...] block → json.loads
+          7. literal_eval last resort
+          8. Raise ValueError with a summary of every attempt
+        """
+        # ── stage 1: pre-process ─────────────────────────────────────────────
         cleaned = self.clean_markdown_fences(raw)
+        cleaned = self._strip_control_chars(cleaned)
+        cleaned = self._normalize_smart_quotes(cleaned)
+        cleaned = re.sub(r",(\s*[\]}])", r"\1", cleaned)   # trailing commas
+
+        print(f"[LLM_JSON] Pre-processed preview: {cleaned[:200]!r}")
+
+        # ── stage 2: extract candidate ───────────────────────────────────────
         candidate = self._extract_json_candidate(cleaned)
         if not candidate:
-            raise ValueError("No JSON content found in LLM output")
+            raise ValueError("No JSON array/object found in LLM output")
 
+        print(f"[LLM_JSON] Candidate ({len(candidate)} chars) preview: {candidate[:160]!r}")
+
+        # ── stage 3: direct parse ────────────────────────────────────────────
         try:
-            return json.loads(candidate)
+            result = json.loads(candidate)
+            print("[LLM_JSON] Stage 3 (direct) succeeded")
+            return result
         except json.JSONDecodeError as exc:
-            print(f"[LLM_JSON] Original parse failed: {exc}")
+            print(f"[LLM_JSON] Stage 3 (direct) failed: {exc}")
 
-        repaired_candidate = self._repair_json_latex_escapes(candidate)
-        if repaired_candidate != candidate:
+        # ── stage 4: LaTeX-escape repair ─────────────────────────────────────
+        repaired = self._repair_json_latex_escapes(candidate)
+        if repaired != candidate:
             try:
-                parsed = json.loads(repaired_candidate)
-                print("[LLM_JSON] Repaired parse succeeded with LaTeX escape fix")
-                return parsed
+                result = json.loads(repaired)
+                print("[LLM_JSON] Stage 4 (LaTeX repair) succeeded")
+                return result
             except json.JSONDecodeError as exc:
-                print(f"[LLM_JSON] Repaired parse failed: {exc}")
+                print(f"[LLM_JSON] Stage 4 (LaTeX repair) failed: {exc}")
         else:
-            print("[LLM_JSON] No LaTeX escape repair changes were needed")
+            print("[LLM_JSON] Stage 4 skipped — no LaTeX repair needed")
+            repaired = candidate
 
-        literal_eval_candidate = self._normalize_json_like_literal(repaired_candidate)
+        # ── stage 5: auto-close truncated array ──────────────────────────────
+        closed = self._auto_close_json(repaired)
+        if closed != repaired:
+            try:
+                result = json.loads(closed)
+                print("[LLM_JSON] Stage 5 (auto-close) succeeded")
+                return result
+            except json.JSONDecodeError as exc:
+                print(f"[LLM_JSON] Stage 5 (auto-close) failed: {exc}")
+
+        # ── stage 6: regex fallback ───────────────────────────────────────────
+        regex_candidate = self._regex_extract_array(cleaned)
+        if regex_candidate and regex_candidate != candidate:
+            regex_repaired = self._repair_json_latex_escapes(regex_candidate)
+            for attempt_label, attempt_text in (
+                ("regex-raw",      regex_candidate),
+                ("regex-repaired", regex_repaired),
+                ("regex-closed",   self._auto_close_json(regex_repaired)),
+            ):
+                try:
+                    result = json.loads(attempt_text)
+                    print(f"[LLM_JSON] Stage 6 ({attempt_label}) succeeded")
+                    return result
+                except json.JSONDecodeError as exc:
+                    print(f"[LLM_JSON] Stage 6 ({attempt_label}) failed: {exc}")
+
+        # ── stage 7: literal_eval last resort ────────────────────────────────
+        literal_candidate = self._normalize_json_like_literal(repaired)
         try:
-            parsed = ast.literal_eval(literal_eval_candidate)
+            parsed = ast.literal_eval(literal_candidate)
             if isinstance(parsed, (list, dict)):
-                print("[LLM_JSON] Fallback literal_eval parse succeeded")
+                print("[LLM_JSON] Stage 7 (literal_eval) succeeded")
                 return parsed
-            print("[LLM_JSON] Fallback literal_eval parse returned unsupported type")
+            print("[LLM_JSON] Stage 7 (literal_eval) returned unsupported type")
         except (ValueError, SyntaxError) as exc:
-            print(f"[LLM_JSON] Fallback literal_eval parse failed: {exc}")
+            print(f"[LLM_JSON] Stage 7 (literal_eval) failed: {exc}")
 
-        raise ValueError("Failed to parse LLM JSON output")
+        raise ValueError("All JSON parse stages failed for LLM output")
 
     def clean_ai_text(
         self, text: str, plain_text: bool = False, max_length: int | None = None
@@ -1172,18 +1502,100 @@ class RagService:
     def _count_markdown_sections(self, text: str) -> int:
         return len(re.findall(r"(?m)^#{1,6}\s+", text or ""))
 
+    # ── JSON pre-processing helpers ───────────────────────────────────────────
+
+    def _strip_control_chars(self, text: str) -> str:
+        """Remove ASCII control chars except tab/newline/CR that break JSON parsers."""
+        return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
+
+    def _normalize_smart_quotes(self, text: str) -> str:
+        """Replace Unicode curly/smart quotes with straight ASCII equivalents."""
+        return (
+            text
+            .replace("“", '"').replace("”", '"')   # " "
+            .replace("‘", "'").replace("’", "'")   # ' '
+            .replace("«", '"').replace("»", '"')   # « »
+        )
+
     def _extract_json_candidate(self, text: str) -> str:
+        """
+        Return the largest JSON array (preferred) or object found in *text*.
+        Uses bracket-depth tracking so it handles nested structures correctly
+        and is not confused by trailing prose after the closing bracket.
+        """
         candidate = (text or "").strip()
         if not candidate:
             return ""
 
+        # Prefer arrays first (quiz / flashcard output), then objects.
         for opener, closer in (("[", "]"), ("{", "}")):
             start = candidate.find(opener)
-            end = candidate.rfind(closer)
-            if start != -1 and end != -1 and end > start:
-                return candidate[start : end + 1].strip()
+            if start == -1:
+                continue
+            depth = 0
+            in_string = False
+            escape_next = False
+            best_end = -1
+            for i in range(start, len(candidate)):
+                ch = candidate[i]
+                if escape_next:
+                    escape_next = False
+                    continue
+                if ch == "\\" and in_string:
+                    escape_next = True
+                    continue
+                if ch == '"':
+                    in_string = not in_string
+                    continue
+                if in_string:
+                    continue
+                if ch == opener:
+                    depth += 1
+                elif ch == closer:
+                    depth -= 1
+                    if depth == 0:
+                        best_end = i
+                        break
+            if best_end != -1:
+                return candidate[start : best_end + 1].strip()
 
         return ""
+
+    def _auto_close_json(self, text: str) -> str:
+        """
+        If the model output was truncated mid-array, append the missing closing
+        brackets so the parser has a chance to recover partial data.
+        """
+        s = text.strip()
+        if not s:
+            return s
+        # Remove a trailing incomplete string value (unclosed quote)
+        if s.count('"') % 2 != 0:
+            last_quote = s.rfind('"')
+            s = s[:last_quote].rstrip(",").rstrip()
+
+        # Remove dangling comma before we close
+        s = re.sub(r",\s*$", "", s)
+
+        # Close any open object then close array
+        open_braces  = s.count("{") - s.count("}")
+        open_brackets = s.count("[") - s.count("]")
+        if open_braces > 0:
+            s += "}" * open_braces
+        if open_brackets > 0:
+            s += "]" * open_brackets
+        return s
+
+    def _regex_extract_array(self, text: str) -> str:
+        """
+        Last-resort: use regex to grab the longest [...] block, even if the
+        bracket-depth walker failed (e.g. due to unmatched brackets in prose).
+        """
+        matches = re.findall(r"\[.*?\]", text, flags=re.DOTALL)
+        if not matches:
+            return ""
+        # Return the longest match — most likely the real array
+        return max(matches, key=len)
 
     def _repair_json_latex_escapes(self, text: str) -> str:
         repaired = text
@@ -1197,6 +1609,13 @@ class RagService:
 
         # Remove trailing commas that frequently appear in model-produced JSON.
         repaired = re.sub(r",(\s*[\]}])", r"\1", repaired)
+
+        # Fix unescaped literal newlines inside string values
+        def _fix_newlines_in_strings(m: re.Match) -> str:
+            return m.group(0).replace("\n", "\\n").replace("\r", "\\r")
+
+        repaired = re.sub(r'"(?:[^"\\]|\\.)*"', _fix_newlines_in_strings, repaired)
+
         return repaired
 
     def _normalize_json_like_literal(self, text: str) -> str:
@@ -1207,59 +1626,176 @@ class RagService:
         return normalized
 
     def _sanitize_quiz_items(self, parsed: Any) -> list[dict[str, Any]]:
+        if isinstance(parsed, dict):
+            parsed = parsed.get("questions", [])
         if not isinstance(parsed, list):
             return []
 
         cleaned_items = []
-        for item in parsed:
+        for idx, item in enumerate(parsed):
             if not isinstance(item, dict):
+                print(f"[QUIZ] Item {idx}: skipped (not a dict)")
                 continue
 
             question = self.clean_ai_text(str(item.get("question") or ""), plain_text=True)
-            options = item.get("options")
-            if not question or not isinstance(options, list) or len(options) != 4:
+            if not question:
+                print(f"[QUIZ] Item {idx}: skipped (empty question)")
                 continue
 
+            options = item.get("options")
+            if not isinstance(options, list):
+                print(f"[QUIZ] Item {idx}: skipped (options not a list)")
+                continue
+
+            # Detect item type from the 'type' field or fall back to option count
+            item_type = str(item.get("type") or "").strip().lower()
+            if not item_type:
+                item_type = "true_false" if len(options) == 2 else "mcq"
+
+            # Validate option count matches expected type
+            if item_type == "true_false":
+                if len(options) not in (2, 4):  # allow degraded MCQ mistakenly labelled TF
+                    # Force true/false options if model only gave 2
+                    pass
+                # Normalise to exactly 2 options
+                if len(options) >= 2:
+                    options = options[:2]
+                else:
+                    print(f"[QUIZ] Item {idx}: skipped (true_false needs ≥2 options)")
+                    continue
+                valid_answers = {"A", "B"}
+            else:
+                item_type = "mcq"
+                if len(options) != 4:
+                    print(f"[QUIZ] Item {idx}: skipped (mcq needs 4 options, got {len(options)})")
+                    continue
+                valid_answers = {"A", "B", "C", "D"}
+
             clean_options = [
-                self.clean_ai_text(str(option or ""), plain_text=True) for option in options
+                self.clean_ai_text(str(opt or ""), plain_text=True) for opt in options
             ]
             if not all(clean_options):
+                print(f"[QUIZ] Item {idx}: skipped (empty option text)")
                 continue
 
             answer = self._normalize_answer_letter(item.get("answer"), clean_options)
-            if answer not in {"A", "B", "C", "D"}:
+            if answer not in valid_answers:
+                print(f"[QUIZ] Item {idx}: skipped (answer {answer!r} not in {valid_answers})")
                 continue
 
-            cleaned_items.append(
-                {
-                    "question": question,
-                    "options": clean_options,
-                    "answer": answer,
-                }
+            explanation = self.clean_ai_text(
+                str(item.get("explanation") or ""), plain_text=True
             )
+            # Fallback: generate a minimal explanation if the LLM omitted it
+            if not explanation and clean_options and answer:
+                answer_idx = {"A": 0, "B": 1, "C": 2, "D": 3}.get(answer, -1)
+                correct_text = clean_options[answer_idx] if 0 <= answer_idx < len(clean_options) else answer
+                explanation = f"The correct answer is **{answer}**: {correct_text}."
+
+            # Preserve difficulty field (default to question_type difficulty or "mixed")
+            item_difficulty = str(item.get("difficulty") or "").strip().lower()
+            if item_difficulty not in ("easy", "medium", "hard"):
+                item_difficulty = "mixed"
+
+            cleaned_items.append({
+                "type":        item_type,
+                "difficulty":  item_difficulty,
+                "question":    question,
+                "options":     clean_options,
+                "answer":      answer,
+                "explanation": explanation,
+            })
 
         return cleaned_items
 
-    def _sanitize_flashcards(self, parsed: Any) -> list[dict[str, Any]]:
+    # ── Flashcard LaTeX helpers ───────────────────────────────────────────────
+
+    _MATH_SEGMENT_RE = re.compile(r'\$\$[\s\S]*?\$\$|\$[^$\n]*?\$')
+
+    @staticmethod
+    def _count_braces(text: str) -> tuple[int, int]:
+        """Return (open_count, close_count) of unescaped braces."""
+        opens = len(re.findall(r'(?<!\\)\{', text))
+        closes = len(re.findall(r'(?<!\\)\}', text))
+        return opens, closes
+
+    @staticmethod
+    def _validate_formula(formula: str) -> list[str]:
+        """Return list of detected problems in a LaTeX formula string."""
+        issues: list[str] = []
+        opens, closes = RagService._count_braces(formula)
+        if opens != closes:
+            issues.append(f"unbalanced braces ({opens} open, {closes} close)")
+        # \frac must be followed by {arg}{arg}
+        for m in re.finditer(r'\\frac', formula):
+            after = formula[m.end():]
+            if not re.match(r'\s*\{[^}]*\}\s*\{[^}]*\}', after):
+                issues.append(r"\frac missing one or both brace arguments")
+                break
+        # Unclosed $ inside the formula (shouldn't happen but guard anyway)
+        if formula.count('$') % 2 != 0:
+            issues.append("odd number of $ delimiters inside formula")
+        return issues
+
+    def _validate_and_log_flashcard_latex(self, field: str, text: str, idx: int) -> None:
+        """Log any LaTeX issues found in a flashcard field."""
+        for m in self._MATH_SEGMENT_RE.finditer(text):
+            formula = m.group(0)
+            issues = self._validate_formula(formula)
+            if issues:
+                print(
+                    f"[FLASHCARD_LATEX] card={idx} field={field} "
+                    f"formula={formula!r:.120} issues={issues}"
+                )
+            else:
+                print(
+                    f"[FLASHCARD_LATEX] card={idx} field={field} "
+                    f"formula OK: {formula!r:.80}"
+                )
+
+    _VALID_FOCUS_TYPES = {"key_terms", "definitions", "formulas", "mixed"}
+
+    def _sanitize_flashcards(
+        self, parsed: Any, focus: str = "mixed"
+    ) -> list[dict[str, Any]]:
         if not isinstance(parsed, list):
             return []
 
         cleaned_items = []
-        for item in parsed:
+        for idx, item in enumerate(parsed):
             if not isinstance(item, dict):
                 continue
 
-            term = self.clean_ai_text(str(item.get("term") or ""), plain_text=True)
-            definition = self.clean_ai_text(str(item.get("definition") or ""))
-            if not term or not definition:
+            # Accept both old schema (term/definition) and new schema (front/back)
+            # Do NOT pass plain_text=True — that collapses whitespace and strips $formula$ delimiters
+            front = self.clean_ai_text(str(item.get("front") or item.get("term") or ""))
+            back  = self.clean_ai_text(str(item.get("back")  or item.get("definition") or ""))
+            if not front or not back:
+                print(f"[FLASHCARDS] card={idx}: skipped (empty front or back)")
                 continue
 
-            cleaned_items.append(
-                {
-                    "term": term,
-                    "definition": definition,
-                }
-            )
+            example_raw = item.get("example")
+            if example_raw and str(example_raw).strip() not in ("", "null", "None"):
+                example: str | None = self.clean_ai_text(str(example_raw))
+            else:
+                example = None
+
+            # Preserve focus_type — fall back to the requested focus
+            raw_focus_type = str(item.get("focus_type") or "").strip().lower()
+            focus_type = raw_focus_type if raw_focus_type in self._VALID_FOCUS_TYPES else focus
+
+            # Validate and log LaTeX in each field
+            self._validate_and_log_flashcard_latex("front",   front,   idx)
+            self._validate_and_log_flashcard_latex("back",    back,    idx)
+            if example:
+                self._validate_and_log_flashcard_latex("example", example, idx)
+
+            cleaned_items.append({
+                "focus_type": focus_type,
+                "front":      front,
+                "back":       back,
+                "example":    example,
+            })
 
         return cleaned_items
 

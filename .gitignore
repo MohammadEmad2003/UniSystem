@@ -41,9 +41,7 @@ yarn-error.log*
 lerna-debug.log*
 
 # ── Databases (never commit live DB — use seed scripts instead) ───────────────
-*.db
-*.db-shm
-*.db-wal
+
 *.sqlite
 *.sqlite3
 *.sqlite-shm

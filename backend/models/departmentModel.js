@@ -5,6 +5,7 @@ db.exec(`
     Dept_ID INTEGER PRIMARY KEY AUTOINCREMENT,
     Dept_Name VARCHAR(100) UNIQUE NOT NULL,
     Doctor_ID INTEGER,
+    Total_Hours_Required INT DEFAULT 144,
     FOREIGN KEY (Doctor_ID) REFERENCES Doctor(User_ID) ON DELETE SET NULL
   )
 `);

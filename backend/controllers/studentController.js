@@ -1,9 +1,11 @@
 const db = require('../utilities/database');
 const asyncWrapper = require("../middleware/asyncWrapper");
 const genericQueries = require('../utilities/genericQueries');
+const gpaService = require('../services/gpaService');
 
 const studentQueries = genericQueries('Student', { primaryKey: 'User_ID' });
 const userQueries = genericQueries('User', { primaryKey: 'User_ID' });
+
 const getStudentStats = asyncWrapper(async (req, res) => {
     const { studentId } = req.params;
 
@@ -82,11 +84,9 @@ const getPaymentDetails = asyncWrapper(async (req, res) => {
 
     const student = await new Promise((resolve, reject) => {
         db.get(
-            `SELECT s.Academic_Level, s.Payment_Status, s.Paid_Amount, 
-                    COALESCE(alf.Total_Fees, 0) as Total_Fees
-             FROM Student s
-             LEFT JOIN Academic_Level_Fees alf ON s.Academic_Level = alf.Academic_Level
-             WHERE s.User_ID = ?`,
+            `SELECT Academic_Level, Payment_Status, Paid_Amount
+             FROM Student
+             WHERE User_ID = ?`,
             [studentId],
             (err, row) => {
                 if (err) return reject(err);
@@ -98,14 +98,48 @@ const getPaymentDetails = asyncWrapper(async (req, res) => {
     if (!student) {
         return res.status(404).json({ success: false, message: 'Student not found' });
     }
+    const courses = await new Promise((resolve, reject) => {
+        db.all(
+            `SELECT co.Course_Code, co.Name, co.Credit_Hours, cl.Semester,
+                    alf.Hour_Price, alf.Total_Fees as Fixed_Fees
+             FROM Enrollment e
+             JOIN Class cl ON e.Class_ID = cl.Class_ID
+             JOIN Courses co ON cl.Course_Code = co.Course_Code
+             JOIN Student s ON e.User_ID = s.User_ID
+             LEFT JOIN Academic_Level_Fees alf ON s.Academic_Level = alf.Academic_Level AND cl.Semester = alf.Semester
+             WHERE e.User_ID = ?`,
+            [studentId],
+            (err, rows) => {
+                if (err) return reject(err);
+                resolve(rows || []);
+            }
+        );
+    });
 
-    const remaining = Math.max(0, student.Total_Fees - student.Paid_Amount);
+    // Calculate Total Fees based on individual course prices
+    let totalFees = 0;
+    courses.forEach(c => {
+        if (c.Hour_Price > 0) {
+            totalFees += (c.Credit_Hours * c.Hour_Price);
+        } else {
+            // If no hour price, maybe fallback to a fraction of fixed fees? 
+            // Or if they have a fixed fee per semester, we should handle that.
+            // For now, let's just sum what we find.
+            totalFees += (c.Fixed_Fees || 0);
+        }
+    });
+
+    const remaining = Math.max(0, totalFees - (student.Paid_Amount || 0));
 
     res.status(200).json({
         success: true,
         data: {
-            ...student,
-            remaining_amount: remaining
+            academic_level: student.Academic_Level,
+            payment_status: student.Payment_Status,
+            paid_amount: student.Paid_Amount,
+            total_fees: totalFees,
+            remaining_amount: remaining,
+            courses: courses
         }
     });
 });
@@ -119,27 +153,45 @@ const makePayment = asyncWrapper(async (req, res) => {
     }
 
     const student = await new Promise((resolve, reject) => {
-        db.get(
-            `SELECT s.Academic_Level, s.Payment_Status, s.Paid_Amount, 
-                    COALESCE(alf.Total_Fees, 0) as Total_Fees
-             FROM Student s
-             LEFT JOIN Academic_Level_Fees alf ON s.Academic_Level = alf.Academic_Level
-             WHERE s.User_ID = ?`,
-            [studentId],
-            (err, row) => {
-                if (err) return reject(err);
-                resolve(row);
-            }
-        );
+        db.get(`SELECT Paid_Amount FROM Student WHERE User_ID = ?`, [studentId], (err, row) => {
+            if (err) return reject(err);
+            resolve(row);
+        });
     });
 
     if (!student) {
         return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    const newPaidAmount = student.Paid_Amount + Number(amount);
+    const courses = await new Promise((resolve, reject) => {
+        db.all(
+            `SELECT co.Credit_Hours, alf.Hour_Price, alf.Total_Fees as Fixed_Fees
+             FROM Enrollment e
+             JOIN Class cl ON e.Class_ID = cl.Class_ID
+             JOIN Courses co ON cl.Course_Code = co.Course_Code
+             JOIN Student s ON e.User_ID = s.User_ID
+             LEFT JOIN Academic_Level_Fees alf ON s.Academic_Level = alf.Academic_Level AND cl.Semester = alf.Semester
+             WHERE e.User_ID = ?`,
+            [studentId],
+            (err, rows) => {
+                if (err) return reject(err);
+                resolve(rows || []);
+            }
+        );
+    });
+
+    let totalFees = 0;
+    courses.forEach(c => {
+        if (c.Hour_Price > 0) {
+            totalFees += (c.Credit_Hours * c.Hour_Price);
+        } else {
+            totalFees += (c.Fixed_Fees || 0);
+        }
+    });
+
+    const newPaidAmount = (student.Paid_Amount || 0) + Number(amount);
     let newStatus = 'Unpaid';
-    if (newPaidAmount >= student.Total_Fees && student.Total_Fees > 0) {
+    if (newPaidAmount >= totalFees && totalFees > 0) {
         newStatus = 'Paid';
     } else if (newPaidAmount > 0) {
         newStatus = 'Partial';
@@ -162,10 +214,16 @@ const makePayment = asyncWrapper(async (req, res) => {
         data: {
             paid_amount: newPaidAmount,
             payment_status: newStatus,
-            total_fees: student.Total_Fees,
-            remaining_amount: Math.max(0, student.Total_Fees - newPaidAmount)
+            total_fees: totalFees,
+            remaining_amount: Math.max(0, totalFees - newPaidAmount)
         }
     });
 });
 
-module.exports = { getStudentStats, getAllStudents, getPaymentDetails, makePayment };
+const getTranscript = asyncWrapper(async (req, res) => {
+    const { studentId } = req.params;
+    const transcript = await gpaService.getStudentTranscript(studentId);
+    res.status(200).json({ success: true, data: transcript });
+});
+
+module.exports = { getStudentStats, getAllStudents, getPaymentDetails, makePayment, getTranscript };

@@ -216,70 +216,50 @@ const AiAnswerBubble = memo(function AiAnswerBubble({ answer }: { answer: Answer
 
   const sourceType = meta.source_type || answer.source_type;
   const isPrevQA   = sourceType === 'previous_qa';
-  const pct        = answer.confidence != null ? Math.round(answer.confidence * 100) : null;
   const matName    = meta.material_name;
   const page       = meta.page;
-  const asker      = meta.previous_question?.asked_by;
-  const answerer   = meta.previous_answer?.answered_by;
 
   return (
-    <div className="flex items-start gap-2.5 group">
+    <div className="flex flex-row-reverse items-start gap-2.5 group">
       {/* AI avatar */}
-      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
-        <Sparkles size={11} className="text-white" />
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-md ring-2 ring-violet-500/20">
+        <Sparkles size={14} className="text-white" />
       </div>
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 flex flex-col items-end">
         {/* Header */}
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-semibold text-violet-700 dark:text-violet-300">AI Assistant</span>
+        <div className="flex flex-row-reverse items-center gap-2 mb-1.5">
+          <span className="text-xs font-bold text-violet-700 dark:text-violet-400">AI Assistant</span>
           <SourceBadge sourceType={sourceType} />
-          {pct != null && (
-            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-              isPrevQA
-                ? 'bg-violet-100/60 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400'
-                : 'bg-emerald-100/60 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
-            }`}>
-              {pct}% match
-            </span>
-          )}
-          <span className="text-[10px] text-slate-400 dark:text-slate-600 ml-auto">
+          <span className="text-[10px] text-slate-400 font-medium">
             {formatTime(answer.time)}
           </span>
         </div>
 
         {/* Bubble body */}
-        <div className="bg-violet-50 dark:bg-violet-950/40 border border-violet-100 dark:border-violet-800/40 rounded-2xl rounded-tl-sm px-3.5 py-3 shadow-sm">
+        <div className="bg-violet-600 text-white dark:bg-violet-900/60 border border-violet-500/30 rounded-2xl rounded-tr-sm px-4 py-3 shadow-lg shadow-violet-500/10 w-fit max-w-[90%]">
           <MarkdownContent theme="violet" size="sm">{answer.text}</MarkdownContent>
         </div>
 
         {/* Footer actions + source */}
-        <div className="flex items-center gap-3 mt-1.5 px-1">
+        <div className="flex flex-row-reverse items-center gap-3 mt-2 px-1">
           <CopyBtn text={answer.text} />
-
-          {/* Collapsible source context */}
-          {(matName || asker || answerer || page != null) && (
+          {(matName || page != null) && (
             <button
               onClick={() => setShowSource(s => !s)}
-              className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+              className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-violet-500 hover:text-violet-600 transition-colors"
             >
-              {showSource ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-              Source
+              Source Info
             </button>
           )}
         </div>
 
         {showSource && (
-          <div className="mt-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 text-[10px] text-slate-500 dark:text-slate-400 space-y-0.5">
-            {isPrevQA ? (
+          <div className="mt-2 px-3 py-2 rounded-xl bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800/40 text-[10px] text-violet-700 dark:text-violet-300 animate-slide-down">
+            {isPrevQA ? <p>Based on similar historical questions.</p> : (
               <>
-                {asker?.name   && <p>Asked by: <span className="font-medium text-slate-700 dark:text-slate-300">{asker.name}</span></p>}
-                {answerer?.name && <p>Answered by: <span className="font-medium text-slate-700 dark:text-slate-300">{answerer.name}</span></p>}
-              </>
-            ) : (
-              <>
-                {matName && <p>Material: <span className="font-medium text-slate-700 dark:text-slate-300">{matName}</span></p>}
-                {page != null && <p>Page: <span className="font-medium text-slate-700 dark:text-slate-300">{page}</span></p>}
+                {matName && <p>Material: <span className="font-bold">{matName}</span></p>}
+                {page != null && <p>Page: <span className="font-bold">{page}</span></p>}
               </>
             )}
           </div>
@@ -343,26 +323,24 @@ function ThinkingBubble() {
 function HumanAnswerBubble({ answer }: { answer: Answer }) {
   const isDoctor = answer.user_role === 'doctor';
   return (
-    <div className="flex items-start gap-2.5 group">
-      <Avatar name={answer.user_name} role={answer.user_role} size={7} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{answer.user_name}</span>
+    <div className="flex flex-row-reverse items-start gap-2.5 group">
+      <Avatar name={answer.user_name} role={answer.user_role} size={8} />
+      <div className="flex-1 min-w-0 flex flex-col items-end">
+        <div className="flex flex-row-reverse items-center gap-2 mb-1.5">
+          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{answer.user_name}</span>
           {isDoctor && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
-              <GraduationCap size={8} />Instructor
-            </span>
+            <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[8px] font-black uppercase tracking-tighter">Instructor</span>
           )}
-          <span className="text-[10px] text-slate-400 dark:text-slate-600 ml-auto">{formatTime(answer.time)}</span>
+          <span className="text-[10px] text-slate-400 font-medium">{formatTime(answer.time)}</span>
         </div>
-        <div className={`rounded-2xl rounded-tl-sm px-3.5 py-3 shadow-sm ${
+        <div className={`rounded-2xl rounded-tr-sm px-4 py-3 shadow-md w-fit max-w-[90%] border ${
           isDoctor
-            ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/40'
-            : 'bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60'
+            ? 'bg-emerald-500 text-white border-emerald-600 shadow-emerald-500/10'
+            : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700'
         }`}>
           <MarkdownContent size="sm">{answer.text}</MarkdownContent>
         </div>
-        <div className="flex items-center gap-3 mt-1.5 px-1">
+        <div className="mt-2 flex flex-row-reverse">
           <CopyBtn text={answer.text} />
         </div>
       </div>
@@ -452,105 +430,103 @@ const QuestionThread = memo(function QuestionThread({
   onReplySubmit: (qId: string, text: string) => Promise<void>;
 }) {
   const [replyOpen, setReplyOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  
   const isOwnQuestion = q.user_id === currentUser.user_id;
   const isDoctor = currentUser.role === 'doctor' || currentUser.role === 'admin';
   const isQuestioner = q.user_role !== 'doctor';
   const waitingForDoctor = q.answers.length === 0 && !pendingTempId;
+  const hasAnswers = q.answers.length > 0 || pendingTempId || waitingForDoctor;
 
   return (
     <div
       data-question-id={q.q_id}
-      className={`group relative transition-colors duration-700 rounded-xl ${highlighted ? 'ring-2 ring-[#00e5ff]/60 bg-[#00e5ff]/5' : ''}`}
-      style={{ animation: 'chatFadeIn 0.22s ease both' }}
+      className={`group relative flex flex-col gap-2 transition-all duration-500 p-2 rounded-2xl ${highlighted ? 'ring-2 ring-primary-500/50 bg-primary-500/5 shadow-lg' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/30'}`}
+      style={{ animation: 'chatFadeIn 0.3s ease-out both' }}
     >
-      {/* ── Question bubble ─────────────────────────────────── */}
-      <div className="flex items-start gap-2.5">
-        <Avatar name={q.user_name} role={q.user_role} size={8} />
+      {/* ── Question bubble (Left Aligned) ─────────────────────────── */}
+      <div className="flex items-start gap-3 max-w-[85%]">
+        <Avatar name={q.user_name} role={q.user_role} size={9} />
         <div className="flex-1 min-w-0">
-          {/* Name + meta row */}
-          <div className="flex items-center flex-wrap gap-1.5 mb-1">
-            <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{q.user_name}</span>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{q.user_name}</span>
             {q.user_role === 'doctor' && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
-                <GraduationCap size={8} />Instructor
-              </span>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[8px] font-black uppercase tracking-tighter">Instructor</span>
             )}
-            <QuestionStatusBadge q={q} />
-            <span className="text-[10px] text-slate-400 dark:text-slate-600 ml-auto shrink-0">{formatTime(q.time)}</span>
+            <span className="text-[10px] text-slate-400 font-medium">{formatTime(q.time)}</span>
           </div>
-
-          {/* Question text bubble */}
-          <div className={`rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm ${
-            isOwnQuestion
-              ? 'bg-[#00e5ff]/10 border border-[#00e5ff]/20'
-              : 'bg-white dark:bg-[#112240] border border-slate-200 dark:border-slate-700/80'
+          
+          <div className={`px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm border ${
+            isOwnQuestion 
+              ? 'bg-primary-500 text-white border-primary-600' 
+              : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-100 dark:border-slate-700'
           }`}>
-            <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap break-words">{q.text}</p>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap break-words font-medium">{q.text}</p>
+          </div>
+          
+          {/* Status Badge & Toggle Button */}
+          <div className="flex items-center gap-3 mt-2">
+            <QuestionStatusBadge q={q} />
+            {hasAnswers && (
+              <button 
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-primary-500 hover:text-primary-600 transition-colors"
+              >
+                {isExpanded ? (
+                  <><ChevronUp size={12} /> Hide Replies</>
+                ) : (
+                  <><ChevronDown size={12} /> View Replies ({q.answers.length})</>
+                )}
+              </button>
+            )}
+            {isDoctor && isQuestioner && !replyOpen && (
+              <button 
+                onClick={() => setReplyOpen(true)}
+                className="text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-600 transition-colors"
+              >
+                Reply
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ── Answers / AI responses ──────────────────────────── */}
-      {(q.answers.length > 0 || pendingTempId || waitingForDoctor) && (
-        <div className="ml-10 mt-2.5 space-y-3">
+      {/* ── Answers / AI responses (Right Aligned / Collapsible) ─────── */}
+      {isExpanded && hasAnswers && (
+        <div className="ml-auto w-[90%] space-y-4 pt-2 animate-slide-down">
           {/* AI thinking spinner */}
           {pendingTempId && <ThinkingBubble />}
 
-          {/* Waiting for doctor (no answers, RAG returned sent_to_doctor) */}
+          {/* Waiting for doctor */}
           {!pendingTempId && isQuestioner && waitingForDoctor && <WaitingBubble />}
 
           {/* Rendered answers */}
-          {q.answers.map(a => (
-            <div key={a.a_id} style={{ animation: 'chatFadeIn 0.22s ease both' }}>
-              {a.is_ai_generated
-                ? <AiAnswerBubble answer={a} />
-                : <HumanAnswerBubble answer={a} />}
+          {q.answers.map((a, idx) => (
+            <div 
+              key={a.a_id} 
+              className="flex justify-end animate-chatFadeIn" 
+              style={{ animationDelay: `${idx * 100}ms` }}
+            >
+              <div className="max-w-[95%] w-full">
+                {a.is_ai_generated
+                  ? <AiAnswerBubble answer={a} />
+                  : <HumanAnswerBubble answer={a} />}
+              </div>
             </div>
           ))}
-
-          {/* Doctor reply button — shown when: unanswered by human && doctor/admin */}
-          {isDoctor && !replyOpen && isQuestioner && !q.answers.some(a => a.user_role === 'doctor') && (
-            <button
-              onClick={() => setReplyOpen(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#00b8d4] hover:text-[#00e5ff] transition-colors mt-1"
-            >
-              <MessageSquarePlus size={13} /> Reply to this question
-            </button>
-          )}
-
-          {/* Any role can reply (but keep it compact) */}
-          {!replyOpen && !isDoctor && isOwnQuestion === false && (
-            <button
-              onClick={() => setReplyOpen(true)}
-              className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-[#00b8d4] dark:hover:text-[#00e5ff] transition-colors mt-1"
-            >
-              <MessageSquarePlus size={12} /> Reply
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* If no answers yet and not pending — still show reply button for doctor */}
-      {q.answers.length === 0 && !pendingTempId && isDoctor && isQuestioner && !replyOpen && (
-        <div className="ml-10 mt-2">
-          <button
-            onClick={() => setReplyOpen(true)}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-[#00b8d4] hover:text-[#00e5ff] transition-colors"
-          >
-            <MessageSquarePlus size={13} /> Reply to this question
-          </button>
         </div>
       )}
 
       {/* Inline reply box */}
       {replyOpen && (
-        <div className="ml-10 mt-2">
+        <div className="ml-auto w-[90%] mt-2">
           <InlineReply
             user={currentUser}
             qId={q.q_id}
             onSubmit={async (qId, text) => {
               await onReplySubmit(qId, text);
               setReplyOpen(false);
+              setIsExpanded(true); // Auto expand when replying
             }}
             onCancel={() => setReplyOpen(false)}
           />
@@ -783,10 +759,9 @@ export default function ClassStreamTab() {
         </div>
 
         {/* ── Sticky input bar ─────────────────────────────── */}
-        <div className="shrink-0 pt-3 pb-1 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-[#0a192f]/80 backdrop-blur-md">
-          <div className="flex items-end gap-2.5">
-            <Avatar name={`${user.f_name} ${user.l_name}`} role={user.role} size={8} />
-            <div className="flex-1 relative">
+        <div className="shrink-0 pt-4 pb-4 bg-white/80 dark:bg-[#0a192f]/80 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800/60 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.05)]">
+          <div className="flex items-end gap-3 max-w-2xl mx-auto px-2">
+            <div className="flex-1 relative group">
               <textarea
                 ref={inputRef}
                 value={input}
@@ -794,12 +769,12 @@ export default function ClassStreamTab() {
                 onKeyDown={handleKeyDown}
                 placeholder={
                   user.role === 'doctor'
-                    ? 'Post an announcement or ask the class…'
-                    : 'Ask a question — AI will answer instantly from previous Q&A or materials…'
+                    ? 'Broadcast a message or ask the class…'
+                    : 'Ask anything... AI will search materials instantly'
                 }
                 rows={1}
                 disabled={sending}
-                className="w-full px-4 py-3 pr-12 rounded-2xl bg-white dark:bg-[#112240] text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-[#00e5ff] focus:border-[#00e5ff] resize-none transition-all max-h-40 overflow-y-auto"
+                className="w-full pl-5 pr-14 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500/50 resize-none transition-all shadow-inner"
                 style={{ lineHeight: '1.5' }}
                 onInput={e => {
                   const el = e.currentTarget;
@@ -810,18 +785,24 @@ export default function ClassStreamTab() {
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || sending}
-                className="absolute right-2 bottom-2 w-8 h-8 rounded-xl bg-[#00b8d4] hover:bg-[#00e5ff] disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white disabled:text-slate-400 flex items-center justify-center transition-all disabled:cursor-not-allowed shadow-sm"
+                className="absolute right-2 bottom-2 w-10 h-10 rounded-xl bg-primary-500 hover:bg-primary-600 disabled:bg-slate-200 dark:disabled:bg-slate-800 text-white flex items-center justify-center transition-all shadow-lg shadow-primary-500/20 active:scale-95"
                 title="Send (Ctrl+Enter)"
               >
                 {sending
-                  ? <Loader2 size={14} className="animate-spin" />
-                  : <Send size={14} />}
+                  ? <Loader2 size={18} className="animate-spin" />
+                  : <Send size={18} />}
               </button>
             </div>
           </div>
-          <p className="text-[10px] text-slate-400 dark:text-slate-600 mt-1.5 ml-10">
-            Ctrl+Enter to send · AI checks previous Q&amp;A and materials before forwarding to instructor
-          </p>
+          <div className="flex items-center justify-center gap-4 mt-3">
+             <p className="text-[10px] text-slate-400 font-medium">
+                <span className="font-black text-slate-300 dark:text-slate-700 mr-1">CTRL+ENTER</span> to submit fast
+             </p>
+             <div className="h-1 w-1 rounded-full bg-slate-300" />
+             <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                <Sparkles size={10} className="text-amber-500" /> AI automatically checks materials
+             </p>
+          </div>
         </div>
       </div>
     </>

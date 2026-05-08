@@ -36,7 +36,7 @@ export default function DoctorDashboard() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">Welcome, Dr. {user?.l_name}! 👋</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">Welcome, Dr. {user?.l_name}! </h1>
           <p className="text-slate-600 dark:text-slate-400 mt-1">Manage your classes and students</p>
         </div>
         <div className="text-sm font-medium bg-[#00b8d4]/10 text-[#00b8d4] px-4 py-2 rounded-xl border border-[#00b8d4]/20 flex items-center gap-2 animate-pulse">

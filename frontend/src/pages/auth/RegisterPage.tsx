@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authService, departmentService } from '../../services';
-import { UserPlus, AlertCircle, Upload } from 'lucide-react';
+import { UserPlus, AlertCircle, Upload, Eye, EyeOff } from 'lucide-react';
 import type { Department, AcademicLevel } from '../../types';
 
 export default function RegisterPage() {
@@ -15,6 +15,8 @@ export default function RegisterPage() {
   });
   const [docFile, setDocFile] = useState<File | null>(null);
   const [docName, setDocName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     departmentService.getAll()
@@ -29,6 +31,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.password !== form.confirm) { setError('Passwords do not match'); return; }
+    if (!/^\d{14}$/.test(form.ssn)) { setError('SSN must be exactly 14 digits'); return; }
     setError('');
     setLoading(true);
     try {
@@ -70,7 +73,15 @@ export default function RegisterPage() {
         </div>
         <div>
           <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">SSN (National ID)</label>
-          <input value={form.ssn} onChange={e => setForm({ ...form, ssn: e.target.value })} className="input-field" placeholder="14-digit national ID" required />
+          <input 
+            value={form.ssn} 
+            onChange={e => setForm({ ...form, ssn: e.target.value.replace(/\D/g, '').slice(0, 14) })} 
+            className="input-field" 
+            placeholder="14-digit national ID" 
+            required 
+            minLength={14}
+            maxLength={14}
+          />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -93,11 +104,41 @@ export default function RegisterPage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">Password</label>
-            <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} className="input-field" required />
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                value={form.password} 
+                onChange={e => setForm({ ...form, password: e.target.value })} 
+                className="input-field pr-10" 
+                required 
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#00e5ff] transition-colors"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">Confirm</label>
-            <input type="password" value={form.confirm} onChange={e => setForm({ ...form, confirm: e.target.value })} className="input-field" required />
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">Confirm Password</label>
+            <div className="relative">
+              <input 
+                type={showConfirm ? "text" : "password"} 
+                value={form.confirm} 
+                onChange={e => setForm({ ...form, confirm: e.target.value })} 
+                className="input-field pr-10" 
+                required 
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirm(!showConfirm)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#00e5ff] transition-colors"
+              >
+                {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
         </div>
 

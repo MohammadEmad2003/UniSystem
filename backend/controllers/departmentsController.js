@@ -8,7 +8,7 @@ const departmentQueries = genericQueries("Department", {
 const getAllDepartments = asyncWrapper(async (req, res) => {
   const departments = await new Promise((resolve, reject) => {
     db.all(
-      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name 
+      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name, d.Total_Hours_Required as total_hours_required
        FROM Department d 
        LEFT JOIN User u ON d.Doctor_ID = u.User_ID`,
       [],
@@ -26,7 +26,7 @@ const getAllDepartments = asyncWrapper(async (req, res) => {
 });
 
 const createDepartment = asyncWrapper(async (req, res) => {
-  const { dept_name, head_id } = req.body;
+  const { dept_name, head_id, total_hours_required } = req.body;
   if (!dept_name) {
     return res.status(400).json({
       success: false,
@@ -53,6 +53,7 @@ const createDepartment = asyncWrapper(async (req, res) => {
   const newDepartmentId = await departmentQueries.create({
     Dept_Name: dept_name,
     Doctor_ID: head_id || null,
+    Total_Hours_Required: total_hours_required || 144,
   });
 
   if (head_id) {
@@ -119,7 +120,7 @@ const getSingleDepartment = asyncWrapper(async (req, res) => {
 
 const updateDepartment = asyncWrapper(async (req, res) => {
   const { departmentId } = req.params;
-  const { dept_name, head_id } = req.body;
+  const { dept_name, head_id, total_hours_required } = req.body;
 
   const existing = await departmentQueries.getById(departmentId);
   if (!existing) {
@@ -152,6 +153,7 @@ const updateDepartment = asyncWrapper(async (req, res) => {
   const updateData = {};
   if (dept_name) updateData.Dept_Name = dept_name;
   if (head_id !== undefined) updateData.Doctor_ID = head_id;
+  if (total_hours_required !== undefined) updateData.Total_Hours_Required = total_hours_required;
 
   await departmentQueries.update(departmentId, updateData);
 

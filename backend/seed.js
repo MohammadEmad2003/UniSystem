@@ -176,6 +176,12 @@ async function seed() {
       [student3Id],
     );
 
+    // Academic_Level_Fees
+    await run(`INSERT OR IGNORE INTO Academic_Level_Fees (Academic_Level, Total_Fees, Max_Hours, Min_Hours) VALUES (1, 10000, 18, 12)`);
+    await run(`INSERT OR IGNORE INTO Academic_Level_Fees (Academic_Level, Total_Fees, Max_Hours, Min_Hours) VALUES (2, 12000, 18, 12)`);
+    await run(`INSERT OR IGNORE INTO Academic_Level_Fees (Academic_Level, Total_Fees, Max_Hours, Min_Hours) VALUES (3, 14000, 21, 12)`);
+    await run(`INSERT OR IGNORE INTO Academic_Level_Fees (Academic_Level, Total_Fees, Max_Hours, Min_Hours) VALUES (4, 16000, 21, 12)`);
+
     // Work_In
     await run(
       `INSERT OR IGNORE INTO Work_In (Doctor_ID, Dept_ID) VALUES (?, 1)`,

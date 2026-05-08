@@ -167,11 +167,19 @@ export const realAdminService = {
   },
   async setAcademicLevelFees(
     level: number,
-    total_fees: number,
+    semester: string,
+    total_fees?: number,
+    max_hours?: number,
+    min_hours?: number,
+    hour_price?: number,
   ): Promise<ApiResponse<any>> {
     const res = await apiClient.post("/admin/fees", {
       academic_level: level,
+      semester,
       total_fees,
+      max_hours,
+      min_hours,
+      hour_price,
     });
     return ok(res.data.data, res.data.message);
   },
@@ -246,6 +254,18 @@ export const realCourseService = {
   async delete(code: string): Promise<ApiResponse<null>> {
     await apiClient.delete(`/courses/${code}`);
     return ok(null);
+  },
+  async getPrerequisites(courseCode: string): Promise<ApiResponse<any[]>> {
+    const res = await apiClient.get(`/courses/${courseCode}/prerequisites`);
+    return ok(res.data.data);
+  },
+  async addPrerequisite(courseCode: string, prereqCode: string): Promise<ApiResponse<any>> {
+    const res = await apiClient.post(`/courses/${courseCode}/prerequisites`, { prereqCode });
+    return ok(res.data.data);
+  },
+  async removePrerequisite(courseCode: string, prereqCode: string): Promise<ApiResponse<any>> {
+    const res = await apiClient.delete(`/courses/${courseCode}/prerequisites/${prereqCode}`);
+    return ok(res.data.data);
   },
 };
 
@@ -669,6 +689,14 @@ export const realStudentService = {
   },
   async getAll(): Promise<ApiResponse<Student[]>> {
     const res = await apiClient.get("/students");
+    return ok(res.data.data);
+  },
+  async getTranscript(studentId: string): Promise<ApiResponse<any>> {
+    const res = await apiClient.get(`/students/${studentId}/transcript`);
+    return ok(res.data.data);
+  },
+  async getPayment(studentId: string): Promise<ApiResponse<any>> {
+    const res = await apiClient.get(`/students/${studentId}/payment`);
     return ok(res.data.data);
   },
 };

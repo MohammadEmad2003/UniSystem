@@ -40,7 +40,7 @@ router.route("/admins")
   .post(allowedTo(userRoles.ADMIN), createAdmin);
 
 router.route("/fees")
-  .get(allowedTo(userRoles.ADMIN), getAcademicLevelFees)
+  .get(allowedTo(userRoles.ADMIN, userRoles.DOCTOR, userRoles.STUDENT), getAcademicLevelFees)
   .post(allowedTo(userRoles.ADMIN), setAcademicLevelFees);
 
 router.route("/courses").get(allowedTo(userRoles.ADMIN, userRoles.DOCTOR), getAllCourses);

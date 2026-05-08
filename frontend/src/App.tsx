@@ -36,6 +36,7 @@ import StudentAffairsDashboard from "./pages/dashboard/StudentAffairsDashboard";
 import StudentManagementPage from "./pages/admin/StudentManagementPage";
 import DeptManagementPage from "./pages/admin/DeptManagementPage";
 import PaymentPage from "./pages/student/PaymentPage";
+import TranscriptPage from "./pages/student/TranscriptPage";
 import LandingLayout from "./layouts/LandingLayout";
 import AcademicsPage from "./pages/landing/AcademicsPage";
 import AdmissionsPage from "./pages/landing/AdmissionsPage";
@@ -236,6 +237,14 @@ export default function App() {
           element={
             <ProtectedRoute roles={["student"]}>
               <PaymentPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transcript"
+          element={
+            <ProtectedRoute roles={["student"]}>
+              <TranscriptPage />
             </ProtectedRoute>
           }
         />

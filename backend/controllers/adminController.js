@@ -69,6 +69,21 @@ const getStats = asyncWrapper(async (req, res) => {
     total_courses = await getCount("Courses");
   }
 
+  // Get department stats for the chart
+  const dept_stats = await new Promise((resolve, reject) => {
+    db.all(`
+      SELECT 
+        d.Dept_ID as id, 
+        d.Dept_Name as name,
+        (SELECT COUNT(*) FROM Student s WHERE s.Dept_ID = d.Dept_ID) as students,
+        (SELECT COUNT(DISTINCT Doctor_ID) FROM Work_In w WHERE w.Dept_ID = d.Dept_ID) as doctors
+      FROM Department d
+    `, (err, rows) => {
+      if (err) return reject(err);
+      resolve(rows || []);
+    });
+  });
+
   res.status(200).json({
     success: true,
     data: {
@@ -78,6 +93,7 @@ const getStats = asyncWrapper(async (req, res) => {
       total_departments,
       total_courses,
       pending_approvals,
+      dept_stats
     },
   });
 });
@@ -95,7 +111,7 @@ const getAllStudents = asyncWrapper(async (req, res) => {
               COALESCE(alf.Total_Fees, 0) as total_fees
        FROM User u
        JOIN Student s ON u.User_ID = s.User_ID
-       LEFT JOIN Academic_Level_Fees alf ON s.Academic_Level = alf.Academic_Level
+       LEFT JOIN Academic_Level_Fees alf ON s.Academic_Level = alf.Academic_Level AND alf.Semester = 'Fall'
        ${whereClause}`,
       params,
       (err, rows) => {
@@ -344,18 +360,28 @@ const getAcademicLevelFees = asyncWrapper(async (req, res) => {
 });
 
 const setAcademicLevelFees = asyncWrapper(async (req, res) => {
-  const { academic_level, total_fees } = req.body;
-  if (!academic_level || total_fees === undefined) {
+  const { academic_level, semester, total_fees, max_hours, min_hours, hour_price } = req.body;
+  if (!academic_level || !semester) {
     return res.status(400).json({
       success: false,
-      message: "academic_level and total_fees are required",
+      message: "academic_level and semester are required",
     });
   }
 
+  const query = `
+    INSERT INTO Academic_Level_Fees (Academic_Level, Semester, Total_Fees, Max_Hours, Min_Hours, Hour_Price) 
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(Academic_Level, Semester) DO UPDATE SET
+      Total_Fees = COALESCE(excluded.Total_Fees, Total_Fees),
+      Max_Hours = COALESCE(excluded.Max_Hours, Max_Hours),
+      Min_Hours = COALESCE(excluded.Min_Hours, Min_Hours),
+      Hour_Price = COALESCE(excluded.Hour_Price, Hour_Price)
+  `;
+
   await new Promise((resolve, reject) => {
     db.run(
-      `INSERT OR REPLACE INTO Academic_Level_Fees (Academic_Level, Total_Fees) VALUES (?, ?)`,
-      [academic_level, total_fees],
+      query,
+      [academic_level, semester, total_fees ?? null, max_hours ?? null, min_hours ?? null, hour_price ?? null],
       (err) => {
         if (err) reject(err);
         resolve();
@@ -363,7 +389,7 @@ const setAcademicLevelFees = asyncWrapper(async (req, res) => {
     );
   });
 
-  res.status(200).json({ success: true, message: "Fees updated successfully" });
+  res.status(200).json({ success: true, message: "Academic level settings updated successfully" });
 });
 
 const createStudent = asyncWrapper(async (req, res) => {
@@ -420,10 +446,21 @@ const getFinancialStats = asyncWrapper(async (req, res) => {
         SUM(CASE WHEN u.Account_Status = 'pending' THEN 1 ELSE 0 END) as pending_students,
         SUM(CASE WHEN u.Account_Status = 'approved' THEN 1 ELSE 0 END) as approved_students,
         SUM(s.Paid_Amount) as total_paid,
-        SUM(f.Total_Fees) as total_expected
+        SUM(
+          CASE 
+            WHEN f.Hour_Price > 0 THEN (
+              SELECT COALESCE(SUM(co.Credit_Hours), 0) * f.Hour_Price
+              FROM Enrollment e 
+              JOIN Class cl ON e.Class_ID = cl.Class_ID 
+              JOIN Courses co ON cl.Course_Code = co.Course_Code 
+              WHERE e.User_ID = s.User_ID
+            )
+            ELSE COALESCE(f.Total_Fees, 0)
+          END
+        ) as total_expected
       FROM User u
       JOIN Student s ON u.User_ID = s.User_ID
-      LEFT JOIN Academic_Level_Fees f ON s.Academic_Level = f.Academic_Level
+      LEFT JOIN Academic_Level_Fees f ON s.Academic_Level = f.Academic_Level AND f.Semester = 'Fall'
       WHERE u.Role = 'Student'
     `,
       (err, rows) => {

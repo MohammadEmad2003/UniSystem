@@ -82,6 +82,9 @@ export interface Admin extends User {
 export interface Department {
   dept_id: string;
   dept_name: string;
+  total_hours_required?: number;
+  head_id?: string;
+  head_name?: string;
 }
 
 export interface Course {
@@ -102,6 +105,7 @@ export interface Class {
   capacity: number;
   enrolled_count?: number;
   department_id?: string;
+  credit_hours?: number;
 }
 
 // ---- Class Content ----
@@ -281,6 +285,7 @@ export interface AdminStats {
   total_departments: number;
   total_courses: number;
   pending_approvals: number;
+  dept_stats?: { name: string; students: number; doctors: number }[];
 }
 
 export interface DoctorStats {

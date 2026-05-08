@@ -331,20 +331,29 @@ export const mockAdminService = {
     return { success: true, data: admins };
   },
 
-  async getAcademicLevelFees(): Promise<ApiResponse<Record<number, number>>> {
+  async getAcademicLevelFees(): Promise<ApiResponse<any[]>> {
     await delay();
     return {
       success: true,
-      data: { 1: 5000, 2: 5000, 3: 6000, 4: 6000, 5: 7000 },
+      data: [
+        { Academic_Level: 1, Total_Fees: 5000, Max_Hours: 18, Min_Hours: 12, Hour_Price: 500 },
+        { Academic_Level: 2, Total_Fees: 5000, Max_Hours: 18, Min_Hours: 12, Hour_Price: 500 },
+        { Academic_Level: 3, Total_Fees: 6000, Max_Hours: 18, Min_Hours: 12, Hour_Price: 600 },
+        { Academic_Level: 4, Total_Fees: 6000, Max_Hours: 18, Min_Hours: 12, Hour_Price: 600 },
+        { Academic_Level: 5, Total_Fees: 7000, Max_Hours: 18, Min_Hours: 12, Hour_Price: 700 },
+      ],
     };
   },
 
   async setAcademicLevelFees(
     level: number,
-    total_fees: number,
+    total_fees?: number,
+    max_hours?: number,
+    min_hours?: number,
+    hour_price?: number,
   ): Promise<ApiResponse<any>> {
     await delay();
-    return { success: true, data: null, message: "Fees updated successfully" };
+    return { success: true, data: null, message: "Settings updated successfully" };
   },
 };
 
@@ -424,6 +433,19 @@ export const mockCourseService = {
   async delete(code: string): Promise<ApiResponse<null>> {
     await delay();
     courses = courses.filter((c) => c.course_code !== code);
+    return { success: true, data: null };
+  },
+
+  async getPrerequisites(courseCode: string): Promise<ApiResponse<any[]>> {
+    await delay();
+    return { success: true, data: [] };
+  },
+  async addPrerequisite(courseCode: string, prereqCode: string): Promise<ApiResponse<any>> {
+    await delay();
+    return { success: true, data: null };
+  },
+  async removePrerequisite(courseCode: string, prereqCode: string): Promise<ApiResponse<any>> {
+    await delay();
     return { success: true, data: null };
   },
 };
@@ -856,5 +878,13 @@ export const mockStudentService = {
         ).length,
       },
     };
+  },
+  async getTranscript(studentId: string): Promise<ApiResponse<any>> {
+    await delay();
+    return { success: true, data: {} };
+  },
+  async getPayment(studentId: string): Promise<ApiResponse<any>> {
+    await delay();
+    return { success: true, data: {} };
   },
 };

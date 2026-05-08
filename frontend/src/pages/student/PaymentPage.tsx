@@ -9,6 +9,9 @@ import {
   User,
   Calendar,
   Lock,
+  ChevronDown,
+  ChevronUp,
+  BookOpen
 } from "lucide-react";
 
 export default function PaymentPage() {
@@ -16,6 +19,7 @@ export default function PaymentPage() {
   const [details, setDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   // Card States
   const [amount, setAmount] = useState("");
@@ -38,18 +42,12 @@ export default function PaymentPage() {
   }, [user, token]);
 
   const formatCardNumber = (value: string) => {
-    const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
-    const matches = v.match(/\d{4,16}/g);
-    const match = (matches && matches[0]) || "";
+    const v = value.replace(/\D/g, "").slice(0, 16);
     const parts = [];
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
+    for (let i = 0; i < v.length; i += 4) {
+      parts.push(v.substring(i, i + 4));
     }
-    if (parts.length) {
-      return parts.join(" ");
-    } else {
-      return value;
-    }
+    return parts.join(" ");
   };
 
   const formatExpiry = (value: string) => {
@@ -63,10 +61,11 @@ export default function PaymentPage() {
   const handlePay = async () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0)
       return setError("Invalid amount");
-    if (Number(amount) > details.remaining_amount)
-      return setError(
-        `Amount cannot exceed the remaining balance ($${details.remaining_amount}).`,
-      );
+    
+    const remaining = details?.remaining_amount || 0;
+    if (Number(amount) > remaining && remaining > 0)
+      return setError(`Amount cannot exceed the remaining balance ($${remaining}).`);
+
     if (cardNumber.replace(/\s/g, "").length < 16)
       return setError("Invalid card number. Must be 16 digits.");
     if (!cardHolder) return setError("Please enter cardholder name");
@@ -92,22 +91,17 @@ export default function PaymentPage() {
 
       setDetails({
         ...details,
-        Paid_Amount: res.data.paid_amount,
-        Payment_Status: res.data.payment_status,
+        paid_amount: res.data.paid_amount,
+        payment_status: res.data.payment_status,
         remaining_amount: res.data.remaining_amount,
       });
       setAmount("");
-      setCardNumber("");
-      setCardHolder("");
-      setExpiry("");
-      setCvv("");
       alert("Payment successful!");
     } catch (e: any) {
       setError(e.message || "Payment failed");
     }
   };
 
-  // Determine card type based on first digit
   const getCardType = () => {
     if (cardNumber.startsWith("4")) return "VISA";
     if (cardNumber.startsWith("5")) return "MASTERCARD";
@@ -122,22 +116,53 @@ export default function PaymentPage() {
     );
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">University Payment Portal</h1>
-          <p className="text-slate-600 dark:text-slate-400">Manage your tuition fees and secure payments</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-bold drop-shadow-md">Payment Portal</h1>
+          <p className="text-slate-600 dark:text-slate-400">Securely pay your tuition fees</p>
         </div>
-        {details && (
-           <div className="flex items-center gap-3 bg-surface-100/50 dark:bg-[#0a192f] p-2 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800">
-             <div className="w-10 h-10 rounded-xl bg-primary-500/10 flex items-center justify-center text-primary-500"><DollarSign size={20} /></div>
-             <div>
-               <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Total Balance</div>
-               <div className="text-sm font-bold text-slate-900 dark:text-white">${details.remaining_amount}</div>
-             </div>
-           </div>
-        )}
+        <button 
+           onClick={() => setShowBreakdown(!showBreakdown)}
+           className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-500/10 text-primary-600 font-bold hover:bg-primary-500 hover:text-white transition-all border border-primary-500/20"
+        >
+           <BookOpen size={18} />
+           {showBreakdown ? 'Hide Breakdown' : 'Show Tuition Details'}
+           {showBreakdown ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
       </div>
+
+      {/* Course Breakdown (Conditional) */}
+      {showBreakdown && (
+        <div className="card overflow-hidden p-0 border-primary-500/20 shadow-xl animate-slide-down">
+           <div className="bg-primary-500/5 px-6 py-4 border-b border-primary-500/10">
+              <h3 className="font-bold text-primary-700 dark:text-primary-400">Registered Courses & Hours</h3>
+           </div>
+           <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 dark:bg-[#050b14] text-slate-500">
+                 <tr>
+                    <th className="px-6 py-3 font-bold uppercase tracking-wider">Course</th>
+                    <th className="px-6 py-3 font-bold uppercase tracking-wider text-center">Semester</th>
+                    <th className="px-6 py-3 font-bold uppercase tracking-wider text-center">Hours</th>
+                    <th className="px-6 py-3 font-bold uppercase tracking-wider text-right">Fee</th>
+                 </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                 {details?.courses?.map((c: any, i: number) => (
+                    <tr key={i}>
+                       <td className="px-6 py-3 font-medium">{c.Name}</td>
+                       <td className="px-6 py-3 text-center opacity-70">{c.Semester}</td>
+                       <td className="px-6 py-3 text-center font-bold">{c.Credit_Hours}H</td>
+                       <td className="px-6 py-3 text-right font-bold">${(c.Credit_Hours * (c.Hour_Price || 0)).toFixed(2)}</td>
+                    </tr>
+                 ))}
+                 {(!details?.courses || details.courses.length === 0) && (
+                   <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-400 italic">No courses found.</td></tr>
+                 )}
+              </tbody>
+           </table>
+        </div>
+      )}
 
       <div className="card overflow-hidden p-0 border-none shadow-2xl bg-white dark:bg-[#0a192f]">
         <div className="flex flex-col lg:flex-row min-h-[550px]">
@@ -165,7 +190,7 @@ export default function PaymentPage() {
                     </div>
                   </div>
                   <div className="mt-auto space-y-4">
-                    <div className="text-xl md:text-2xl font-mono tracking-[0.15em] text-white/90">
+                    <div className="text-xl md:text-2xl font-mono tracking-[0.1em] text-white/90 text-center whitespace-nowrap overflow-hidden">
                       {cardNumber || "•••• •••• •••• ••••"}
                     </div>
                     <div className="flex justify-between items-end">
@@ -186,132 +211,131 @@ export default function PaymentPage() {
               {details && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#050b14] border border-slate-200 dark:border-slate-800">
-                    <span className="text-sm text-slate-500 font-medium">Academic Level Fees</span>
-                    <span className="font-bold text-slate-900 dark:text-white">${details.Total_Fees}</span>
+                    <span className="text-sm text-slate-500 font-medium uppercase tracking-widest">Tuition Total</span>
+                    <span className="font-bold text-slate-900 dark:text-white">${details.total_fees}</span>
                   </div>
                   <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                    <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">Total Paid</span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">${details.Paid_Amount}</span>
+                    <span className="text-sm text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest">Amount Paid</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">${details.paid_amount}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-5 rounded-xl bg-rose-500/5 border border-rose-500/20 shadow-inner">
+                    <span className="text-xs text-rose-600 font-black uppercase tracking-[0.2em]">Remaining Balance</span>
+                    <span className="text-2xl font-black text-rose-600 animate-pulse-slow">${details.remaining_amount}</span>
                   </div>
                 </div>
               )}
             </div>
 
             <div className="mt-8 text-center lg:text-left">
-               <p className="text-xs text-slate-500 leading-relaxed italic">
-                 Secure encryption enabled. Your data is protected using state-of-the-art security protocols.
+               <p className="text-[10px] text-slate-500 leading-relaxed uppercase tracking-widest font-bold">
+                 Encrypted & Secure Transaction
                </p>
             </div>
           </div>
 
           {/* Right Column: Form */}
-          <div className="lg:w-[55%] p-8 md:p-12">
+          <div className="lg:w-[55%] p-8 md:p-12 bg-white dark:bg-[#0a192f]">
             <div className="max-w-md mx-auto">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="p-2 rounded-lg bg-primary-600 text-white shadow-lg shadow-primary-500/30">
+              <div className="flex items-center gap-3 mb-10">
+                <div className="p-3 rounded-2xl bg-primary-600 text-white shadow-xl shadow-primary-500/20">
                   <CreditCard size={24} />
                 </div>
                 <h2 className="text-xl font-bold text-slate-800 dark:text-white">Payment Details</h2>
               </div>
 
               {error && (
-                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-500 text-sm font-medium animate-shake">
+                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-500 text-xs font-bold animate-shake">
                   <AlertCircle size={18} /> <span>{error}</span>
                 </div>
               )}
 
-              {details?.remaining_amount > 0 ? (
-                <div className="space-y-6">
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Card Number</label>
+                  <div className="relative group">
+                    <CreditCard size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                    <input
+                      type="text"
+                      value={cardNumber}
+                      onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                      placeholder="0000 0000 0000 0000"
+                      maxLength={19}
+                      className="w-full bg-slate-50 dark:bg-[#050b14] border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all font-mono text-lg font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Cardholder Name</label>
+                  <div className="relative group">
+                    <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                    <input
+                      type="text"
+                      value={cardHolder}
+                      onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
+                      placeholder="FULL NAME"
+                      className="w-full bg-slate-50 dark:bg-[#050b14] border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all font-bold tracking-wide"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 ml-1">Card Number</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Expiry</label>
                     <div className="relative group">
-                      <CreditCard size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                      <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
                       <input
                         type="text"
-                        value={cardNumber}
-                        onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                        placeholder="0000 0000 0000 0000"
-                        maxLength={19}
-                        className="w-full bg-slate-50 dark:bg-[#050b14] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all font-mono text-lg"
+                        value={expiry}
+                        onChange={(e) => setExpiry(formatExpiry(e.target.value))}
+                        placeholder="MM/YY"
+                        maxLength={5}
+                        className="w-full bg-slate-50 dark:bg-[#050b14] border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 transition-all font-bold text-center"
                       />
                     </div>
                   </div>
-
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 ml-1">Cardholder Name</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">CVV</label>
                     <div className="relative group">
-                      <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                      <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
                       <input
-                        type="text"
-                        value={cardHolder}
-                        onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
-                        placeholder="NAME AS PRINTED"
-                        className="w-full bg-slate-50 dark:bg-[#050b14] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all font-semibold"
+                        type="password"
+                        value={cvv}
+                        onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                        placeholder="•••"
+                        maxLength={3}
+                        className="w-full bg-slate-50 dark:bg-[#050b14] border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 transition-all font-bold text-center"
                       />
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 ml-1">Expiry</label>
-                      <div className="relative group">
-                        <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
-                        <input
-                          type="text"
-                          value={expiry}
-                          onChange={(e) => setExpiry(formatExpiry(e.target.value))}
-                          placeholder="MM/YY"
-                          maxLength={5}
-                          className="w-full bg-slate-50 dark:bg-[#050b14] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all font-mono"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 ml-1">CVV</label>
-                      <div className="relative group">
-                        <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
-                        <input
-                          type="password"
-                          value={cvv}
-                          onChange={(e) => setCvv(e.target.value.replace(/[^0-9]/g, ""))}
-                          placeholder="•••"
-                          maxLength={4}
-                          className="w-full bg-slate-50 dark:bg-[#050b14] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all font-mono"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2">
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 ml-1">Amount to Pay</label>
-                    <div className="relative group">
-                      <DollarSign size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
-                      <input
-                        type="number"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        placeholder={`Max $${details.remaining_amount}`}
-                        className="w-full bg-slate-50 dark:bg-[#050b14] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all font-bold text-xl"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={handlePay}
-                    className="w-full mt-2 btn-primary py-5 rounded-2xl text-lg font-bold shadow-xl shadow-primary-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                  >
-                    Confirm Payment
-                  </button>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center p-8 text-center bg-emerald-500/5 rounded-3xl border border-emerald-500/20 animate-scale-in">
-                  <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6">
-                    <CheckCircle2 size={40} className="text-emerald-500" />
+
+                <div className="pt-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Amount</label>
+                  <div className="relative group">
+                    <DollarSign size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" />
+                    <input
+                      type="number"
+                      value={amount}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        const max = details?.remaining_amount || 0;
+                        if (val > max) setAmount(max.toString());
+                        else setAmount(e.target.value);
+                      }}
+                      placeholder="0.00"
+                      className="w-full bg-slate-50 dark:bg-[#050b14] border-2 border-emerald-500/20 text-emerald-600 rounded-2xl px-12 py-4 focus:outline-none focus:border-emerald-500 transition-all font-black text-xl"
+                    />
                   </div>
-                  <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Payment Complete!</h3>
-                  <p className="text-slate-500">You have successfully cleared your tuition fees for this academic level. No further action is required.</p>
                 </div>
-              )}
+
+                <button
+                  onClick={handlePay}
+                  className="w-full mt-4 btn-primary py-5 rounded-[2rem] text-xl font-black shadow-2xl shadow-primary-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                >
+                  Confirm & Pay
+                </button>
+              </div>
             </div>
           </div>
         </div>

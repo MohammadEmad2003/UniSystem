@@ -502,6 +502,66 @@ const getAllCourses = asyncWrapper(async (req, res) => {
   });
 });
 
+const linkCard = asyncWrapper(async (req, res) => {
+  const { userId, nfcTagId } = req.body || {};
+
+  if (!userId || !nfcTagId) {
+    return res.status(400).json({
+      success: false,
+      message: "userId and nfcTagId are required",
+    });
+  }
+
+  const student = await new Promise((resolve, reject) => {
+    db.get(`SELECT User_ID FROM Student WHERE User_ID = ?`, [userId], (err, row) => {
+      if (err) return reject(err);
+      resolve(row || null);
+    });
+  });
+
+  if (!student) {
+    return res.status(404).json({
+      success: false,
+      message: "Student not found",
+    });
+  }
+
+  const existingTag = await new Promise((resolve, reject) => {
+    db.get(
+      `SELECT User_ID FROM Student WHERE NFC_Tag_ID = ? AND User_ID != ?`,
+      [nfcTagId, userId],
+      (err, row) => {
+        if (err) return reject(err);
+        resolve(row || null);
+      },
+    );
+  });
+
+  if (existingTag) {
+    return res.status(409).json({
+      success: false,
+      message: "This NFC tag is already linked to another student",
+    });
+  }
+
+  await new Promise((resolve, reject) => {
+    db.run(
+      `UPDATE Student SET NFC_Tag_ID = ? WHERE User_ID = ?`,
+      [nfcTagId, userId],
+      function (err) {
+        if (err) return reject(err);
+        resolve(this.changes);
+      },
+    );
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Card linked successfully",
+    data: { userId, nfcTagId },
+  });
+});
+
 module.exports = {
   getStats,
   getAllStudents,
@@ -516,4 +576,5 @@ module.exports = {
   createStudent,
   getFinancialStats,
   getAllCourses,
+  linkCard,
 };

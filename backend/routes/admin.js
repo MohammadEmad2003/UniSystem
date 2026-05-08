@@ -13,6 +13,7 @@ const {
   createStudent,
   getFinancialStats,
   getAllCourses,
+  linkCard,
 } = require("../controllers/adminController");
 
 const verifyToken = require("../middleware/verifytoken");
@@ -44,5 +45,6 @@ router.route("/fees")
   .post(allowedTo(userRoles.ADMIN), setAcademicLevelFees);
 
 router.route("/courses").get(allowedTo(userRoles.ADMIN, userRoles.DOCTOR), getAllCourses);
+router.route("/link-card").post(allowedTo(userRoles.ADMIN), linkCard);
 
 module.exports = router;

@@ -18,8 +18,7 @@ void buzzer_off(void) {
 void buzzer_beep(uint16_t duration_ms) {
     buzzer_on();
     for (uint16_t i = 0; i < duration_ms; i++) {
-        _delay_ms(1);
-    }
+        _delay_ms(1);}
     buzzer_off();
 }
 

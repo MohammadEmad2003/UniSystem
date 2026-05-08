@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useOutletContext, useLocation } from 'react-router-dom';
-import { discussionService } from '../../services';
-import { realClassService } from '../../services/realServices';
+import { realDiscussionService, realClassService } from '../../services/realServices';
 import {
   Send, Sparkles, BookOpen, MessagesSquare, GraduationCap,
   Copy, Clock, CheckCircle2, ChevronDown, ChevronUp, Loader2,
@@ -27,33 +26,36 @@ interface PendingMsg {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function mapRawQuestion(q: any): Question {
+  // normalizeKeys lowercases ALL keys: Questions_ID → questions_id, Class_ID → class_id, etc.
+  // Fall through PascalCase → snake_case → normalised-lowercase so any format works.
   return {
-    q_id:       String(q.Questions_ID || q.q_id),
-    class_id:   String(q.Class_ID     || q.class_id),
-    text:       q.Text      || q.text,
-    user_id:    String(q.User_ID ?? q.user_id ?? ''),
-    user_name:  q.User_Name || q.user_name || 'Unknown',
-    user_role:  (q.User_Role || q.user_role || 'student').toLowerCase() as any,
-    user_image: q.User_Image || q.user_image,
-    time:       q.Time      || q.time || new Date().toISOString(),
+    q_id:       String(q.questions_id  || q.Questions_ID  || q.q_id  || ''),
+    class_id:   String(q.class_id      || q.Class_ID      || ''),
+    text:       q.text       || q.Text       || '',
+    user_id:    String(q.user_id   ?? q.User_ID   ?? ''),
+    user_name:  q.user_name  || q.User_Name  || 'Unknown',
+    user_role:  (q.user_role || q.User_Role  || 'student').toLowerCase() as any,
+    user_image: q.user_image || q.User_Image,
+    time:       q.time       || q.Time       || new Date().toISOString(),
     answers:    (q.answers || []).map(mapRawAnswer),
   };
 }
 
 function mapRawAnswer(a: any): Answer {
+  // Same normalised-key handling as mapRawQuestion.
   return {
-    a_id:           String(a.Answer_ID || a.a_id || Math.random()),
-    question_id:    String(a.Questions_ID || a.question_id || ''),
-    text:           a.Text || a.text || '',
-    user_id:        String(a.User_ID ?? a.user_id ?? ''),
-    user_name:      a.User_Name || a.user_name || 'AI Assistant',
-    user_role:      (a.User_Role || a.user_role || 'ai').toLowerCase() as any,
-    time:           a.Time || a.time || new Date().toISOString(),
-    is_ai_generated: Boolean(a.Is_AI_Generated || a.is_ai_generated),
-    source_type:    a.Source_Type || a.source_type || undefined,
-    source_id:      a.Source_ID   || a.source_id   || undefined,
-    confidence:     a.Confidence  ?? a.confidence  ?? undefined,
-    ai_metadata:    a.AI_Metadata || a.ai_metadata || undefined,
+    a_id:            String(a.answer_id    || a.Answer_ID    || a.a_id    || Math.random()),
+    question_id:     String(a.questions_id || a.Questions_ID || a.question_id || ''),
+    text:            a.text    || a.Text    || '',
+    user_id:         String(a.user_id  ?? a.User_ID  ?? ''),
+    user_name:       a.user_name  || a.User_Name  || 'AI Assistant',
+    user_role:       (a.user_role || a.User_Role  || 'ai').toLowerCase() as any,
+    time:            a.time    || a.Time    || new Date().toISOString(),
+    is_ai_generated: Boolean(a.is_ai_generated || a.Is_AI_Generated),
+    source_type:     a.source_type || a.Source_Type || undefined,
+    source_id:       a.source_id   || a.Source_ID   || undefined,
+    confidence:      a.confidence  ?? a.Confidence  ?? undefined,
+    ai_metadata:     a.ai_metadata || a.AI_Metadata || undefined,
   };
 }
 
@@ -420,17 +422,18 @@ function InlineReply({
 // ─────────────────────────────────────────────────────────────────────────────
 
 const QuestionThread = memo(function QuestionThread({
-  q, currentUser, pendingTempId, highlighted,
+  q, currentUser, pendingTempId, highlighted, autoExpand,
   onReplySubmit,
 }: {
   q: Question;
   currentUser: User;
   pendingTempId?: string;
   highlighted?: boolean;
+  autoExpand?: boolean;
   onReplySubmit: (qId: string, text: string) => Promise<void>;
 }) {
   const [replyOpen, setReplyOpen] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(autoExpand ?? false);
   
   const isOwnQuestion = q.user_id === currentUser.user_id;
   const isDoctor = currentUser.role === 'doctor' || currentUser.role === 'admin';
@@ -468,12 +471,14 @@ const QuestionThread = memo(function QuestionThread({
           <div className="flex items-center gap-3 mt-2">
             <QuestionStatusBadge q={q} />
             {hasAnswers && (
-              <button 
+              <button
                 onClick={() => setIsExpanded(!isExpanded)}
                 className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-primary-500 hover:text-primary-600 transition-colors"
               >
                 {isExpanded ? (
-                  <><ChevronUp size={12} /> Hide Replies</>
+                  <><ChevronUp size={12} /> Hide</>
+                ) : waitingForDoctor ? (
+                  <><ChevronDown size={12} /> Pending instructor reply</>
                 ) : (
                   <><ChevronDown size={12} /> View Replies ({q.answers.length})</>
                 )}
@@ -550,6 +555,7 @@ export default function ClassStreamTab() {
   const [sending, setSending]       = useState(false);
   const [pending, setPending]       = useState<PendingMsg | null>(null);
   const [highlightedQId, setHighlightedQId] = useState<string | null>(null);
+  const [autoExpandQId, setAutoExpandQId] = useState<string | null>(null);
 
   const scrollRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLTextAreaElement>(null);
@@ -559,12 +565,14 @@ export default function ClassStreamTab() {
 
   const loadMessages = useCallback(async () => {
     try {
-      const r = await discussionService.getQuestions(classId);
-      const mapped: Question[] = r.data.map(mapRawQuestion);
-      // Sort oldest-first so chat reads top→bottom
-      mapped.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-      setQuestions(mapped);
-      console.log(`[CHAT] Loaded ${mapped.length} messages for class ${classId}`);
+      const r = await realDiscussionService.getQuestions(classId);
+      const list = (r.data as Question[]) || [];
+      // realDiscussionService already maps keys; sort oldest-first so chat reads top→bottom
+      const sorted = list.slice().sort(
+        (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
+      );
+      setQuestions(sorted);
+      console.log(`[CHAT] Loaded ${sorted.length} messages for class ${classId}`, sorted);
     } catch (e) {
       console.error('[CHAT] Failed to load messages', e);
     } finally {
@@ -612,21 +620,50 @@ export default function ClassStreamTab() {
 
     console.log(`[CHAT] Question submitted: "${text}"`);
 
+    let newQId: string | null = null;
     try {
       const res = await realClassService.askAndSave(classId, text);
-      const { status, question: rawQ } = res.data as any;
+      const payload = (res.data ?? {}) as any;
+      const status = payload.status;
+      const rawQ = payload.question;
 
-      console.log(`[CHAT] RAG response — status: ${status}, source_type: ${rawQ?.answers?.[0]?.Source_Type || rawQ?.answers?.[0]?.source_type || 'none'}`);
+      console.log('[CHAT] RAG response payload:', payload);
 
-      const q = mapRawQuestion(rawQ);
-      // Append to bottom (it's a new message)
-      setQuestions(prev => [...prev, q]);
+      if (rawQ) {
+        const q = mapRawQuestion(rawQ);
+        newQId = q.q_id;
+        setQuestions(prev => [...prev, q]);
+        setAutoExpandQId(q.q_id);
+        console.log(`[CHAT] Question added to stream — q_id=${q.q_id}, status=${status}`);
+      } else {
+        console.warn('[CHAT] askAndSave returned no question field — falling back to reload');
+      }
     } catch (e) {
       console.error('[CHAT] RAG call failed', e);
-      // On total failure — show question with no answers (user sees "Waiting" badge)
     } finally {
       setPending(null);
       setSending(false);
+    }
+
+    // Re-sync with the server after a submit — guarantees the new question
+    // (and its answer / "sent to doctor" state) shows up. Defensive: only overwrite
+    // local state if the server returns a non-empty list, otherwise keep the
+    // optimistic state so the user always sees their just-submitted question.
+    try {
+      const r = await realDiscussionService.getQuestions(classId);
+      const serverList = (r.data as Question[]) || [];
+      if (serverList.length > 0) {
+        const sorted = serverList.slice().sort(
+          (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
+        );
+        setQuestions(sorted);
+        if (newQId) setAutoExpandQId(newQId);
+        console.log(`[CHAT] Re-synced ${sorted.length} questions from server`);
+      } else {
+        console.warn('[CHAT] Server refetch returned empty — keeping optimistic state');
+      }
+    } catch (e) {
+      console.error('[CHAT] Post-submit refetch failed', e);
     }
   };
 
@@ -634,7 +671,7 @@ export default function ClassStreamTab() {
 
   const handleReply = useCallback(async (qId: string, text: string) => {
     console.log(`[CHAT] Doctor reply submitted for question ${qId}`);
-    const res = await discussionService.postAnswer(qId, {
+    const res = await realDiscussionService.postAnswer(qId, {
       user_id:   user.user_id,
       user_name: `${user.f_name} ${user.l_name}`,
       user_role: user.role,
@@ -721,6 +758,7 @@ export default function ClassStreamTab() {
                     currentUser={user}
                     pendingTempId={undefined}
                     highlighted={highlightedQId === item.q.q_id}
+                    autoExpand={autoExpandQId === item.q.q_id}
                     onReplySubmit={handleReply}
                   />
                 )

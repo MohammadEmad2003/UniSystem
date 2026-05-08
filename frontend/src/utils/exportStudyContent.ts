@@ -5,12 +5,16 @@
  * Supports PDF (via html2pdf.js), Markdown (.md), and plain text (.txt).
  *
  * PDF strategy:
- *   Build a standalone HTML string with embedded KaTeX CSS so formulas
- *   render correctly inside the headless-chrome snapshot taken by html2pdf.
+ *   Build a standalone HTML string with KaTeX pre-rendered math (via
+ *   katex.renderToString) so formulas render as proper KaTeX HTML before
+ *   html2canvas captures the snapshot. Raw delimiters are never left in the
+ *   DOM — every $...$ and $$...$$ is converted at HTML-build time.
  *
  * Markdown/TXT strategy:
  *   Serialise the structured data directly — no DOM dependency.
  */
+
+import katex from 'katex';
 
 // ── Types (mirrors ClassMaterialsTab) ────────────────────────────────────────
 
@@ -181,9 +185,25 @@ function escHtml(s: string) {
     .replace(/"/g, "&quot;");
 }
 
+function renderMathStr(latex: string, displayMode: boolean): string {
+  try {
+    return katex.renderToString(latex.trim(), {
+      throwOnError: false,
+      displayMode,
+      strict: false,
+    });
+  } catch {
+    return displayMode
+      ? `<div style="font-family:monospace;overflow-x:auto">$$${escHtml(latex)}$$</div>`
+      : `<code>${escHtml(latex)}</code>`;
+  }
+}
+
 /** Convert basic Markdown to HTML (headings, bold, bullets, blockquotes). */
 function mdToHtml(md: string): string {
-  const lines = md.split("\n");
+  // Pre-render display math blocks ($$...$$) first — they can span multiple lines.
+  const preRendered = md.replace(/\$\$([\s\S]+?)\$\$/g, (_, m) => renderMathStr(m, true));
+  const lines = preRendered.split("\n");
   const out: string[] = [];
   let inUl = false;
 
@@ -236,9 +256,10 @@ function inlineMarkdown(s: string): string {
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.*?)\*/g, "<em>$1</em>")
     .replace(/`([^`]+)`/g, "<code>$1</code>")
-    // keep LaTeX delimiters intact for KaTeX auto-render
-    .replace(/\$\$(.+?)\$\$/gs, (_, m) => `$$${m}$$`)
-    .replace(/\$(.+?)\$/g, (_, m) => `$${m}$`);
+    // Pre-render math with KaTeX so html2canvas captures actual formula glyphs.
+    // Display math first (longer delimiter) to avoid partial matches.
+    .replace(/\$\$(.+?)\$\$/gs, (_, m) => renderMathStr(m, true))
+    .replace(/\$(.+?)\$/g, (_, m) => renderMathStr(m, false));
 }
 
 // ── Per-type HTML builders ────────────────────────────────────────────────────
@@ -264,18 +285,18 @@ function quizHtml(items: QuizItem[]): string {
       const cls = oi === ci ? "correct" : "neutral";
       return `<li class="opt ${cls}">
         <span class="opt-letter">${letters[oi] ?? oi + 1}</span>
-        <span>${o}</span>
+        <span>${inlineMarkdown(o)}</span>
       </li>`;
     }).join("\n");
 
     const exp = q.explanation
-      ? `<div class="explanation"><span class="exp-label">Explanation: </span>${q.explanation}</div>`
+      ? `<div class="explanation"><span class="exp-label">Explanation: </span>${inlineMarkdown(q.explanation)}</div>`
       : "";
 
     return `<div class="q-block">
   <div class="q-header">
     <div class="q-num">${i + 1}</div>
-    <div class="q-text">${q.question}</div>
+    <div class="q-text">${inlineMarkdown(q.question)}</div>
     <div class="q-badges">${typeBadge}${diffBadge}</div>
   </div>
   <ul class="opts">${opts}</ul>
@@ -299,18 +320,18 @@ function flashcardsHtml(items: FlashItem[]): string {
     const fl  = c.focus_type ? focusLabel[c.focus_type] ?? c.focus_type : "";
     const badge = fl ? `<span class="focus-badge ${fc}">${fl}</span>` : "";
     const ex    = c.example
-      ? `<div class="flash-example"><b>Example:</b> ${c.example}</div>`
+      ? `<div class="flash-example"><b>Example:</b> ${inlineMarkdown(c.example)}</div>`
       : "";
     return `<div class="flash-card">
   <div class="flash-num">Card ${i + 1}</div>
   <div class="flash-face flash-front">
     ${badge}
     <div class="flash-label">Front</div>
-    <div class="flash-text">${c.front}</div>
+    <div class="flash-text">${inlineMarkdown(c.front)}</div>
   </div>
   <div class="flash-face flash-back">
     <div class="flash-label">Back</div>
-    <div class="flash-text">${c.back}</div>
+    <div class="flash-text">${inlineMarkdown(c.back)}</div>
     ${ex}
   </div>
 </div>`;

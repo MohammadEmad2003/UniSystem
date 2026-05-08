@@ -1,18 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { adminService, departmentService } from '../../services';
-import { 
-  Users, 
-  GraduationCap, 
-  ShieldCheck, 
-  CheckCircle, 
-  XCircle, 
-  Plus, 
+import { realAdminService } from '../../services/realServices';
+import { getSocket } from '../../services/socketClient';
+import {
+  Users,
+  CheckCircle,
+  XCircle,
   Search,
-  DollarSign,
   UserPlus,
   X,
   CreditCard,
-  Building2
+  Wifi,
+  Link2,
+  Radio
 } from 'lucide-react';
 import { useAuthStore } from '../../hooks/useAuthStore';
 import type { Student, Department, AcademicLevel } from '../../types';
@@ -25,19 +25,50 @@ export default function StudentManagementPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [tab, setTab] = useState<'approved' | 'pending'>('approved');
-  
+  const [tab, setTab] = useState<'approved' | 'pending' | 'link-card'>('approved');
+
   // Create Modal State
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
-    f_name: '', l_name: '', email: '', password: '', 
+    f_name: '', l_name: '', email: '', password: '',
     ssn: '', academic_level: 1 as AcademicLevel, department_id: ''
   });
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // Link Card State
+  const [linkStudentId, setLinkStudentId] = useState('');
+  const [linkNfcUid, setLinkNfcUid] = useState('');
+  const [linkLoading, setLinkLoading] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkSuccess, setLinkSuccess] = useState<string | null>(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [recentScans, setRecentScans] = useState<{ uid: string; time: string }[]>([]);
+  const linkStudentSearchRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Socket.io for NFC scanning in Link Card tab
+  useEffect(() => {
+    if (tab !== 'link-card') return;
+    const socket = getSocket();
+    const onConnect = () => setSocketConnected(true);
+    const onDisconnect = () => setSocketConnected(false);
+    const onNfcScan = (data: { uid: string; time: string }) => {
+      setRecentScans(prev => [data, ...prev].slice(0, 10));
+      setLinkNfcUid(data.uid);
+    };
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('nfc_scan', onNfcScan);
+    if (socket.connected) setSocketConnected(true);
+    return () => {
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('nfc_scan', onNfcScan);
+    };
+  }, [tab]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -82,7 +113,23 @@ export default function StudentManagementPage() {
     }
   };
 
-  const filteredStudents = students.filter(s => 
+  const handleLinkCard = async () => {
+    if (!linkStudentId.trim() || !linkNfcUid.trim()) return;
+    setLinkLoading(true); setLinkError(null); setLinkSuccess(null);
+    try {
+      await realAdminService.linkCard(linkStudentId.trim(), linkNfcUid.trim());
+      const student = students.find(s => s.user_id === linkStudentId.trim());
+      setLinkSuccess(`Card linked to ${student ? `${student.f_name} ${student.l_name}` : `student #${linkStudentId}`}`);
+      setLinkStudentId('');
+      setLinkNfcUid('');
+    } catch (err: any) {
+      setLinkError(err?.response?.data?.message || err.message || 'Failed to link card');
+    } finally {
+      setLinkLoading(false);
+    }
+  };
+
+  const filteredStudents = students.filter(s =>
     `${s.f_name} ${s.l_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -106,17 +153,23 @@ export default function StudentManagementPage() {
       {/* Stats and Tabs */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div className="flex gap-2 p-1 bg-slate-100 dark:bg-[#050b14] rounded-2xl border border-slate-200 dark:border-slate-800">
-          <button 
+          <button
             onClick={() => setTab('approved')}
-            className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${tab === 'approved' ? 'bg-primary-600 text-white shadow-lg' : 'text-slate-500 hover:text-primary-500'}`}
+            className={`px-5 py-2 rounded-xl text-sm font-bold transition-all ${tab === 'approved' ? 'bg-primary-600 text-white shadow-lg' : 'text-slate-500 hover:text-primary-500'}`}
           >
             Approved ({students.length})
           </button>
-          <button 
+          <button
             onClick={() => setTab('pending')}
-            className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${tab === 'pending' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-amber-500'}`}
+            className={`px-5 py-2 rounded-xl text-sm font-bold transition-all ${tab === 'pending' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-amber-500'}`}
           >
             Pending ({pending.length})
+          </button>
+          <button
+            onClick={() => { setTab('link-card'); setLinkError(null); setLinkSuccess(null); }}
+            className={`px-5 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5 ${tab === 'link-card' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-emerald-500'}`}
+          >
+            <CreditCard size={14} /> Link Card
           </button>
         </div>
         
@@ -134,7 +187,95 @@ export default function StudentManagementPage() {
         )}
       </div>
 
-      {tab === 'pending' ? (
+      {tab === 'link-card' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Link Card Form */}
+          <div className="card p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Link2 size={18} className="text-emerald-500" />
+                <h2 className="font-semibold">Link NFC Card to Student</h2>
+              </div>
+              <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-xl ${socketConnected ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 text-slate-500'}`}>
+                <Radio size={11} className={socketConnected ? 'animate-pulse' : ''} />
+                {socketConnected ? 'Scanner Live' : 'Scanner Offline'}
+              </div>
+            </div>
+
+            {linkError && <div className="p-3 bg-red-500/10 text-red-500 text-sm rounded-xl border border-red-500/20">{linkError}</div>}
+            {linkSuccess && <div className="p-3 bg-emerald-500/10 text-emerald-600 text-sm rounded-xl border border-emerald-500/20">{linkSuccess}</div>}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500 uppercase ml-1">Student</label>
+              <select
+                value={linkStudentId}
+                onChange={e => setLinkStudentId(e.target.value)}
+                className="input-field"
+              >
+                <option value="">Select a student...</option>
+                {students.map(s => (
+                  <option key={s.user_id} value={s.user_id}>
+                    {s.f_name} {s.l_name} — {s.email} {s.nfc_tag_id ? '(has card)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500 uppercase ml-1">NFC Card UID</label>
+              <div className="relative">
+                <Wifi size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={linkNfcUid}
+                  onChange={e => setLinkNfcUid(e.target.value)}
+                  placeholder="Auto-filled on card scan, or type manually"
+                  className="input-field pl-9 font-mono"
+                />
+              </div>
+              <p className="text-xs text-slate-400 ml-1">Tap a card on the NFC reader to auto-fill the UID above.</p>
+            </div>
+
+            <button
+              onClick={handleLinkCard}
+              disabled={linkLoading || !linkStudentId || !linkNfcUid}
+              className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {linkLoading
+                ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                : <><CreditCard size={16} /> Link Card</>}
+            </button>
+          </div>
+
+          {/* Recent NFC Scans */}
+          <div className="card p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <Radio size={16} className="text-primary-500" />
+              <h2 className="font-semibold">Recent NFC Scans</h2>
+              <span className="text-xs text-slate-400 ml-auto">{recentScans.length} scans</span>
+            </div>
+            {recentScans.length === 0 ? (
+              <div className="text-center py-10 text-slate-400">
+                <Wifi size={36} className="mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No scans detected yet.</p>
+                <p className="text-xs mt-1">Tap an NFC card on the reader.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {recentScans.map((scan, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setLinkNfcUid(scan.uid)}
+                    className="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50 hover:border-primary-500/50 hover:bg-primary-500/5 transition-all text-left"
+                  >
+                    <span className="text-sm font-mono text-primary-600 dark:text-primary-400">{scan.uid}</span>
+                    <span className="text-xs text-slate-400">{new Date(scan.time).toLocaleTimeString()}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : tab === 'pending' ? (
         <div className="grid gap-4">
           {pending.length === 0 ? (
              <div className="card p-12 text-center animate-scale-in">

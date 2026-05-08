@@ -26,6 +26,7 @@ import ClassMaterialsTab from "./pages/classes/ClassMaterialsTab";
 import ClassLecturesTab from "./pages/classes/ClassLecturesTab";
 import ClassStudentsTab from "./pages/classes/ClassStudentsTab";
 import ClassGradesTab from "./pages/classes/ClassGradesTab";
+import AttendancePage from "./pages/classes/AttendancePage";
 import ApprovalQueuePage from "./pages/admin/ApprovalQueuePage";
 import ManageUsersPage from "./pages/admin/ManageUsersPage";
 import ManageDepartmentsPage from "./pages/admin/ManageDepartmentsPage";
@@ -157,6 +158,7 @@ export default function App() {
           <Route path="lectures" element={<ClassLecturesTab />} />
           <Route path="students" element={<ClassStudentsTab />} />
           <Route path="grades" element={<ClassGradesTab />} />
+          <Route path="attendance/:lectureId" element={<AttendancePage />} />
         </Route>
 
         {/* Admin routes */}

@@ -189,6 +189,10 @@ export const realAdminService = {
     });
     return ok(res.data.data);
   },
+  async linkCard(userId: string, nfcTagId: string): Promise<ApiResponse<{ userId: string; nfcTagId: string }>> {
+    const res = await apiClient.post("/admin/link-card", { userId, nfcTagId });
+    return ok(res.data.data, res.data.message);
+  },
 };
 
 // ---- Departments (/api/departments/*) ----
@@ -479,7 +483,7 @@ export const realAIRagService = {
   },
 };
 
-// ---- Lectures (/api/classes/:classId/lectures via lectureRouter mounted on /api/classes) ----
+// ---- Lectures (/api/classes/lectures/* via lectureRouter mounted on /api/classes) ----
 export const realLectureService = {
   async getByClass(classId: string): Promise<ApiResponse<Lecture[]>> {
     const res = await apiClient.get(`/classes/${classId}/lectures`);
@@ -488,15 +492,24 @@ export const realLectureService = {
   async create(
     data: Partial<Lecture> & { class_id: string },
   ): Promise<ApiResponse<Lecture>> {
-    const res = await apiClient.post(
-      `/classes/${data.class_id}/lectures`,
-      data,
-    );
+    const res = await apiClient.post(`/classes/${data.class_id}/lectures`, data);
+    return ok(res.data.data, res.data.message);
+  },
+  async update(lecId: string, data: Partial<Lecture>): Promise<ApiResponse<Lecture>> {
+    const res = await apiClient.put(`/classes/lectures/${lecId}`, data);
     return ok(res.data.data, res.data.message);
   },
   async delete(lecId: string): Promise<ApiResponse<null>> {
     await apiClient.delete(`/classes/lectures/${lecId}`);
     return ok(null);
+  },
+  async start(lecId: string, attendanceCode?: string): Promise<ApiResponse<{ start_time: string; attendance_code?: string }>> {
+    const res = await apiClient.post(`/classes/lectures/${lecId}/start`, attendanceCode ? { attendanceCode } : {});
+    return ok(res.data.data, res.data.message);
+  },
+  async end(lecId: string): Promise<ApiResponse<{ end_time: string }>> {
+    const res = await apiClient.post(`/classes/lectures/${lecId}/end`, {});
+    return ok(res.data.data, res.data.message);
   },
 };
 
@@ -534,28 +547,30 @@ export const realMaterialService = {
 export const realDiscussionService = {
   async getQuestions(classId: string): Promise<ApiResponse<Question[]>> {
     const res = await apiClient.get(`/classes/${classId}/questions`);
+    // normalizeKeys lowercases all keys from the API (Questions_ID → questions_id).
+    // Fall through normalised-lowercase → PascalCase → snake_case so any shape works.
     const mapped = (res.data.data || []).map((q: any) => ({
-      q_id: String(q.Questions_ID || q.q_id),
-      class_id: String(q.Class_ID || q.class_id),
-      text: q.Text || q.text,
-      user_id: String(q.User_ID || q.user_id),
-      user_name: q.User_Name || q.user_name,
-      user_role: (q.User_Role || q.user_role)?.toLowerCase(),
-      user_image: q.User_Image || q.user_image,
-      time: q.Time || q.time,
+      q_id: String(q.questions_id || q.Questions_ID || q.q_id || ''),
+      class_id: String(q.class_id || q.Class_ID || ''),
+      text: q.text || q.Text || '',
+      user_id: String(q.user_id ?? q.User_ID ?? ''),
+      user_name: q.user_name || q.User_Name || 'Unknown',
+      user_role: (q.user_role || q.User_Role || 'student')?.toLowerCase(),
+      user_image: q.user_image || q.User_Image,
+      time: q.time || q.Time || new Date().toISOString(),
       answers: (q.answers || []).map((a: any) => ({
-        a_id: String(a.Answer_ID || a.a_id),
-        question_id: String(a.Questions_ID || a.q_id || a.question_id),
-        text: a.Text || a.text,
-        user_id: String(a.User_ID ?? a.user_id ?? ''),
-        user_name: a.User_Name || a.user_name || 'AI Assistant',
-        user_role: (a.User_Role || a.user_role)?.toLowerCase() || 'ai',
-        time: a.Time || a.time,
-        is_ai_generated: Boolean(a.Is_AI_Generated || a.is_ai_generated),
-        source_type: a.Source_Type || a.source_type || undefined,
-        source_id: a.Source_ID || a.source_id || undefined,
-        confidence: a.Confidence ?? a.confidence ?? undefined,
-        ai_metadata: a.AI_Metadata || a.ai_metadata || undefined,
+        a_id: String(a.answer_id || a.Answer_ID || a.a_id || Math.random()),
+        question_id: String(a.questions_id || a.Questions_ID || a.question_id || ''),
+        text: a.text || a.Text || '',
+        user_id: String(a.user_id ?? a.User_ID ?? ''),
+        user_name: a.user_name || a.User_Name || 'AI Assistant',
+        user_role: (a.user_role || a.User_Role)?.toLowerCase() || 'ai',
+        time: a.time || a.Time || new Date().toISOString(),
+        is_ai_generated: Boolean(a.is_ai_generated || a.Is_AI_Generated),
+        source_type: a.source_type || a.Source_Type || undefined,
+        source_id: a.source_id || a.Source_ID || undefined,
+        confidence: a.confidence ?? a.Confidence ?? undefined,
+        ai_metadata: a.ai_metadata || a.AI_Metadata || undefined,
       })),
     }));
     return ok(mapped);
@@ -638,18 +653,33 @@ export const realAttendanceService = {
     studentId: string,
     classId: string,
   ): Promise<ApiResponse<Attendance[]>> {
-    const res = await apiClient.get(
-      `/attendance/student/${studentId}/class/${classId}`,
-    );
+    const res = await apiClient.get(`/attendance/student/${studentId}/class/${classId}`);
     return ok(res.data.data);
   },
   async record(
-    data: Partial<Attendance> & { lecture_id: string },
+    data: Partial<Attendance> & { lec_id: string },
   ): Promise<ApiResponse<Attendance>> {
-    const res = await apiClient.post(
-      `/classes/${data.lecture_id}/attendance`,
-      data,
-    );
+    const res = await apiClient.post(`/classes/${data.lec_id}/attendance`, data);
+    return ok(res.data.data, res.data.message);
+  },
+  async recordManual(lectureId: string, studentId: string): Promise<ApiResponse<null>> {
+    const res = await apiClient.post(`/classes/${lectureId}/attendance`, { student_id: studentId });
+    return ok(null, res.data.message);
+  },
+  async updateByLectureAndStudent(
+    lectureId: string,
+    studentId: string,
+    data: { earlyCheck?: 0 | 1; lateCheck?: 0 | 1; method?: string },
+  ): Promise<ApiResponse<null>> {
+    const res = await apiClient.put(`/classes/${lectureId}/attendance/${studentId}`, data);
+    return ok(null, res.data.message);
+  },
+  async deleteByLectureAndStudent(lectureId: string, studentId: string): Promise<ApiResponse<null>> {
+    await apiClient.delete(`/classes/${lectureId}/attendance/${studentId}`);
+    return ok(null);
+  },
+  async onlineAttendance(lectureId: string, code: string, studentId: string): Promise<ApiResponse<{ earlyCheck: number; lateCheck: number }>> {
+    const res = await apiClient.post(`/attendance/online`, { lectureId, code, studentId });
     return ok(res.data.data, res.data.message);
   },
 };

@@ -14,7 +14,7 @@ class EmbeddingService:
             "EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
         )
         self.model = SentenceTransformer(self.model_name)
-        self.vector_size = self.model.get_sentence_embedding_dimension()
+        self.vector_size = self.model.get_embedding_dimension()
 
     def embed_text(self, text: str) -> list[float]:
         normalized = (text or "").strip()

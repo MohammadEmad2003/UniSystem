@@ -745,26 +745,15 @@ export const mockGradeService = {
 export const mockAttendanceService = {
   async getByLecture(lectureId: string): Promise<ApiResponse<Attendance[]>> {
     await delay();
-    return {
-      success: true,
-      data: attendance.filter((a) => a.lecture_id === lectureId),
-    };
+    return { success: true, data: attendance.filter((a) => a.lec_id === lectureId) };
   },
 
-  async getByStudentAndClass(
-    studentId: string,
-    classId: string,
-  ): Promise<ApiResponse<Attendance[]>> {
+  async getByStudentAndClass(studentId: string, classId: string): Promise<ApiResponse<Attendance[]>> {
     await delay();
-    const classLectureIds = lectures
-      .filter((l) => l.class_id === classId)
-      .map((l) => l.lec_id);
+    const classLectureIds = lectures.filter((l) => l.class_id === classId).map((l) => l.lec_id);
     return {
       success: true,
-      data: attendance.filter(
-        (a) =>
-          a.student_id === studentId && classLectureIds.includes(a.lecture_id),
-      ),
+      data: attendance.filter((a) => a.student_id === studentId && classLectureIds.includes(a.lec_id)),
     };
   },
 
@@ -772,12 +761,13 @@ export const mockAttendanceService = {
     await delay();
     const att: Attendance = {
       attendance_id: `att-${Date.now()}`,
-      lecture_id: data.lecture_id || "",
+      lec_id: data.lec_id || "",
       student_id: data.student_id || "",
       student_name: data.student_name,
       time: new Date().toISOString(),
-      is_verified: data.is_verified || false,
-      status: data.status || "present",
+      early_check: data.early_check ?? 1,
+      late_check: data.late_check ?? 0,
+      method: data.method || "manual",
     };
     attendance.push(att);
     return { success: true, data: att };

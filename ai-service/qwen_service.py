@@ -5,14 +5,11 @@ import re
 import time
 from typing import Any
 
-import requests
 from dotenv import load_dotenv
 
-load_dotenv()
+from local_llm import LocalLLM
 
-# ── Ollama config ──────────────────────────────────────────────────────────────
-_OLLAMA_URL   = os.getenv("OLLAMA_URL",   "http://localhost:11434").rstrip("/")
-_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", os.getenv("QWEN_MODEL", "qwen2.5:7b-instruct")).strip()
+load_dotenv()
 
 # ── Shared LaTeX rules injected into every prompt ──────────────────────────────
 # Keep in sync with aiMathSanitizer.ts on the frontend.
@@ -104,61 +101,50 @@ GENERAL_SYSTEM_PROMPT = (
 
 class QwenService:
     def __init__(self) -> None:
-        print(f"[qwen_service] Using Ollama LLM")
-        print(f"[qwen_service] Model : {_OLLAMA_MODEL}")
-        print(f"[qwen_service] URL   : {_OLLAMA_URL}")
+        self._llm = LocalLLM.get()
+        print(f"[qwen_service] Using local GGUF model")
+        print(f"[qwen_service] Repo  : {self._llm.repo_id}")
+        print(f"[qwen_service] File  : {self._llm.filename}")
+        print(f"[qwen_service] Dir   : {self._llm.model_dir}")
+        # Eagerly download + load so the first request isn't slow.
+        self._llm._load()
 
-    # ── Core Ollama call ───────────────────────────────────────────────────────
+    # ── Core LLM call (local llama.cpp via LocalLLM) ──────────────────────────
 
     def _call_ollama(
         self,
         operation: str,
         system: str,
         user_prompt: str,
-        timeout: int = 120,
+        timeout: int = 120,  # kept for API compat; ignored by local backend
         num_predict: int = 2048,
         temperature: float | None = None,
         top_p: float | None = None,
         repeat_penalty: float | None = None,
     ) -> str | None:
-        """POST to Ollama /api/chat and return the assistant reply text, or None."""
+        """Run a chat completion on the local GGUF model. Returns text or None."""
         t0 = time.time()
-        options: dict = {"num_predict": num_predict}
-        if temperature is not None:
-            options["temperature"] = temperature
-        if top_p is not None:
-            options["top_p"] = top_p
-        if repeat_penalty is not None:
-            options["repeat_penalty"] = repeat_penalty
         try:
-            resp = requests.post(
-                f"{_OLLAMA_URL}/api/chat",
-                json={
-                    "model": _OLLAMA_MODEL,
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user",   "content": user_prompt},
-                    ],
-                    "stream": False,
-                    "options": options,
-                },
-                timeout=timeout,
-            )
-            resp.raise_for_status()
-            text = (resp.json().get("message") or {}).get("content", "").strip()
-            print(f"[OLLAMA] {operation} done in {round(time.time()-t0,2)}s")
+            llm = self._llm._load()
+            kwargs: dict = {
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user",   "content": user_prompt},
+                ],
+                "max_tokens": num_predict,
+                "temperature": 0.2 if temperature is None else temperature,
+            }
+            if top_p is not None:
+                kwargs["top_p"] = top_p
+            if repeat_penalty is not None:
+                kwargs["repeat_penalty"] = repeat_penalty
+
+            result = llm.create_chat_completion(**kwargs)
+            text = (result["choices"][0]["message"].get("content") or "").strip()
+            print(f"[LLM] {operation} done in {round(time.time()-t0,2)}s")
             return text or None
-        except requests.ConnectionError:
-            print(f"[OLLAMA] {operation} — cannot connect to {_OLLAMA_URL}. Is Ollama running?")
-            return None
-        except requests.Timeout:
-            print(f"[OLLAMA] {operation} — timed out after {timeout}s")
-            return None
-        except requests.HTTPError as exc:
-            print(f"[OLLAMA] {operation} — HTTP {exc.response.status_code}: {exc.response.text[:200]}")
-            return None
         except Exception as exc:
-            print(f"[OLLAMA] {operation} — unexpected error: {exc}")
+            print(f"[LLM] {operation} — error: {exc}")
             return None
 
     # ── kept for backward-compat callers in rag_service ───────────────────────
@@ -580,6 +566,10 @@ class QwenService:
         prompt = (
             f"Class context:\n{context}\n\n"
             f"Student question:\n{question}\n\n"
+            "CRITICAL RULE: You MUST answer using ONLY the 'Class context' provided above.\n"
+            "Do NOT use your training knowledge or general information under any circumstances.\n"
+            "If the class context does not contain enough information to answer, "
+            "respond with ONLY the word: SEND_TO_DOCTOR (nothing else, no explanation).\n"
             "Return only the final answer.\n"
             "Write ALL math in LaTeX ($...$ or $$...$$).\n"
             "Use Markdown. Use bullet points when helpful.\n"
@@ -588,7 +578,7 @@ class QwenService:
         )
         answer = self._call_ollama(
             "answer generation", QA_SYSTEM_PROMPT, prompt,
-            temperature=0.15, top_p=0.8, repeat_penalty=1.1,
+            temperature=0.1, top_p=0.8, repeat_penalty=1.15,
         )
         if answer:
             print(f"[OLLAMA] answer preview: {answer[:160]}{'...' if len(answer)>160 else ''}")

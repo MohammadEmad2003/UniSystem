@@ -49,7 +49,7 @@ class RagService:
         self.pdf_chunk_overlap = int(os.getenv("PDF_CHUNK_OVERLAP", "150"))
         self.backend_api_url = os.getenv("BACKEND_API_URL", "http://localhost:3000").rstrip("/")
         self.backend_origin = self._get_backend_origin(self.backend_api_url)
-        self.pdf_base_url = os.getenv("PDF_BASE_URL", "http://localhost:3001").rstrip("/")
+        self.pdf_base_url = os.getenv("PDF_BASE_URL", "http://localhost:3000").rstrip("/")
         self.material_summary_cache: dict[tuple[int, int, str], str] = {}
 
         pytesseract.pytesseract.tesseract_cmd = self.tesseract_cmd

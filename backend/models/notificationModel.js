@@ -5,8 +5,8 @@ db.exec(`
     Notification_ID INTEGER PRIMARY KEY AUTOINCREMENT,
     User_ID INTEGER NOT NULL,
     Type TEXT CHECK(Type IN (
-      'new_material', 'new_question', 'new_answer', 'new_grade',
-      'announcement', 'approval', 'enrollment',
+      'new_material', 'new_question', 'new_answer', 'new_grade', 'new_lecture',
+      'lecture_started', 'announcement', 'approval', 'enrollment',
       'doctor_question_pending', 'ai_answer_ready', 'doctor_answer_ready'
     )) NOT NULL,
     Title VARCHAR(255) NOT NULL,
@@ -32,8 +32,8 @@ db.run(`ALTER TABLE Notification ADD COLUMN Answer_ID INTEGER`, () => {/* ignore
 // trigger-based approach: disable the constraint by rebuilding the table once.
 db.get(`SELECT sql FROM sqlite_master WHERE type='table' AND name='Notification'`, (err, row) => {
   if (err || !row) return;
-  // If the old schema doesn't include doctor_question_pending, rebuild the table
-  if (!row.sql.includes('doctor_question_pending')) {
+  // If the old schema doesn't include lecture_started, rebuild the table
+  if (!row.sql.includes('lecture_started')) {
     db.serialize(() => {
       db.run(`ALTER TABLE Notification RENAME TO Notification_old`);
       db.run(`
@@ -41,8 +41,8 @@ db.get(`SELECT sql FROM sqlite_master WHERE type='table' AND name='Notification'
           Notification_ID INTEGER PRIMARY KEY AUTOINCREMENT,
           User_ID INTEGER NOT NULL,
           Type TEXT CHECK(Type IN (
-            'new_material', 'new_question', 'new_answer', 'new_grade',
-            'announcement', 'approval', 'enrollment',
+            'new_material', 'new_question', 'new_answer', 'new_grade', 'new_lecture',
+            'lecture_started', 'announcement', 'approval', 'enrollment',
             'doctor_question_pending', 'ai_answer_ready', 'doctor_answer_ready'
           )) NOT NULL,
           Title VARCHAR(255) NOT NULL,

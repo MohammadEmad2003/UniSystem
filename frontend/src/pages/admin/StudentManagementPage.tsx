@@ -365,7 +365,7 @@ export default function StudentManagementPage() {
 
       {/* Create Modal */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
            <div className="bg-white dark:bg-[#0a192f] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-lg p-8 animate-scale-in" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-6">
                  <div className="flex items-center gap-3">

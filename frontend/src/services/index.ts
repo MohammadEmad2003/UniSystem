@@ -5,14 +5,14 @@ import {
   mockCourseService, mockClassService, mockLectureService,
   mockMaterialService, mockDiscussionService, mockGradeService,
   mockAttendanceService, mockNotificationService, mockDoctorService,
-  mockStudentService,
+  mockStudentService, mockRoomService
 } from '../mock/mockServices';
 import {
   realAuthService, realAdminService, realDepartmentService,
   realCourseService, realClassService, realLectureService,
   realMaterialService, realDiscussionService, realGradeService,
   realAttendanceService, realNotificationService, realDoctorService,
-  realStudentService, realAIRagService, realStudyOutputService,
+  realStudentService, realAIRagService, realStudyOutputService, realRoomService,
   buildStudyOptionsKey,
 } from './realServices';
 
@@ -31,6 +31,7 @@ export const attendanceService   = useMock ? mockAttendanceService   : (realAtte
 export const notificationService = useMock ? mockNotificationService : (realNotificationService as unknown as typeof mockNotificationService);
 export const doctorService       = useMock ? mockDoctorService       : (realDoctorService       as unknown as typeof mockDoctorService);
 export const studentService      = useMock ? mockStudentService      : (realStudentService      as unknown as typeof mockStudentService);
+export const roomService         = useMock ? mockRoomService         : (realRoomService         as unknown as typeof mockRoomService);
 
 // Real-only: AI ask via backend, mock falls back to a canned response
 export const aiService = {

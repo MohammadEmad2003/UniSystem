@@ -1,9 +1,8 @@
 const db = require('../utilities/database');
- 
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS Grades (
     Grade_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-    Type TEXT NOT NULL,
     Generate_At DATETIME DEFAULT CURRENT_TIMESTAMP,
     Attendance DECIMAL(5,2) DEFAULT 0,
     Practical DECIMAL(5,2) DEFAULT 0,
@@ -19,5 +18,5 @@ db.exec(`
     FOREIGN KEY (Doctor_ID) REFERENCES Doctor(User_ID) ON DELETE CASCADE
   )
 `);
- 
+
 module.exports = db;

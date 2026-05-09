@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { lectureService, attendanceService } from '../../services';
+import { lectureService, attendanceService, roomService } from '../../services';
 import {
   Video, MapPin, Link2, Calendar, Clock, Plus, X, Wifi, Monitor,
   Play, Square, Users, Copy, Check, Lock, Unlock, KeyRound
@@ -51,6 +51,8 @@ export default function ClassLecturesTab() {
   const [joinCode, setJoinCode] = useState('');
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joinLoading, setJoinLoading] = useState(false);
+  const [availableRooms, setAvailableRooms] = useState<any[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
 
   const [form, setForm] = useState({
     title: '', day: 'Sunday', time: '09:00',
@@ -62,6 +64,20 @@ export default function ClassLecturesTab() {
     (lectureService as any).getByClass(classId).then((r: any) => setLectures(r.data)).finally(() => setLoading(false));
 
   useEffect(() => { reload(); }, [classId]);
+
+  useEffect(() => {
+    if (form.date && form.time && form.type !== 'Online') {
+      setLoadingRooms(true);
+      roomService.getEmpty(form.date, form.time)
+        .then(r => {
+          setAvailableRooms(r.data);
+          if (r.data.length > 0 && !r.data.find(rm => rm.room_id === form.room_id)) {
+            setForm(f => ({ ...f, room_id: r.data[0].room_id }));
+          }
+        })
+        .finally(() => setLoadingRooms(false));
+    }
+  }, [form.date, form.time, form.type]);
 
   const handleCreate = async () => {
     if (!form.title.trim() || !form.date) return;
@@ -76,7 +92,7 @@ export default function ClassLecturesTab() {
       setShowCreate(false);
       setForm({ title: '', day: 'Sunday', time: '09:00', type: 'Lecture', room_id: '', meeting_link: '', date: '' });
     } catch (err: any) {
-      setError(err.message || 'Failed to create lecture');
+      setError(err?.response?.data?.message || err.message || 'Failed to create lecture');
     } finally {
       setIsCreating(false);
     }
@@ -166,7 +182,7 @@ export default function ClassLecturesTab() {
 
       {/* Create modal */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 pt-10 sm:pt-24" onClick={() => setShowCreate(false)}>
           <div className="bg-slate-50 dark:bg-[#0a192f] border border-slate-300 dark:border-slate-700/50 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8)] w-full max-w-md p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Create Lecture</h3>
@@ -174,22 +190,70 @@ export default function ClassLecturesTab() {
             </div>
             <div className="space-y-3">
               {error && <div className="p-3 bg-red-500/10 text-red-500 text-xs rounded-xl border border-red-500/20">{error}</div>}
-              <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Lecture title" className="input-field" />
-              <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="input-field" />
-              <div className="grid grid-cols-2 gap-3">
-                <select value={form.day} onChange={e => setForm({ ...form, day: e.target.value })} className="input-field">
-                  {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'].map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-                <input type="time" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} className="input-field" />
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Title</label>
+                <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Lecture title" className="input-field" />
               </div>
-              <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value as Lecture['type'] })} className="input-field">
-                <option value="Lecture">Lecture</option>
-                <option value="Section">Section</option>
-                <option value="Lab">Lab</option>
-                <option value="Online">Online</option>
-              </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Date</label>
+                  <input 
+                    type="date" 
+                    value={form.date} 
+                    onChange={e => {
+                      const d = e.target.value;
+                      const dayName = d ? new Date(d).toLocaleDateString('en-US', { weekday: 'long' }) : 'Sunday';
+                      setForm({ ...form, date: d, day: dayName });
+                    }} 
+                    className="input-field" 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Day</label>
+                  <select value={form.day} onChange={e => setForm({ ...form, day: e.target.value })} className="input-field">
+                    {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Time</label>
+                  <input type="time" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} className="input-field" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Type</label>
+                  <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value as Lecture['type'] })} className="input-field">
+                    <option value="Lecture">Lecture</option>
+                    <option value="Section">Section</option>
+                    <option value="Lab">Lab</option>
+                    <option value="Online">Online</option>
+                  </select>
+                </div>
+              </div>
               {form.type !== 'Online' && (
-                <input value={form.room_id} onChange={e => setForm({ ...form, room_id: e.target.value })} placeholder="Room ID" className="input-field" />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Select Available Room</label>
+                  <select 
+                    value={form.room_id} 
+                    onChange={e => setForm({ ...form, room_id: e.target.value })} 
+                    className="input-field"
+                    disabled={loadingRooms || !form.date || !form.time}
+                  >
+                    {!form.date || !form.time ? (
+                      <option value="">Select date & time first</option>
+                    ) : loadingRooms ? (
+                      <option value="">Loading available rooms...</option>
+                    ) : availableRooms.length === 0 ? (
+                      <option value="">No rooms available for this time</option>
+                    ) : (
+                      availableRooms.map(rm => (
+                        <option key={rm.room_id} value={rm.room_id}>
+                          {rm.room_name} ({rm.capacity} seats)
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
               )}
               {form.type === 'Online' && (
                 <input value={form.meeting_link} onChange={e => setForm({ ...form, meeting_link: e.target.value })} placeholder="Meeting link" className="input-field" />
@@ -204,7 +268,7 @@ export default function ClassLecturesTab() {
 
       {/* Online attendance join modal (student) */}
       {joinLecId && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setJoinLecId(null); setJoinCode(''); setJoinError(null); }}>
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4" onClick={() => { setJoinLecId(null); setJoinCode(''); setJoinError(null); }}>
           <div className="bg-slate-50 dark:bg-[#0a192f] border border-slate-700/50 rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">

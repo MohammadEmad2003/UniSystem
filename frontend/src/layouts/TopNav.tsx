@@ -97,7 +97,7 @@ export default function TopNav() {
             {showNotifs && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowNotifs(false)} />
-                <div className="absolute right-0 top-full mt-3 w-96 bg-slate-50 dark:bg-[#0a192f]/95 backdrop-blur-3xl rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8)] border border-slate-300 dark:border-slate-700 z-50 animate-scale-in overflow-hidden">
+                <div className="absolute right-0 top-full mt-3 w-96 bg-slate-50 dark:bg-[#0a192f]/95 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8)] border border-slate-300 dark:border-slate-700 z-50 animate-scale-in overflow-hidden">
                   <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800">
                     <h3 className="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-sm">Notifications</h3>
                     {unreadCount > 0 && (

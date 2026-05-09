@@ -109,7 +109,7 @@ export default function ClassWorkspacePage() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white/80 dark:bg-[#111111]/80 backdrop-blur-md border border-slate-200 dark:border-slate-800 -mx-6 px-6 border-b border-slate-200 dark:border-slate-800 sticky top-[57px] z-10 overflow-x-auto">
+      <div className="bg-white/80 dark:bg-[#111111]/80 border border-slate-200 dark:border-slate-800 -mx-6 px-6 border-b border-slate-200 dark:border-slate-800 sticky top-[57px] z-10 overflow-x-auto">
         <div className="flex">
           {tabs.map(tab => (
             <NavLink key={tab.path} to={`/classes/${classId}/${tab.path}`} className={tabClass}>

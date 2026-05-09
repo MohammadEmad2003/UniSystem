@@ -86,7 +86,7 @@ export default function AIChatPanel() {
 
       {/* Chat panel — slides up from bottom right */}
       <div
-        className={`fixed bottom-24 right-6 z-50 w-80 bg-white dark:bg-[#0a192f]/95 backdrop-blur-3xl rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.8)] border border-slate-200 dark:border-slate-700/50 flex flex-col overflow-hidden transition-all duration-500
+        className={`fixed bottom-24 right-6 z-50 w-80 bg-white dark:bg-[#0a192f]/95 rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.8)] border border-slate-200 dark:border-slate-700/50 flex flex-col overflow-hidden transition-all duration-500
           ${open ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-4 pointer-events-none"}`}
         style={{ maxHeight: "70vh" }}
       >

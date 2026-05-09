@@ -797,7 +797,7 @@ export default function ClassStreamTab() {
         </div>
 
         {/* ── Sticky input bar ─────────────────────────────── */}
-        <div className="shrink-0 pt-4 pb-4 bg-white/80 dark:bg-[#0a192f]/80 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800/60 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.05)]">
+        <div className="shrink-0 pt-4 pb-4 bg-white/80 dark:bg-[#0a192f]/80 border-t border-slate-100 dark:border-slate-800/60 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.05)]">
           <div className="flex items-end gap-3 max-w-2xl mx-auto px-2">
             <div className="flex-1 relative group">
               <textarea

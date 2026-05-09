@@ -1,4 +1,5 @@
 import { Zap, Shield, Cpu, Globe, ArrowUpRight, Beaker } from "lucide-react";
+import { Link } from "react-router-dom";
 import researchHero from "../../assets/images/research_hero.png";
 
 export default function ResearchPage() {
@@ -107,9 +108,9 @@ export default function ResearchPage() {
             <h2 className="text-4xl font-black text-primary-950 dark:text-white mb-4">Recent Publications</h2>
             <p className="text-slate-500">Our latest findings published in top-tier journals.</p>
           </div>
-          <button className="flex items-center gap-2 text-primary-600 font-bold hover:gap-3 transition-all">
+          <Link to="/academics" className="flex items-center gap-2 text-primary-600 font-bold hover:gap-3 transition-all active:scale-95">
             View Research Repository <ArrowUpRight size={20} />
-          </button>
+          </Link>
         </div>
 
         <div className="space-y-4">

@@ -43,6 +43,7 @@ import AcademicsPage from "./pages/landing/AcademicsPage";
 import AdmissionsPage from "./pages/landing/AdmissionsPage";
 import ResearchPage from "./pages/landing/ResearchPage";
 import CampusLifePage from "./pages/landing/CampusLifePage";
+import ManageRoomsPage from "./pages/admin/ManageRoomsPage";
 
 
 // Route guard component
@@ -231,6 +232,14 @@ export default function App() {
           element={
             <ProtectedRoute roles={["admin"]}>
               <ManageFeesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/rooms"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <ManageRoomsPage />
             </ProtectedRoute>
           }
         />

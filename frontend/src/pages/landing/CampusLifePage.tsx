@@ -1,4 +1,5 @@
 import { Coffee, Music, Heart, MapPin, Camera } from "lucide-react";
+import { Link } from "react-router-dom";
 import campusHero from "../../assets/images/campus_hero.png";
 import campusDetail from "../../assets/images/campus_detail.png";
 
@@ -31,12 +32,12 @@ export default function CampusLifePage() {
               Beyond the lectures and labs, Capital University offers a rich tapestry of experiences designed to help you grow, connect, and lead. Discover your passion in our 40+ student organizations.
             </p>
             <div className="flex flex-wrap gap-4 pt-4">
-              <button className="px-8 py-4 bg-primary-600 text-white rounded-2xl font-bold shadow-glow hover:bg-primary-700 transition active:scale-95">
+              <Link to="/register" className="px-8 py-4 bg-primary-600 text-white rounded-2xl font-bold shadow-glow hover:bg-primary-700 transition active:scale-95">
                 Explore Student Life
-              </button>
-              <button className="px-8 py-4 border border-slate-200 dark:border-slate-800 rounded-2xl font-bold hover:bg-slate-50 dark:hover:bg-slate-900 transition active:scale-95">
+              </Link>
+              <Link to="/admissions" className="px-8 py-4 border border-slate-200 dark:border-slate-800 rounded-2xl font-bold hover:bg-slate-50 dark:hover:bg-slate-900 transition active:scale-95">
                 Campus Map
-              </button>
+              </Link>
             </div>
           </div>
 
@@ -91,6 +92,7 @@ export default function CampusLifePage() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-12">
+          {/* Facilities & Services */}
           {[
             {
               title: "Engineering Commons",
@@ -108,7 +110,7 @@ export default function CampusLifePage() {
               img: "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&q=80"
             }
           ].map((f, i) => (
-            <div key={i} className="group cursor-pointer">
+            <Link to="/register" key={i} className="group cursor-pointer">
               <div className="aspect-[4/3] rounded-[3rem] overflow-hidden mb-8 shadow-lg ring-1 ring-slate-200 dark:ring-slate-800">
                 <img src={f.img} className="w-full h-full object-cover group-hover:scale-110 transition duration-700 ease-in-out" />
               </div>
@@ -117,7 +119,7 @@ export default function CampusLifePage() {
               <div className="flex items-center gap-2 text-primary-600 font-bold group-hover:gap-3 transition-all text-sm uppercase tracking-widest">
                 Explore Facility <MapPin size={16} />
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </section>
@@ -135,12 +137,12 @@ export default function CampusLifePage() {
               Experience the energy of Capital University firsthand. Schedule a physical campus tour or attend our next virtual open house.
             </p>
             <div className="flex flex-wrap justify-center gap-6">
-              <button className="px-12 py-5 bg-primary-600 text-white rounded-2xl font-black hover:bg-primary-700 transition shadow-glow active:scale-95">
+              <Link to="/register" className="px-12 py-5 bg-primary-600 text-white rounded-2xl font-black hover:bg-primary-700 transition shadow-glow active:scale-95">
                 Schedule a Visit
-              </button>
-              <button className="px-12 py-5 bg-white/5 text-white border border-white/20 rounded-2xl font-black hover:bg-white/10 transition backdrop-blur-md active:scale-95">
+              </Link>
+              <Link to="/academics" className="px-12 py-5 bg-white/5 text-white border border-white/20 rounded-2xl font-black hover:bg-white/10 transition backdrop-blur-md active:scale-95">
                 Virtual Tour
-              </button>
+              </Link>
             </div>
           </div>
         </div>

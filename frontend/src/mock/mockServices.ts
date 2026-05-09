@@ -878,3 +878,19 @@ export const mockStudentService = {
     return { success: true, data: {} };
   },
 };
+
+export const mockRoomService = {
+  async getAll(): Promise<ApiResponse<any[]>> {
+    await delay();
+    return { success: true, data: [
+      { Room_ID: 'H1-101', Room_Name: 'Hall A — 101', Capacity: 60, Type: 'Lecture', Location: 'Building H1, Floor 1' },
+      { Room_ID: 'H1-102', Room_Name: 'Hall A — 102', Capacity: 60, Type: 'Lecture', Location: 'Building H1, Floor 1' },
+    ] };
+  },
+  async getEmpty(date?: string, time?: string): Promise<ApiResponse<any[]>> {
+    await delay();
+    return { success: true, data: [
+      { Room_ID: 'H1-101', Room_Name: 'Hall A — 101', Capacity: 60, Type: 'Lecture', Location: 'Building H1, Floor 1' },
+    ] };
+  },
+};

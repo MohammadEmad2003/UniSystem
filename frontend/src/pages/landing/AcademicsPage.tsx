@@ -46,9 +46,9 @@ export default function AcademicsPage() {
               <Link to="/register" className="px-8 py-4 bg-primary-600 text-white rounded-2xl font-bold shadow-glow hover:bg-primary-700 transition">
                 Apply Now
               </Link>
-              <button className="px-8 py-4 border border-slate-200 dark:border-slate-800 rounded-2xl font-bold hover:bg-slate-50 dark:hover:bg-slate-900 transition">
+              <Link to="/admissions" className="px-8 py-4 border border-slate-200 dark:border-slate-800 rounded-2xl font-bold hover:bg-slate-50 dark:hover:bg-slate-900 transition">
                 Download Catalog
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -83,9 +83,9 @@ export default function AcademicsPage() {
                     ))}
                   </ul>
                 </div>
-                <button className="mt-8 flex items-center gap-2 text-primary-600 font-bold hover:gap-3 transition-all">
+                <Link to="/register" className="mt-8 flex items-center gap-2 text-primary-600 font-bold hover:gap-3 transition-all">
                   Explore Department <ArrowRight size={18} />
-                </button>
+                </Link>
               </div>
             ))}
           </div>
@@ -97,8 +97,8 @@ export default function AcademicsPage() {
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-16 items-center">
           <div className="relative">
             <div className="aspect-square rounded-[3rem] overflow-hidden shadow-2xl">
-              <img 
-                src={academicsHero} 
+              <img
+                src={academicsHero}
                 alt="Students collaborating"
                 className="w-full h-full object-cover"
               />

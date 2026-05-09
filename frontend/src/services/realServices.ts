@@ -487,7 +487,22 @@ export const realAIRagService = {
 export const realLectureService = {
   async getByClass(classId: string): Promise<ApiResponse<Lecture[]>> {
     const res = await apiClient.get(`/classes/${classId}/lectures`);
-    return ok(res.data.data);
+    const normalized = (res.data.data || []).map((l: any) => ({
+      lec_id: l.Lec_ID || l.lec_id,
+      class_id: l.Class_ID || l.class_id,
+      title: l.Title || l.title,
+      day: l.Day || l.day,
+      date: l.Date || l.date,
+      time: l.Time || l.time,
+      type: l.Type || l.type,
+      status: l.Status || l.status,
+      start_time: l.Start_Time || l.start_time,
+      end_time: l.End_Time || l.end_time,
+      attendance_code: l.Attendance_Code || l.attendance_code,
+      meeting_link: l.Meeting_Link || l.meeting_link,
+      room_id: l.Room_ID || l.room_id,
+    }));
+    return ok(normalized);
   },
   async create(
     data: Partial<Lecture> & { class_id: string },
@@ -782,5 +797,31 @@ export const realStudyOutputService = {
       options,
       content,
     });
+  },
+};
+
+// ---- Rooms (/api/rooms/*) ----
+export const realRoomService = {
+  async getAll(): Promise<ApiResponse<any[]>> {
+    const res = await apiClient.get("/rooms");
+    const normalized = (res.data.data || []).map((r: any) => ({
+      room_id: r.Room_ID || r.room_id,
+      room_name: r.Room_Name || r.room_name,
+      capacity: r.Capacity || r.capacity,
+      type: r.Type || r.type,
+      location: r.Location || r.location
+    }));
+    return ok(normalized);
+  },
+  async getEmpty(date?: string, time?: string): Promise<ApiResponse<any[]>> {
+    const res = await apiClient.get("/rooms/empty", { params: { date, time } });
+    const normalized = (res.data.data || []).map((r: any) => ({
+      room_id: r.Room_ID || r.room_id,
+      room_name: r.Room_Name || r.room_name,
+      capacity: r.Capacity || r.capacity,
+      type: r.Type || r.type,
+      location: r.Location || r.location
+    }));
+    return ok(normalized);
   },
 };

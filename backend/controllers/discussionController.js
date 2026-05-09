@@ -17,7 +17,7 @@ const getClassQuestions = asyncWrapper(async (req, res) => {
         u.F_Name || ' ' || u.L_Name AS User_Name,
         u.Role AS User_Role,
         u.Image_Url AS User_Image,
-        q.rowid AS Time
+        q.Time
        FROM Questions q
        INNER JOIN User u ON (q.User_ID = u.User_ID OR q.Doctor_ID = u.User_ID)
        WHERE q.Class_ID = ?`,
@@ -231,7 +231,7 @@ const askAndSave = asyncWrapper(async (req, res) => {
   const { classId } = req.params;
   const { text } = req.body;
   const userId = req.currentUser.user_id;
-  const role   = req.currentUser.role;
+  const role = req.currentUser.role;
 
   if (!text || !String(text).trim()) {
     return res.status(400).json({ success: httpstatustext.error, message: { msg: 'text is required' } });
@@ -290,12 +290,12 @@ const askAndSave = asyncWrapper(async (req, res) => {
     });
 
     const metadata = JSON.stringify({
-      source_type:       ragResult.source_type,
-      confidence:        ragResult.confidence,
+      source_type: ragResult.source_type,
+      confidence: ragResult.confidence,
       previous_question: ragResult.previous_question,
-      previous_answer:   ragResult.previous_answer,
-      material_name:     ragResult.material_name,
-      page:              ragResult.page,
+      previous_answer: ragResult.previous_answer,
+      material_name: ragResult.material_name,
+      page: ragResult.page,
     });
 
     await new Promise((resolve, reject) => {

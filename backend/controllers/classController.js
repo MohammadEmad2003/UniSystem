@@ -318,7 +318,7 @@ const getStudentGrades = asyncWrapper(async (req, res) => {
     db.all(
       `SELECT 
         Grade_ID, Class_ID, User_ID AS Student_ID,
-        Type, Generate_At,
+        Generate_At,
         Attendance, Practical, Project, Midterm, Final, GPA
        FROM Grades
        WHERE Class_ID = ? AND User_ID = ?`,
@@ -336,8 +336,9 @@ const getStudentGrades = asyncWrapper(async (req, res) => {
 // POST /classes/:classId/grades — Doctor only
 const addGrade = asyncWrapper(async (req, res) => {
   const { classId } = req.params;
-  const { student_id, type, grade } = req.body;
+  const { student_id, grade } = req.body;
   const doctorId = req.currentUser.user_id;
+  const { type } = req.body; // Keep 'type' in body to know which column to update, but don't save to 'Type' column
 
   if (!student_id || !type || grade === undefined) {
     return res.status(400).json({ success: httpstatustext.error, message: { msg: 'student_id, type, and grade are required' } });
@@ -373,8 +374,8 @@ const addGrade = asyncWrapper(async (req, res) => {
   if (existing) {
     await new Promise((resolve, reject) => {
       db.run(
-        `UPDATE Grades SET ${column} = ?, Type = ?, Generate_At = CURRENT_TIMESTAMP WHERE User_ID = ? AND Class_ID = ?`,
-        [grade, type, student_id, classId],
+        `UPDATE Grades SET ${column} = ?, Generate_At = CURRENT_TIMESTAMP WHERE User_ID = ? AND Class_ID = ?`,
+        [grade, student_id, classId],
         function (err) {
           if (err) return reject(err);
           resolve();
@@ -384,8 +385,8 @@ const addGrade = asyncWrapper(async (req, res) => {
   } else {
     await new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO Grades (Type, User_ID, Class_ID, Doctor_ID, ${column}) VALUES (?, ?, ?, ?, ?)`,
-        [type, student_id, classId, doctorId, grade],
+        `INSERT INTO Grades (User_ID, Class_ID, Doctor_ID, ${column}) VALUES (?, ?, ?, ?)`,
+        [student_id, classId, doctorId, grade],
         function (err) {
           if (err) return reject(err);
           resolve();
@@ -407,10 +408,10 @@ const addGrade = asyncWrapper(async (req, res) => {
   });
 
   if (updatedGrade) {
-    const totalMarks = (updatedGrade.Midterm || 0) + (updatedGrade.Project || 0) + 
-                       (updatedGrade.Practical || 0) + (updatedGrade.Attendance || 0) + 
-                       (updatedGrade.Final || 0);
-    
+    const totalMarks = (updatedGrade.Midterm || 0) + (updatedGrade.Project || 0) +
+      (updatedGrade.Practical || 0) + (updatedGrade.Attendance || 0) +
+      (updatedGrade.Final || 0);
+
     const courseGPA = gpaService.calculateCourseGPA(totalMarks);
 
     await new Promise((resolve, reject) => {
@@ -431,8 +432,8 @@ const addGrade = asyncWrapper(async (req, res) => {
   res.status(201).json({ success: httpstatustext.success, message: { msg: 'Grade added successfully and GPA recalculated' } });
 });
 
-module.exports = { 
-  getAllClasses, getClassById, getClassesByDoctor, getClassesByStudent, 
+module.exports = {
+  getAllClasses, getClassById, getClassesByDoctor, getClassesByStudent,
   createClass, deleteClass, getClassStudents, enrollStudent, dropStudent,
   getClassGrades, getStudentGrades, addGrade
 };

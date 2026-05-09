@@ -401,6 +401,7 @@ const askAndSave = asyncWrapper(async (req, res) => {
       AI_Metadata: metadata,
     }];
 
+    console.log(`[NOTIFICATION] skipped because AI answered classId=${classId} questionId=${questionId}`);
     if (!isDoctor) {
       createNotification({
         userId,
@@ -425,7 +426,8 @@ const askAndSave = asyncWrapper(async (req, res) => {
       resolve(row);
     });
   });
-  if (classInfo?.Doctor_ID) {
+  if (classInfo?.Doctor_ID && classInfo.Doctor_ID !== userId) {
+    console.log(`[NOTIFICATION] doctor_question_pending classId=${classId} questionId=${questionId} doctorId=${classInfo.Doctor_ID}`);
     createNotification({
       userId: classInfo.Doctor_ID,
       type: 'doctor_question_pending',
@@ -434,6 +436,8 @@ const askAndSave = asyncWrapper(async (req, res) => {
       classId: Number(classId),
       referenceId: questionId,
     }).catch(e => console.error('[notify] doctor_question_pending failed:', e.message));
+  } else if (classInfo?.Doctor_ID === userId) {
+    console.log(`[NOTIFICATION] skipped self-notification for doctor_question_pending classId=${classId} questionId=${questionId} doctorId=${classInfo.Doctor_ID}`);
   }
 
   console.log(`[ASK_AND_SAVE] final response: status=sent_to_doctor answers=0`);

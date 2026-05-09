@@ -12,6 +12,9 @@ class MathErrorBoundary extends Component<
 > {
   state = { caught: false };
   static getDerivedStateFromError() { return { caught: true }; }
+  componentDidCatch(error: Error) {
+    console.warn('[MATH_RENDER] fallback', error);
+  }
   componentDidUpdate(prevProps: Readonly<{ children: ReactNode; fallback: string }>) {
     if (this.state.caught && prevProps.fallback !== this.props.fallback) {
       this.setState({ caught: false });
@@ -26,7 +29,8 @@ class MathErrorBoundary extends Component<
 }
 
 interface Props {
-  children: string;
+  children?: ReactNode;
+  content?: string;
   /** Extra Tailwind classes applied to the outer wrapper */
   className?: string;
   /** prose size variant — defaults to 'sm' */
@@ -38,6 +42,15 @@ interface Props {
    * Use inside flex rows (e.g. quiz options) where a <div> would break layout.
    */
   inline?: boolean;
+}
+
+const MATH_RENDER_DEBUG = Boolean(import.meta.env.DEV);
+
+function childrenToString(node: ReactNode): string {
+  if (typeof node === 'string') return node;
+  if (typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(childrenToString).join('');
+  return '';
 }
 
 /**
@@ -56,6 +69,7 @@ interface Props {
  */
 export default function MarkdownContent({
   children,
+  content,
   className = '',
   size = 'sm',
   theme = 'slate',
@@ -84,8 +98,19 @@ export default function MarkdownContent({
         text-slate-700 dark:text-slate-300
       `;
 
+  const raw = typeof content === 'string' ? content : childrenToString(children);
+  const safeRaw = raw ?? '';
+
+  if (MATH_RENDER_DEBUG) {
+    console.log('[MATH_RENDER] raw:', safeRaw.slice(0, 300));
+  }
+
   // Run the full normalization + sanitization pipeline
-  const sanitized = sanitizeAiMarkdown(children ?? '');
+  const sanitized = sanitizeAiMarkdown(safeRaw);
+
+  if (MATH_RENDER_DEBUG) {
+    console.log('[MATH_RENDER] sanitized:', sanitized.slice(0, 300));
+  }
 
   const mdNode = (
     <ReactMarkdown
@@ -127,7 +152,7 @@ export default function MarkdownContent({
 
   if (inline) {
     return (
-      <MathErrorBoundary fallback={children ?? ''}>
+      <MathErrorBoundary fallback={sanitized || safeRaw}>
         <span className={`katex-inline-host leading-relaxed ${className}`}>
           {mdNode}
         </span>
@@ -136,7 +161,7 @@ export default function MarkdownContent({
   }
 
   return (
-    <MathErrorBoundary fallback={children ?? ''}>
+    <MathErrorBoundary fallback={sanitized || safeRaw}>
       <div className={`markdown-content max-w-full ${className}`}>
         <div
           className={`

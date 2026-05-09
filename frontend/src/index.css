@@ -53,6 +53,8 @@
   overflow-y: visible;
   white-space: normal;
   max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .markdown-content .katex-display,
@@ -69,6 +71,24 @@
 .markdown-content li,
 .markdown-content blockquote {
   overflow: visible;
+}
+
+.markdown-content pre,
+.markdown-content code {
+  white-space: pre-wrap;
+}
+
+.ai-answer .katex,
+.study-output .katex,
+.pdf-export .katex {
+  color: inherit;
+}
+
+.ai-answer .katex-display,
+.study-output .katex-display,
+.pdf-export .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 :root {

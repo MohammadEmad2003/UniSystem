@@ -1331,6 +1331,7 @@ export default function ClassMaterialsTab() {
     try {
       const saved = await studyOutputService.get(classId, mid, tool.action, opts);
       if (saved) {
+        console.log('[STUDY_CACHE] hit', { action: tool.action, material_id: mid, source: 'study_output' });
         const restored = restoreFromCache(tool.action, tool.title, saved.content);
         if (restored) {
           setLastAction(tool.action);
@@ -1425,6 +1426,7 @@ export default function ClassMaterialsTab() {
     try {
       const saved = await studyOutputService.get(classId, mid, action, effectiveOpts);
       if (saved) {
+        console.log('[STUDY_CACHE] hit', { action, material_id: mid, source: 'study_output' });
         const restored = restoreFromCache(action, title, saved.content);
         if (restored) {
           console.log('[StudyAI] loaded from cache:', action);
@@ -1483,6 +1485,7 @@ export default function ClassMaterialsTab() {
       const now = new Date().toISOString();
       await studyOutputService.save(classId, mid, action, opts, serializeResult(generated))
         .catch(e => console.warn('[REGENERATE] persist failed:', e.message));
+      console.log('[STUDY_CACHE] saved regenerated output', { action, material_id: mid });
 
       setAiResult(generated);
       setCacheInfo({ updatedAt: now, wasRegenerated: true });
@@ -1759,7 +1762,7 @@ export default function ClassMaterialsTab() {
                 {aiModalStep === "result" && aiResult && (
                   /* ── Result view ──────────────────────────────────────── */
                   <div className={`max-w-3xl mx-auto animate-fade-in relative transition-opacity duration-300 ${regenerating ? "opacity-50 pointer-events-none" : ""}`}>
-                    <div ref={resultContentRef} className="overflow-visible">
+                    <div ref={resultContentRef} className="study-output overflow-visible">
                       {(aiResult.type === "markdown" || aiResult.type === "error") && (
                         <MarkdownResult content={aiResult.content} action={aiResult.action} />
                       )}

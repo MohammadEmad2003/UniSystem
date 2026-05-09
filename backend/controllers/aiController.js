@@ -97,6 +97,7 @@ const askClassQuestion = asyncWrapper(async (req, res, next) => {
   });
 
   if (aiResponse.status === "answered") {
+    console.log(`[NOTIFICATION] skipped because AI answered classId=${classId} userId=${currentUser.user_id}`);
     return res.status(200).json(aiResponse);
   }
 
@@ -113,15 +114,22 @@ const askClassQuestion = asyncWrapper(async (req, res, next) => {
     questionText: normalizedQuestion,
   });
 
-  if (classInfo.Doctor_ID) {
+  if (classInfo.Doctor_ID && classInfo.Doctor_ID !== currentUser.user_id) {
+    console.log(
+      `[NOTIFICATION] doctor_question_pending classId=${classId} questionId=${questionId} doctorId=${classInfo.Doctor_ID}`
+    );
     await createNotification({
       userId: classInfo.Doctor_ID,
-      type: "new_question",
-      title: "New Question Needs Review",
-      message: "An AI question in your class needs a doctor's response.",
+      type: "doctor_question_pending",
+      title: "Student question needs your review",
+      message: "A student asked a question the AI could not answer. Tap to reply.",
       classId: Number(classId),
       referenceId: questionId,
     });
+  } else if (classInfo.Doctor_ID === currentUser.user_id) {
+    console.log(
+      `[NOTIFICATION] skipped self-notification for doctor_question_pending classId=${classId} questionId=${questionId} doctorId=${classInfo.Doctor_ID}`
+    );
   }
 
   return res.status(201).json({

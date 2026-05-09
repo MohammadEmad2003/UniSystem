@@ -203,6 +203,7 @@ def material_page_summaries(payload: PageSummaryRequest) -> dict[str, Any]:
             detail_level=payload.detail_level,
             include_key_terms=payload.include_key_terms,
             include_formulas=payload.include_formulas,
+            force_refresh=payload.force_refresh,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -218,6 +219,7 @@ def material_notes(payload: NotesRequest) -> dict[str, Any]:
             detail_level=payload.detail_level,
             include_examples=payload.include_examples,
             include_formulas=payload.include_formulas,
+            force_refresh=payload.force_refresh,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -232,6 +234,7 @@ def material_quiz(payload: QuizRequest) -> dict[str, Any]:
             num_questions=payload.num_questions,
             difficulty=payload.difficulty,
             question_type=payload.question_type,
+            force_refresh=payload.force_refresh,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -246,6 +249,7 @@ def material_flashcards(payload: FlashcardsRequest) -> dict[str, Any]:
             num_cards=payload.num_cards,
             focus=payload.focus,
             include_examples=payload.include_examples,
+            force_refresh=payload.force_refresh,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc

@@ -41,6 +41,10 @@ const getStudyOutput = asyncWrapper(async (req, res) => {
     return res.status(404).json({ success: httpstatustext.error, message: { msg: 'No saved output found' } });
   }
 
+  console.log(
+    `[STUDY_CACHE] hit classId=${classId} materialId=${material_id} userId=${userId} toolType=${tool_type}`
+  );
+
   return res.json({
     success: httpstatustext.success,
     data: {

@@ -195,7 +195,7 @@ function renderMathStr(latex: string, displayMode: boolean): string {
     });
   } catch {
     return displayMode
-      ? `<div style="font-family:monospace;overflow-x:auto">$$${escHtml(latex)}$$</div>`
+      ? `<div style="font-family:monospace;overflow-x:auto;white-space:pre-wrap">${escHtml(latex)}</div>`
       : `<code>${escHtml(latex)}</code>`;
   }
 }
@@ -225,6 +225,12 @@ function prepareExportClone(root: HTMLElement) {
   root.querySelectorAll<HTMLElement>('.katex').forEach((el) => {
     el.style.lineHeight = '1.8';
     el.style.fontSize = '1.05em';
+    el.style.color = '#1e293b';
+  });
+
+  root.querySelectorAll<HTMLElement>('.ai-answer, .study-output, .pdf-export').forEach((el) => {
+    el.style.color = '#1e293b';
+    el.style.background = 'transparent';
   });
 }
 
@@ -261,6 +267,7 @@ function buildRenderedPdfShell(result: AiResultData, meta: ExportMeta): string {
   .pdf-body .katex-display { overflow-x: auto; overflow-y: hidden; padding: 1rem 0; margin: 1rem 0; max-width: 100%; }
   .pdf-body .katex-display > .katex { display: inline-block; min-width: max-content; }
   .pdf-body .katex { line-height: 1.8; font-size: 1.05em; }
+  .pdf-body pre, .pdf-body code { white-space: pre-wrap; }
 </style>
 <div class="pdf-cover">
   <div class="pdf-brand">UniSystem · Study with AI</div>
@@ -285,6 +292,13 @@ function mdToHtml(rawMd: string): string {
 
   for (const raw of lines) {
     const line = raw;
+    const trimmed = line.trim();
+
+    if (/^<(span|div)\b[^>]*(katex-display|font-family:monospace)/.test(trimmed)) {
+      if (inUl) { out.push("</ul>"); inUl = false; }
+      out.push(trimmed);
+      continue;
+    }
 
     // headings
     const hm = line.match(/^(#{1,6})\s+(.*)/);
@@ -490,6 +504,7 @@ export async function exportStudyContent(
 
   const exportDiv = document.createElement("div");
   exportDiv.id = "pdf-export-root";
+  exportDiv.className = "pdf-export";
   exportDiv.style.cssText = [
     "position:fixed",
     "top:0",
@@ -658,6 +673,7 @@ function _buildBodyContent(result: AiResultData, meta: ExportMeta): string {
   li { margin:3px 0; line-height:1.6; }
   blockquote { border-left:3px solid #0891b2; margin:8px 0; padding:4px 12px; color:#475569; background:#f8fafc; border-radius:0 4px 4px 0; }
   code { background:#f1f5f9; padding:1px 5px; border-radius:3px; font-size:9.5pt; font-family:monospace; color:#1d4ed8; }
+  pre  { white-space:pre-wrap; }
   hr   { border:none; border-top:1px solid #e2e8f0; margin:18px 0; }
 
   /* Quiz */
@@ -705,7 +721,7 @@ function _buildBodyContent(result: AiResultData, meta: ExportMeta): string {
   .markdown-content { overflow-x:auto; overflow-y:visible; white-space:normal; max-width:100%; }
   .katex-display { display:block; text-align:center; margin:1rem 0; padding:1rem 0; overflow-x:auto; overflow-y:hidden; max-width:100%; }
   .katex-display > .katex { display:inline-block; min-width:max-content; }
-  .katex { line-height:1.8; font-size:1.05em; }
+  .katex { line-height:1.8; font-size:1.05em; color:#1e293b; }
   .katex-html { overflow-x:visible; max-width:100%; }
 </style>
 <div class="pdf-cover">

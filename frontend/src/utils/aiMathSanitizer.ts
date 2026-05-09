@@ -86,7 +86,7 @@ const ENV_RE = new RegExp(
 );
 
 function wrapDisplayMath(inner: string): string {
-  return `$$\n${inner.trim()}\n$$`;
+  return `\n$$\n${inner.trim()}\n$$\n`;
 }
 
 function shouldPromoteInlineToDisplay(inner: string): boolean {
@@ -566,6 +566,8 @@ const PLAIN_OCR_FIXES: OcrFix[] = [
 const MATH_OCR_FIXES: OcrFix[] = [
   // bare Dk / D k → D_k
   { re: /\bD\s+k\b/g,                 rep: 'D_k'        },
+  // T 0 inside math → T_0
+  { re: /\bT\s+0\b/g,                 rep: 'T_0'        },
   // omega_o → \omega_0
   { re: /\\?omega_o\b/g,              rep: '\\omega_0'  },
   // w_0 / w0 → \omega_0
@@ -574,6 +576,8 @@ const MATH_OCR_FIXES: OcrFix[] = [
   { re: /\bw_?k\b/g,                  rep: '\\omega_k'  },
   // double backslash before common commands inside math
   { re: /\\\\(theta|omega|pi|sum|int|frac|infty|cos|sin|delta)\b/g, rep: '\\$1' },
+  // stray space after slash command name emitted by OCR/tokenizer
+  { re: /\\\s+(cos|sin|tan|frac|sum|int|pi|left|right)\b/g, rep: '\\$1' },
   // missing backslashes on common commands inside math
   { re: /(?<!\\)\bfrac(?=\s*\{)/g,    rep: '\\frac'     },
   { re: /(?<!\\)\bsum(?=\s*[_^{])/g,  rep: '\\sum'      },
@@ -634,6 +638,7 @@ function validateMathSegment(
 function fixMathOcr(inner: string): string {
   let s = inner;
   for (const { re, rep } of MATH_OCR_FIXES) s = s.replace(re, rep);
+  s = s.replace(/[ \t]{2,}/g, ' ');
   return s;
 }
 

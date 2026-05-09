@@ -144,7 +144,7 @@ export default function AIChatPanel() {
                 {m.role === "user" ? <UserIcon size={14} /> : <Bot size={14} />}
               </div>
               <div
-                className={`px-4 py-2.5 rounded-2xl text-sm max-w-[210px] whitespace-pre-wrap break-words leading-relaxed
+                className={`ai-answer px-4 py-2.5 rounded-2xl text-sm max-w-[210px] whitespace-pre-wrap break-words leading-relaxed
                 ${m.role === "user"
                     ? "bg-[#00e5ff]/20 text-slate-900 dark:text-white border border-[#00e5ff]/30 rounded-tr-sm shadow-[0_0_10px_rgba(0,229,255,0.1)]"
                     : "bg-white dark:bg-[#111111] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-tl-sm shadow-md overflow-visible"

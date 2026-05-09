@@ -479,11 +479,13 @@ class RagService:
         cache_key = (class_id, material_id, length, format, include_formulas)
 
         if force_refresh:
+            print(f"[STUDY_CACHE] bypass forceRefresh=true tool=summary material_id={material_id}")
             print(f"[SUMMARY] force_refresh=true — bypassing in-memory cache for material {material_id}")
             # Evict stale entry so the fresh result replaces it below
             self.material_summary_cache.pop(cache_key, None)
         elif cache_key in self.material_summary_cache:
             cached_summary = self.material_summary_cache[cache_key]
+            print(f"[STUDY_CACHE] hit tool=summary material_id={material_id} source=in_memory")
             print(f"[SUMMARY] Using in-memory cached summary for material {material_id}")
             print(f"[SUMMARY] Summary preview: {cached_summary[:200]}")
             if not cached_summary:
@@ -519,6 +521,7 @@ class RagService:
                     max_length=800,
                 )
                 self.material_summary_cache[cache_key] = clean_cached_summary
+                print(f"[STUDY_CACHE] hit tool=summary material_id={material_id} source=payload")
                 print(f"[SUMMARY] Using payload cached summary for material {material_id}")
                 print(f"[SUMMARY] Chunks count: {len(chunks)}")
                 print(f"[SUMMARY] Context length: {len(cached_payload_summary)}")
@@ -597,11 +600,14 @@ class RagService:
         detail_level: str = "normal",
         include_key_terms: bool = True,
         include_formulas: bool = True,
+        force_refresh: bool = False,
     ) -> dict[str, Any]:
         print(f"[PAGE_SUMMARIES] class_id={class_id} material_id={material_id}")
         print(f"[STUDY_AI_OPTIONS] page_summaries  class_id={class_id}  material_id={material_id}  "
               f"detail_level={detail_level!r}  include_key_terms={include_key_terms}  "
-              f"include_formulas={include_formulas}")
+              f"include_formulas={include_formulas}  force_refresh={force_refresh}")
+        if force_refresh:
+            print(f"[STUDY_CACHE] bypass forceRefresh=true tool=page_summaries material_id={material_id}")
         chunks = self.get_material_chunks(class_id, material_id)
         if not chunks:
             return {
@@ -659,11 +665,15 @@ class RagService:
         detail_level: str = "detailed",
         include_examples: bool = True,
         include_formulas: bool = True,
+        force_refresh: bool = False,
     ) -> dict[str, Any]:
         print(f"[NOTES] class_id={class_id} material_id={material_id}")
         print(f"[STUDY_AI_OPTIONS] notes  class_id={class_id}  material_id={material_id}  "
               f"notes_style={notes_style!r}  detail_level={detail_level!r}  "
-              f"include_examples={include_examples}  include_formulas={include_formulas}")
+              f"include_examples={include_examples}  include_formulas={include_formulas}  "
+              f"force_refresh={force_refresh}")
+        if force_refresh:
+            print(f"[STUDY_CACHE] bypass forceRefresh=true tool=notes material_id={material_id}")
         chunks = self.get_material_chunks(class_id, material_id)
         if not chunks:
             return {
@@ -754,10 +764,14 @@ class RagService:
         num_questions: int = 10,
         difficulty: str = "mixed",
         question_type: str = "mcq",
+        force_refresh: bool = False,
     ) -> dict[str, Any]:
         print(f"[QUIZ] class_id={class_id} material_id={material_id}")
         print(f"[STUDY_AI_OPTIONS] quiz  class_id={class_id}  material_id={material_id}  "
-              f"num_questions={num_questions}  difficulty={difficulty!r}  question_type={question_type!r}")
+              f"num_questions={num_questions}  difficulty={difficulty!r}  question_type={question_type!r}  "
+              f"force_refresh={force_refresh}")
+        if force_refresh:
+            print(f"[STUDY_CACHE] bypass forceRefresh=true tool=quiz material_id={material_id}")
         chunks = self.get_material_chunks(class_id, material_id)
         if not chunks:
             return {"status": "error", "message": "Material not indexed"}
@@ -834,10 +848,14 @@ class RagService:
         num_cards: int = 10,
         focus: str = "mixed",
         include_examples: bool = False,
+        force_refresh: bool = False,
     ) -> dict[str, Any]:
         print(f"[FLASHCARDS] class_id={class_id} material_id={material_id}")
         print(f"[STUDY_AI_OPTIONS] flashcards  class_id={class_id}  material_id={material_id}  "
-              f"num_cards={num_cards}  focus={focus!r}  include_examples={include_examples}")
+              f"num_cards={num_cards}  focus={focus!r}  include_examples={include_examples}  "
+              f"force_refresh={force_refresh}")
+        if force_refresh:
+            print(f"[STUDY_CACHE] bypass forceRefresh=true tool=flashcards material_id={material_id}")
         chunks = self.get_material_chunks(class_id, material_id)
         if not chunks:
             return {"status": "error", "message": "Material not indexed"}
@@ -912,10 +930,68 @@ class RagService:
         if not answers:
             return None
 
-        # Prefer first doctor answer, fall back to first answer
-        top_answer = next(
-            (a for a in answers if a.get("doctor_id") is not None), answers[0]
-        )
+        question_id = question.get("question_id")
+
+        def _is_truthy(value: Any) -> bool:
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, (int, float)):
+                return value == 1
+            if isinstance(value, str):
+                return value.strip().lower() in {"1", "true", "yes"}
+            return False
+
+        def _parse_ai_metadata(raw_metadata: Any) -> dict[str, Any]:
+            if isinstance(raw_metadata, dict):
+                return raw_metadata
+            if isinstance(raw_metadata, str) and raw_metadata.strip():
+                try:
+                    parsed = json.loads(raw_metadata)
+                    if isinstance(parsed, dict):
+                        return parsed
+                except json.JSONDecodeError:
+                    print(f"[QA_INDEX] question_id={question_id} invalid ai_metadata JSON")
+            return {}
+
+        doctor_answer = next((a for a in answers if a.get("doctor_id") is not None), None)
+        if doctor_answer is not None:
+            top_answer = doctor_answer
+            print(f"[QA_INDEX] indexed doctor answer question_id={question_id} answer_id={top_answer.get('answer_id')}")
+        else:
+            eligible_ai_answer = None
+            saw_unvalidated_ai = False
+            saw_student_answer = False
+
+            for answer in answers:
+                is_ai_generated = _is_truthy(answer.get("is_ai_generated"))
+                if is_ai_generated:
+                    metadata = _parse_ai_metadata(answer.get("ai_metadata"))
+                    confidence_raw = answer.get("confidence")
+                    try:
+                        confidence = float(confidence_raw)
+                    except (TypeError, ValueError):
+                        confidence = 0.0
+                    is_validated = _is_truthy(metadata.get("validated"))
+                    if is_validated or confidence >= 0.90:
+                        eligible_ai_answer = answer
+                        print(
+                            f"[QA_INDEX] indexed high-confidence AI answer question_id={question_id} "
+                            f"answer_id={answer.get('answer_id')} confidence={confidence:.2f} validated={is_validated}"
+                        )
+                        break
+                    saw_unvalidated_ai = True
+                    continue
+
+                saw_student_answer = True
+
+            if eligible_ai_answer is None:
+                if saw_unvalidated_ai:
+                    print(f"[QA_INDEX] skipped unvalidated AI answer question_id={question_id}")
+                if saw_student_answer:
+                    print(f"[QA_INDEX] skipped student answer question_id={question_id}")
+                return None
+
+            top_answer = eligible_ai_answer
 
         answer_text = (
             top_answer.get("answer_text") or top_answer.get("text") or ""

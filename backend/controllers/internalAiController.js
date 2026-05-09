@@ -36,17 +36,21 @@ const mapMaterialRow = (row) => {
 
 const getQuestionAnswers = (questionId) =>
   new Promise((resolve, reject) => {
-    db.all(
-      `SELECT
-        a.Answer_ID AS answer_id,
-        a.Questions_ID AS question_id,
-        a.Text AS answer_text,
-        a.Time AS answer_time,
-        a.Doctor_ID AS doctor_id,
-        a.User_ID AS user_id,
-        COALESCE(u.F_Name || ' ' || u.L_Name, '') AS answered_by_name,
-        CASE WHEN a.Doctor_ID IS NOT NULL THEN 'doctor' ELSE 'student' END AS answered_by_role
-       FROM Answer a
+      db.all(
+        `SELECT
+          a.Answer_ID AS answer_id,
+          a.Questions_ID AS question_id,
+          a.Text AS answer_text,
+          a.Time AS answer_time,
+          a.Doctor_ID AS doctor_id,
+          a.User_ID AS user_id,
+          a.Is_AI_Generated AS is_ai_generated,
+          a.Confidence AS confidence,
+          a.AI_Metadata AS ai_metadata,
+          a.Source_Type AS source_type,
+          COALESCE(u.F_Name || ' ' || u.L_Name, '') AS answered_by_name,
+          CASE WHEN a.Doctor_ID IS NOT NULL THEN 'doctor' ELSE 'student' END AS answered_by_role
+         FROM Answer a
        LEFT JOIN User u ON u.User_ID = COALESCE(a.Doctor_ID, a.User_ID)
        WHERE a.Questions_ID = ?
        ORDER BY

@@ -10,20 +10,10 @@ import MarkdownContent from '../../components/MarkdownContent';
 
 // Safe wrapper: if MarkdownContent crashes (bad LaTeX etc.), fall back to plain text.
 function SafeMarkdown({ children, theme, size }: { children: string; theme?: 'slate' | 'violet'; size?: 'sm' | 'base' }) {
-  const [failed, setFailed] = useState(false);
-  if (failed || !children) {
+  if (!children) {
     return <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{children}</p>;
   }
-  try {
-    return (
-      <MarkdownContent theme={theme} size={size ?? 'sm'} key={children.slice(0, 20)}>
-        {children}
-      </MarkdownContent>
-    );
-  } catch {
-    setFailed(true);
-    return <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{children}</p>;
-  }
+  return <MarkdownContent theme={theme} size={size ?? 'sm'} content={children} />;
 }
 import type { Question, Answer, User } from '../../types';
 
@@ -257,7 +247,7 @@ const AiAnswerBubble = memo(function AiAnswerBubble({ answer }: { answer: Answer
         </div>
 
         {/* Bubble body */}
-        <div className="bg-violet-600 text-white dark:bg-violet-900/60 border border-violet-500/30 rounded-2xl rounded-tr-sm px-4 py-3 shadow-lg shadow-violet-500/10 w-fit max-w-[90%] overflow-visible">
+        <div className="ai-answer bg-violet-600 text-white dark:bg-violet-900/60 border border-violet-500/30 rounded-2xl rounded-tr-sm px-4 py-3 shadow-lg shadow-violet-500/10 w-fit max-w-[90%] overflow-visible">
           <SafeMarkdown theme="violet" size="sm">{answer.text}</SafeMarkdown>
         </div>
 
@@ -353,7 +343,7 @@ function HumanAnswerBubble({ answer }: { answer: Answer }) {
           )}
           <span className="text-[10px] text-slate-400 font-medium">{formatTime(answer.time)}</span>
         </div>
-        <div className={`rounded-2xl rounded-tr-sm px-4 py-3 shadow-md w-fit max-w-[90%] border overflow-visible ${
+        <div className={`ai-answer rounded-2xl rounded-tr-sm px-4 py-3 shadow-md w-fit max-w-[90%] border overflow-visible ${
           isDoctor
             ? 'bg-emerald-500 text-white border-emerald-600 shadow-emerald-500/10'
             : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700'

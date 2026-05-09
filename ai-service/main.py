@@ -14,9 +14,21 @@ from rag_service import RagService
 load_dotenv()
 
 
+def _preload_model() -> None:
+    """Verify Ollama is reachable at startup."""
+    import requests as _req
+    ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
+    try:
+        r = _req.get(f"{ollama_url}/api/tags", timeout=5)
+        models = [m.get("name", "") for m in (r.json().get("models") or [])]
+        print(f"[startup] Ollama reachable at {ollama_url}. Available models: {models or '(none)'}")
+    except Exception as exc:
+        print(f"[startup] WARNING — cannot reach Ollama at {ollama_url}: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("[startup] Local GGUF LLM ready (loaded on first RagService init).")
+    _preload_model()
     yield
 
 
@@ -138,6 +150,14 @@ def index_class(class_id: int) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@app.delete("/rag/index/class/{class_id}/qa")
+def clear_class_qa(class_id: int) -> dict[str, Any]:
+    try:
+        return rag_service.clear_class_qa(class_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @app.post("/rag/index/question/{question_id}")
 def index_question(
     question_id: int, payload: dict[str, Any] | None = Body(default=None)
@@ -241,4 +261,4 @@ if __name__ == "__main__":
     import uvicorn
 
     port = int(os.getenv("PORT", "9000"))
-    uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)

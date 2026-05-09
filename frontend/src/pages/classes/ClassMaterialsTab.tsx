@@ -236,7 +236,7 @@ function ExplanationPanel({ explanation, correctLabel, isCorrect }: {
 }) {
   return (
     <div
-      className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/50 overflow-hidden"
+      className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/50 overflow-visible"
       style={{ animation: "fadeSlideIn 0.25s ease both" }}
     >
       {/* Correct-answer banner */}
@@ -796,7 +796,7 @@ const FlashcardRenderer = memo(function FlashcardRenderer({ items }: { items: Fl
           </div>
           {/* Back */}
           <div
-            className="absolute inset-0 rounded-2xl border border-[#00e5ff]/30 bg-gradient-to-br from-[#00e5ff]/5 to-[#006080]/5 dark:from-[#0a2540] dark:to-[#0f2038] flex flex-col items-center justify-center p-8 shadow-lg overflow-y-auto"
+            className="absolute inset-0 rounded-2xl border border-[#00e5ff]/30 bg-gradient-to-br from-[#00e5ff]/5 to-[#006080]/5 dark:from-[#0a2540] dark:to-[#0f2038] flex flex-col items-center justify-center p-8 shadow-lg overflow-visible"
             style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
           >
             <SectionLabel color="emerald">Answer</SectionLabel>
@@ -886,7 +886,7 @@ const PageSummaryRenderer = memo(function PageSummaryRenderer({ pages }: { pages
         </div>
       </div>
       {pages.map((pg, i) => (
-        <div key={i} className="bg-white dark:bg-[#112240] rounded-2xl border border-slate-200 dark:border-slate-700/80 overflow-hidden transition-all">
+        <div key={i} className="bg-white dark:bg-[#112240] rounded-2xl border border-slate-200 dark:border-slate-700/80 overflow-visible transition-all">
           <button
             onClick={() => toggle(i)}
             className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group"
@@ -1758,22 +1758,24 @@ export default function ClassMaterialsTab() {
 
                 {aiModalStep === "result" && aiResult && (
                   /* ── Result view ──────────────────────────────────────── */
-                  <div className={`max-w-3xl mx-auto animate-fade-in relative transition-opacity duration-300 ${regenerating ? "opacity-50 pointer-events-none" : ""}`} ref={resultContentRef}>
-                    {(aiResult.type === "markdown" || aiResult.type === "error") && (
-                      <MarkdownResult content={aiResult.content} action={aiResult.action} />
-                    )}
-                    {aiResult.type === "quiz" && (
-                      <QuizRenderer
-                        items={aiResult.items}
-                        onRetry={handleRegenerate}
-                      />
-                    )}
-                    {aiResult.type === "flashcards" && (
-                      <FlashcardRenderer items={aiResult.items} />
-                    )}
-                    {aiResult.type === "pages" && (
-                      <PageSummaryRenderer pages={aiResult.pages} />
-                    )}
+                  <div className={`max-w-3xl mx-auto animate-fade-in relative transition-opacity duration-300 ${regenerating ? "opacity-50 pointer-events-none" : ""}`}>
+                    <div ref={resultContentRef} className="overflow-visible">
+                      {(aiResult.type === "markdown" || aiResult.type === "error") && (
+                        <MarkdownResult content={aiResult.content} action={aiResult.action} />
+                      )}
+                      {aiResult.type === "quiz" && (
+                        <QuizRenderer
+                          items={aiResult.items}
+                          onRetry={handleRegenerate}
+                        />
+                      )}
+                      {aiResult.type === "flashcards" && (
+                        <FlashcardRenderer items={aiResult.items} />
+                      )}
+                      {aiResult.type === "pages" && (
+                        <PageSummaryRenderer pages={aiResult.pages} />
+                      )}
+                    </div>
 
                     {/* Cache / regenerate banner */}
                     {cacheInfo && (

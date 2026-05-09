@@ -134,6 +134,26 @@ class VectorStore:
 
         self._upsert(self.MATERIAL_COLLECTION, points)
 
+    def count_qa_by_class(self, class_id: int) -> int:
+        result = self.client.count(
+            collection_name=self.QA_COLLECTION,
+            count_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="class_id",
+                        match=models.MatchValue(value=class_id),
+                    )
+                ]
+            ),
+            exact=True,
+        )
+        return result.count
+
+    def delete_qa_by_class(self, class_id: int) -> int:
+        deleted = self.count_qa_by_class(class_id)
+        self.delete_by_field(self.QA_COLLECTION, "class_id", class_id)
+        return deleted
+
     def bulk_replace_questions(self, class_id: int, records: list[dict[str, Any]]) -> None:
         self.delete_by_field(self.QA_COLLECTION, "class_id", class_id)
         self._upsert(self.QA_COLLECTION, [self._qa_point(r) for r in records])

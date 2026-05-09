@@ -15,4 +15,20 @@ db.exec(`
   )
 `);
 
+// Migrate: add AI-answer columns if they don't exist yet (safe — ignores if already present)
+const aiColumns = [
+  'ALTER TABLE Answer ADD COLUMN Is_AI_Generated INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE Answer ADD COLUMN Source_Type TEXT',
+  'ALTER TABLE Answer ADD COLUMN Source_ID TEXT',
+  'ALTER TABLE Answer ADD COLUMN Confidence REAL',
+  'ALTER TABLE Answer ADD COLUMN AI_Metadata TEXT',
+];
+for (const sql of aiColumns) {
+  db.run(sql, (err) => {
+    if (err && !err.message.includes('duplicate column')) {
+      console.error('[answerModel] migration error:', err.message);
+    }
+  });
+}
+
 module.exports = db;

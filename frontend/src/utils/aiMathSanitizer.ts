@@ -85,6 +85,89 @@ const ENV_RE = new RegExp(
   'g',
 );
 
+function wrapDisplayMath(inner: string): string {
+  return `$$\n${inner.trim()}\n$$`;
+}
+
+function shouldPromoteInlineToDisplay(inner: string): boolean {
+  const compact = inner.replace(/\s+/g, ' ').trim();
+  if (!compact) return false;
+
+  return compact.length > 42 ||
+    compact.includes('\n') ||
+    /(?:^|[^\\])=/.test(compact) ||
+    /\\(?:frac|dfrac|tfrac|cfrac|sum|prod|int|iint|iiint|oint|left|right|begin|matrix|cases)/.test(compact);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 0 — truncated LaTeX command repair (OCR / tokenizer artifacts)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// LLMs and OCR pipelines sometimes emit truncated or missing-backslash forms:
+//   "ight)"  instead of "\right)"    (the \r was swallowed)
+//   "eft("   instead of "\left("
+//   "frac{"  instead of "\frac{"     (backslash lost)
+//   "sum_"   instead of "\sum_"
+//   etc.
+//
+// This pass repairs them BEFORE any delimiter-detection so Phase B–D work
+// on clean input.
+
+interface Phase0Fix { re: RegExp; rep: string }
+
+const PHASE0_FIXES: Phase0Fix[] = [
+  // Truncated \right / \left — appears as  ight)  ight]  eft(  eft[
+  { re: /\bight\)/g,  rep: '\\right)' },
+  { re: /\bight\]/g,  rep: '\\right]' },
+  { re: /\bight\}/g,  rep: '\\right\\}' },
+  { re: /\bight\|/g,  rep: '\\right|' },
+  { re: /\beft\(/g,   rep: '\\left('  },
+  { re: /\beft\[/g,   rep: '\\left['  },
+  { re: /\beft\{/g,   rep: '\\left\\{' },
+  { re: /\beft\|/g,   rep: '\\left|'  },
+  // Bare command names missing a backslash (only when followed by { or _ or ^ or space+letter)
+  // frac{ → \frac{
+  { re: /(?<!\\)\bfrac\{/g,     rep: '\\frac{'    },
+  { re: /(?<!\\)\bdfrac\{/g,    rep: '\\dfrac{'   },
+  { re: /(?<!\\)\bsqrt\{/g,     rep: '\\sqrt{'    },
+  { re: /(?<!\\)\bsqrt\b(?=\s*[a-zA-Z0-9(])/g, rep: '\\sqrt' },
+  { re: /(?<!\\)\bsum_/g,       rep: '\\sum_'     },
+  { re: /(?<!\\)\bprod_/g,      rep: '\\prod_'    },
+  { re: /(?<!\\)\bint_/g,       rep: '\\int_'     },
+  { re: /(?<!\\)\blim_/g,       rep: '\\lim_'     },
+  { re: /(?<!\\)\binfty\b/g,    rep: '\\infty'    },
+  // "cdot" / "cdots" / "ldots" without backslash between math tokens
+  { re: /(?<=[a-zA-Z0-9})\]])\s+cdot\s+(?=[a-zA-Z0-9({\\])/g,  rep: ' \\cdot ' },
+  { re: /(?<=[a-zA-Z0-9})\]])\s+cdots\b/g, rep: ' \\cdots' },
+  { re: /(?<=[a-zA-Z0-9})\]])\s+ldots\b/g, rep: ' \\ldots' },
+];
+
+/** Apply Phase 0 repairs only inside segments that look like math (inside $…$) or bare expressions. */
+function repairTruncatedLatex(text: string): string {
+  // Apply inside existing $…$ delimiters first
+  const parts = text.split(MATH_SPLIT_RE);
+  const fixed = parts.map((part, i) => {
+    if (i % 2 !== 0) {
+      // Inside existing $…$ — apply all phase-0 fixes
+      let s = part;
+      for (const { re, rep } of PHASE0_FIXES) {
+        re.lastIndex = 0;
+        s = s.replace(re, rep);
+      }
+      return s;
+    }
+    // Plain text — only apply truncated-command fixes that are safe (ight/eft are unambiguous)
+    let s = part;
+    const safeFixes = PHASE0_FIXES.slice(0, 8); // only ight/eft fixes
+    for (const { re, rep } of safeFixes) {
+      re.lastIndex = 0;
+      s = s.replace(re, rep);
+    }
+    return s;
+  });
+  return fixed.join('');
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase A helpers — double-backslash collapse outside existing delimiters
 // ─────────────────────────────────────────────────────────────────────────────
@@ -191,7 +274,7 @@ function classifyLine(line: string): string {
   // Wrap as display math
   const inner = line.trim();
   console.debug('[MATH_NORM] display-wrap:', inner.slice(0, 80));
-  return `$$${inner}$$`;
+  return wrapDisplayMath(inner);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -285,14 +368,21 @@ export function normalizeMathContent(input: string): string {
   // Strip "Key Term: " / "Term: " / "Definition: " label prefixes
   text = text.replace(/^(?:Key\s+Term|Term|Definition|Formula):\s*/im, '');
 
+  // ── Phase 0: truncated LaTeX repair ────────────────────────────────────
+  text = repairTruncatedLatex(text);
+
   // ── Phase A: double-backslash collapse ──────────────────────────────────
   text = collapseDblBackslash(text);
 
   // ── Phase B: standard delimiter upgrades ───────────────────────────────
   text = text
-    .replace(ENV_RE,             (_m, inner: string) => `$$\n${inner.trim()}\n$$`)
-    .replace(DISPLAY_BRACKET_RE, (_m, inner: string) => `$$\n${inner.trim()}\n$$`)
-    .replace(INLINE_PAREN_RE,    (_m, inner: string) => `$${inner.trim()}$`);
+    .replace(ENV_RE,             (_m, inner: string) => wrapDisplayMath(inner))
+    .replace(DISPLAY_BRACKET_RE, (_m, inner: string) => wrapDisplayMath(inner))
+    .replace(INLINE_PAREN_RE,    (_m, inner: string) => (
+      shouldPromoteInlineToDisplay(inner)
+        ? wrapDisplayMath(inner)
+        : `$${inner.trim()}$`
+    ));
 
   // ── Phase C + D: line-by-line processing in plain-text regions ─────────
   //
@@ -484,6 +574,16 @@ const MATH_OCR_FIXES: OcrFix[] = [
   { re: /\bw_?k\b/g,                  rep: '\\omega_k'  },
   // double backslash before common commands inside math
   { re: /\\\\(theta|omega|pi|sum|int|frac|infty|cos|sin|delta)\b/g, rep: '\\$1' },
+  // missing backslashes on common commands inside math
+  { re: /(?<!\\)\bfrac(?=\s*\{)/g,    rep: '\\frac'     },
+  { re: /(?<!\\)\bsum(?=\s*[_^{])/g,  rep: '\\sum'      },
+  { re: /(?<!\\)\bint(?=\s*[_^{a-zA-Z0-9(\\])/g, rep: '\\int' },
+  { re: /(?<!\\)\bcos(?=\s*[\w({\\])/g, rep: '\\cos'    },
+  { re: /(?<!\\)\bsin(?=\s*[\w({\\])/g, rep: '\\sin'    },
+  { re: /(?<!\\)\btan(?=\s*[\w({\\])/g, rep: '\\tan'    },
+  { re: /(?<!\\)\bpi\b/g,             rep: '\\pi'       },
+  { re: /(?<!\\)\bleft(?=\s*[\(\[\{\|])/g, rep: '\\left' },
+  { re: /(?<!\\)\bright(?=\s*[\)\]\}\|])/g, rep: '\\right' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -572,9 +672,13 @@ export function sanitizeAiMarkdown(input: string): string {
 
   // Phase 1 — belt-and-suspenders: any \[…\] / \(…\) / \begin{} still left
   text = text
-    .replace(ENV_RE,             (_m, inner: string) => `$$\n${inner.trim()}\n$$`)
-    .replace(DISPLAY_BRACKET_RE, (_m, inner: string) => `$$\n${inner.trim()}\n$$`)
-    .replace(INLINE_PAREN_RE,    (_m, inner: string) => `$${inner.trim()}$`);
+    .replace(ENV_RE,             (_m, inner: string) => wrapDisplayMath(inner))
+    .replace(DISPLAY_BRACKET_RE, (_m, inner: string) => wrapDisplayMath(inner))
+    .replace(INLINE_PAREN_RE,    (_m, inner: string) => (
+      shouldPromoteInlineToDisplay(inner)
+        ? wrapDisplayMath(inner)
+        : `$${inner.trim()}$`
+    ));
 
   // Phase 2 — OCR artifact fixes in plain-text regions
   const parts = text.split(MATH_SPLIT_RE);

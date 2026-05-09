@@ -7,6 +7,24 @@ import {
   MessageSquarePlus, Bot,
 } from 'lucide-react';
 import MarkdownContent from '../../components/MarkdownContent';
+
+// Safe wrapper: if MarkdownContent crashes (bad LaTeX etc.), fall back to plain text.
+function SafeMarkdown({ children, theme, size }: { children: string; theme?: 'slate' | 'violet'; size?: 'sm' | 'base' }) {
+  const [failed, setFailed] = useState(false);
+  if (failed || !children) {
+    return <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{children}</p>;
+  }
+  try {
+    return (
+      <MarkdownContent theme={theme} size={size ?? 'sm'} key={children.slice(0, 20)}>
+        {children}
+      </MarkdownContent>
+    );
+  } catch {
+    setFailed(true);
+    return <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{children}</p>;
+  }
+}
 import type { Question, Answer, User } from '../../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -239,8 +257,8 @@ const AiAnswerBubble = memo(function AiAnswerBubble({ answer }: { answer: Answer
         </div>
 
         {/* Bubble body */}
-        <div className="bg-violet-600 text-white dark:bg-violet-900/60 border border-violet-500/30 rounded-2xl rounded-tr-sm px-4 py-3 shadow-lg shadow-violet-500/10 w-fit max-w-[90%]">
-          <MarkdownContent theme="violet" size="sm">{answer.text}</MarkdownContent>
+        <div className="bg-violet-600 text-white dark:bg-violet-900/60 border border-violet-500/30 rounded-2xl rounded-tr-sm px-4 py-3 shadow-lg shadow-violet-500/10 w-fit max-w-[90%] overflow-visible">
+          <SafeMarkdown theme="violet" size="sm">{answer.text}</SafeMarkdown>
         </div>
 
         {/* Footer actions + source */}
@@ -335,12 +353,12 @@ function HumanAnswerBubble({ answer }: { answer: Answer }) {
           )}
           <span className="text-[10px] text-slate-400 font-medium">{formatTime(answer.time)}</span>
         </div>
-        <div className={`rounded-2xl rounded-tr-sm px-4 py-3 shadow-md w-fit max-w-[90%] border ${
+        <div className={`rounded-2xl rounded-tr-sm px-4 py-3 shadow-md w-fit max-w-[90%] border overflow-visible ${
           isDoctor
             ? 'bg-emerald-500 text-white border-emerald-600 shadow-emerald-500/10'
             : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700'
         }`}>
-          <MarkdownContent size="sm">{answer.text}</MarkdownContent>
+          <SafeMarkdown size="sm">{answer.text}</SafeMarkdown>
         </div>
         <div className="mt-2 flex flex-row-reverse">
           <CopyBtn text={answer.text} />
@@ -434,7 +452,11 @@ const QuestionThread = memo(function QuestionThread({
 }) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(autoExpand ?? false);
-  
+
+  useEffect(() => {
+    if (autoExpand) setIsExpanded(true);
+  }, [autoExpand]);
+
   const isOwnQuestion = q.user_id === currentUser.user_id;
   const isDoctor = currentUser.role === 'doctor' || currentUser.role === 'admin';
   const isQuestioner = q.user_role !== 'doctor';
@@ -445,7 +467,7 @@ const QuestionThread = memo(function QuestionThread({
     <div
       data-question-id={q.q_id}
       className={`group relative flex flex-col gap-2 transition-all duration-500 p-2 rounded-2xl ${highlighted ? 'ring-2 ring-primary-500/50 bg-primary-500/5 shadow-lg' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/30'}`}
-      style={{ animation: 'chatFadeIn 0.3s ease-out both' }}
+      style={{ animation: 'chatFadeIn 0.3s ease-out forwards' }}
     >
       {/* ── Question bubble (Left Aligned) ─────────────────────────── */}
       <div className="flex items-start gap-3 max-w-[85%]">
@@ -556,27 +578,101 @@ export default function ClassStreamTab() {
   const [pending, setPending]       = useState<PendingMsg | null>(null);
   const [highlightedQId, setHighlightedQId] = useState<string | null>(null);
   const [autoExpandQId, setAutoExpandQId] = useState<string | null>(null);
+  const [confirmedEmpty, setConfirmedEmpty] = useState(false);
 
   const scrollRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLTextAreaElement>(null);
   const bottomRef  = useRef<HTMLDivElement>(null);
+  const latestLoadIdRef = useRef(0);
+  const currentClassIdRef = useRef('');
+  const questionsRef = useRef<Question[]>([]);
 
   // ── Load persisted messages ─────────────────────────────────────────────
 
   const loadMessages = useCallback(async () => {
-    try {
-      const r = await realDiscussionService.getQuestions(classId);
-      const list = (r.data as Question[]) || [];
-      // realDiscussionService already maps keys; sort oldest-first so chat reads top→bottom
-      const sorted = list.slice().sort(
-        (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
-      );
-      setQuestions(sorted);
-      console.log(`[CHAT] Loaded ${sorted.length} messages for class ${classId}`, sorted);
-    } catch (e) {
-      console.error('[CHAT] Failed to load messages', e);
-    } finally {
+    const requestedClassId = String(classId ?? '').trim();
+    const loadId = ++latestLoadIdRef.current;
+    currentClassIdRef.current = requestedClassId;
+    setLoading(true);
+    setConfirmedEmpty(false);
+
+    console.log("[STREAM INIT]");
+    console.log("[STREAM CLASS ID]", requestedClassId);
+    console.log("[STREAM STATE BEFORE]", questionsRef.current.length);
+
+    if (
+      !requestedClassId ||
+      requestedClassId === 'undefined' ||
+      requestedClassId === 'null' ||
+      requestedClassId === 'NaN' ||
+      requestedClassId === '0'
+    ) {
+      console.warn(`[STREAM LOAD] Skipping fetch for invalid classId="${requestedClassId}"`);
       setLoading(false);
+      return;
+    }
+
+    try {
+      console.log("[STREAM FETCH START]", `classId=${requestedClassId}`);
+      const r = await realDiscussionService.getQuestions(requestedClassId);
+      console.log("[STREAM LOAD RAW]", r.data);
+      // r.data is already a mapped Question[] returned by realDiscussionService.getQuestions.
+      // The backend already filters by classId (WHERE q.Class_ID = ?), so no client-side
+      // class_id filter is needed and would only cause data loss on type-mismatch edge cases.
+      const raw: any[] = Array.isArray(r.data)
+        ? r.data
+        : Array.isArray((r.data as any)?.questions)
+          ? (r.data as any).questions
+          : Array.isArray((r.data as any)?.data)
+            ? (r.data as any).data
+            : Array.isArray((r.data as any)?.data?.questions)
+              ? (r.data as any).data.questions
+              : [];
+      console.log('[STREAM FETCH RAW]', raw);
+      console.log('[STREAM NORMALIZED COUNT]', raw.length);
+      // mapRawQuestion handles both already-mapped (q_id) and raw (Questions_ID) shapes.
+      const sorted = raw
+        .map(mapRawQuestion)
+        .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+      if (loadId !== latestLoadIdRef.current || currentClassIdRef.current !== requestedClassId) {
+        console.warn(`[STREAM LOAD] Ignoring stale response for classId=${requestedClassId} loadId=${loadId}`);
+        return;
+      }
+
+      // "Did we already have questions displayed for this class?" — used to decide
+      // whether an empty server response should wipe state or be treated as stale.
+      // We simply check if there's any current state (class switch resets state separately).
+      const hasCurrentClassData = questionsRef.current.length > 0;
+
+      console.log("[STREAM STATE AFTER]", sorted.length);
+
+      if (sorted.length > 0) {
+        setQuestions(sorted);
+        setConfirmedEmpty(false);
+      } else if (!hasCurrentClassData) {
+        setQuestions([]);
+        setConfirmedEmpty(true);
+      } else {
+        console.warn(`[STREAM LOAD] Empty response for classId=${requestedClassId}; keeping existing stream state`);
+        setConfirmedEmpty(false);
+      }
+
+      console.log(`[STREAM LOAD] Chat history loaded: ${sorted.length} questions`, sorted);
+      if (sorted.length > 0) {
+        sorted.forEach(q => {
+          console.log(`[RAG_FRONTEND_DEBUG]  Q[${q.q_id}]: "${q.text.slice(0,60)}" — ${q.answers.length} answers`);
+          q.answers.forEach(a => {
+            console.log(`[RAG_FRONTEND_DEBUG]    A[${a.a_id}] is_ai=${a.is_ai_generated}: "${(a.text||'').slice(0,60)}"`);
+          });
+        });
+      }
+    } catch (e) {
+      console.error('[STREAM LOAD] Failed to load chat history:', e);
+      console.error('[RAG_FRONTEND_DEBUG] Failed to load chat history:', e);
+    } finally {
+      if (loadId === latestLoadIdRef.current && currentClassIdRef.current === requestedClassId) {
+        setLoading(false);
+      }
     }
   }, [classId]);
 
@@ -607,6 +703,22 @@ export default function ClassStreamTab() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [questions, pending]);
 
+  useEffect(() => {
+    questionsRef.current = questions;
+  }, [questions]);
+
+  // When the class changes, clear previous class questions immediately so the
+  // old class feed doesn't flash while the new one loads.
+  useEffect(() => {
+    const id = String(classId ?? '').trim();
+    currentClassIdRef.current = id;
+    if (id && id !== 'undefined' && id !== 'null') {
+      setQuestions([]);
+      setConfirmedEmpty(false);
+      setLoading(true);
+    }
+  }, [classId]);
+
   // ── Send question → RAG ─────────────────────────────────────────────────
 
   const handleSend = async () => {
@@ -618,59 +730,110 @@ export default function ClassStreamTab() {
     const tempId = `temp_${Date.now()}`;
     setPending({ tempId, text });
 
-    console.log(`[CHAT] Question submitted: "${text}"`);
+    console.log(`[STREAM SAVE] Question submitted for classId=${classId}: "${text}"`);
+
+    // Build a local fallback question so the message is NEVER lost even if the
+    // server call fails or returns an unexpected shape.
+    const fallbackQ: Question = {
+      q_id: tempId,
+      class_id: classId,
+      text,
+      user_id: String(user.user_id),
+      user_name: `${user.f_name} ${user.l_name}`.trim(),
+      user_role: user.role as any,
+      time: new Date().toISOString(),
+      answers: [],
+    };
 
     let newQId: string | null = null;
+    let questionToShow: Question = fallbackQ;
+
     try {
+      console.log(`[RAG_FRONTEND_DEBUG] Calling askAndSave — POST /api/classes/${classId}/ai/ask-and-save`);
       const res = await realClassService.askAndSave(classId, text);
+      console.log('[STREAM SAVE] Raw askAndSave response:', res);
+
       const payload = (res.data ?? {}) as any;
       const status = payload.status;
       const rawQ = payload.question;
 
-      console.log('[CHAT] RAG response payload:', payload);
+      console.log('[RAG_FRONTEND_DEBUG] Parsed payload:', payload);
+      console.log('[RAG_FRONTEND_DEBUG] status:', status, '| question field present:', Boolean(rawQ));
+      if (rawQ?.answers) {
+        console.log('[RAG_FRONTEND_DEBUG] answers in question:', rawQ.answers.length,
+          rawQ.answers.map((a: any) => ({ text: a.text || a.Text, is_ai: a.is_ai_generated || a.Is_AI_Generated })));
+      }
 
       if (rawQ) {
         const q = mapRawQuestion(rawQ);
         newQId = q.q_id;
-        setQuestions(prev => [...prev, q]);
-        setAutoExpandQId(q.q_id);
-        console.log(`[CHAT] Question added to stream — q_id=${q.q_id}, status=${status}`);
+        questionToShow = q;
+        console.log(`[QUESTION SAVED] q_id=${q.q_id} answers=${q.answers.length} status=${status}`);
+        console.log(`[RAG_FRONTEND_DEBUG] Question mapped — q_id=${q.q_id}, answers=${q.answers.length}, status=${status}`);
       } else {
-        console.warn('[CHAT] askAndSave returned no question field — falling back to reload');
+        console.warn('[STREAM SAVE] No persisted question returned; keeping local fallback question');
+        console.warn('[RAG_FRONTEND_DEBUG] No question field in response — using fallback local question');
       }
-    } catch (e) {
-      console.error('[CHAT] RAG call failed', e);
+    } catch (e: any) {
+      console.error('[STREAM SAVE] askAndSave failed:', e?.message ?? e);
+      // questionToShow remains fallbackQ — user still sees their message with no answer
     } finally {
+      // Always add the question to the list before clearing the pending indicator,
+      // so the user message is NEVER lost regardless of API outcome.
+      setQuestions(prev => {
+        console.log('[STREAM SAVE] messages before append:', prev.length);
+        const next = [...prev, questionToShow];
+        console.log('[STREAM SAVE] messages after append:', next.length);
+        return next;
+      });
+      if (questionToShow.q_id && questionToShow.q_id !== tempId) {
+        setAutoExpandQId(questionToShow.q_id);
+      }
       setPending(null);
       setSending(false);
     }
 
-    // Re-sync with the server after a submit — guarantees the new question
-    // (and its answer / "sent to doctor" state) shows up. Defensive: only overwrite
-    // local state if the server returns a non-empty list, otherwise keep the
-    // optimistic state so the user always sees their just-submitted question.
+    // Re-sync with the server to get the latest persisted state (AI answer included).
     try {
+      const refetchId = ++latestLoadIdRef.current;
+      console.log(`[STREAM REFETCH] Refetching stream after save for classId=${classId}`);
       const r = await realDiscussionService.getQuestions(classId);
-      const serverList = (r.data as Question[]) || [];
-      if (serverList.length > 0) {
+      const raw = Array.isArray(r.data)
+        ? r.data
+        : Array.isArray((r.data as any)?.questions)
+          ? (r.data as any).questions
+          : Array.isArray((r.data as any)?.data)
+            ? (r.data as any).data
+            : Array.isArray((r.data as any)?.data?.questions)
+              ? (r.data as any).data.questions
+              : [];
+      const requestedClassId = String(classId ?? '').trim();
+      const serverList = (raw as any[]).map(mapRawQuestion);
+      console.log(`[STREAM REFETCH] Post-submit refetch returned ${serverList.length} questions`);
+      if (refetchId !== latestLoadIdRef.current || currentClassIdRef.current !== requestedClassId) {
+        console.warn(`[STREAM REFETCH] Ignoring stale post-submit refetch for classId=${requestedClassId} refetchId=${refetchId}`);
+      } else if (serverList.length > 0) {
         const sorted = serverList.slice().sort(
           (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
         );
         setQuestions(sorted);
-        if (newQId) setAutoExpandQId(newQId);
-        console.log(`[CHAT] Re-synced ${sorted.length} questions from server`);
+        // Expand the newly answered question if we have its real id
+        const expandId = newQId ?? questionToShow.q_id;
+        if (expandId && expandId !== tempId) setAutoExpandQId(expandId);
+        console.log(`[STREAM REFETCH] Re-synced ${sorted.length} questions from server`);
       } else {
-        console.warn('[CHAT] Server refetch returned empty — keeping optimistic state');
+        console.warn('[STREAM REFETCH] Server refetch returned empty; keeping optimistic state');
+        console.warn('[RAG_FRONTEND_DEBUG] Server refetch returned empty — keeping optimistic state');
       }
-    } catch (e) {
-      console.error('[CHAT] Post-submit refetch failed', e);
+    } catch (e: any) {
+      console.error('[STREAM REFETCH] Post-submit refetch failed:', e?.message ?? e);
     }
   };
 
   // ── Doctor / human reply ────────────────────────────────────────────────
 
   const handleReply = useCallback(async (qId: string, text: string) => {
-    console.log(`[CHAT] Doctor reply submitted for question ${qId}`);
+    console.log(`[STREAM SAVE] Reply submitted for questionId=${qId}`);
     const res = await realDiscussionService.postAnswer(qId, {
       user_id:   user.user_id,
       user_name: `${user.f_name} ${user.l_name}`,
@@ -684,12 +847,48 @@ export default function ClassStreamTab() {
     });
     setQuestions(prev =>
       prev.map(q => q.q_id === qId
-        ? { ...q, answers: [...q.answers, newAnswer] }
+        ? {
+            ...q,
+            answers: q.answers.some(a => a.a_id === newAnswer.a_id)
+              ? q.answers
+              : [...q.answers, newAnswer],
+          }
         : q
       )
     );
-    console.log(`[CHAT] Reply saved and rendered for question ${qId}`);
-  }, [user]);
+    console.log(`[ANSWER SAVED] questionId=${qId} answerId=${newAnswer.a_id}`);
+
+    try {
+      const refetchId = ++latestLoadIdRef.current;
+      console.log(`[STREAM REFETCH] Refetching stream after reply for classId=${classId}`);
+      const r = await realDiscussionService.getQuestions(classId);
+      const raw = Array.isArray(r.data)
+        ? r.data
+        : Array.isArray((r.data as any)?.questions)
+          ? (r.data as any).questions
+          : Array.isArray((r.data as any)?.data)
+            ? (r.data as any).data
+            : Array.isArray((r.data as any)?.data?.questions)
+              ? (r.data as any).data.questions
+              : [];
+      const requestedClassId = String(classId ?? '').trim();
+      const serverList = (raw as any[]).map(mapRawQuestion);
+
+      if (refetchId !== latestLoadIdRef.current || currentClassIdRef.current !== requestedClassId) {
+        console.warn(`[STREAM REFETCH] Ignoring stale reply refetch for classId=${requestedClassId} refetchId=${refetchId}`);
+      } else if (serverList.length > 0) {
+        const sorted = serverList.slice().sort(
+          (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
+        );
+        setQuestions(sorted);
+        console.log(`[STREAM REFETCH] Reply sync loaded ${sorted.length} questions`);
+      } else {
+        console.warn('[STREAM REFETCH] Reply refetch returned empty; keeping current stream state');
+      }
+    } catch (e) {
+      console.error('[STREAM REFETCH] Reply refetch failed:', e);
+    }
+  }, [classId, user]);
 
   // ── Key handler for input ───────────────────────────────────────────────
 
@@ -716,27 +915,19 @@ export default function ClassStreamTab() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <>
-      <style>{`
-        @keyframes chatFadeIn {
-          from { opacity: 0; transform: translateY(6px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-
-      <div className="flex flex-col h-[calc(100vh-160px)] max-w-3xl mx-auto">
+      <div className="flex flex-col max-w-3xl mx-auto" style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
 
         {/* ── Chat scroll area ──────────────────────────────── */}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto px-1 py-4 space-y-5 scroll-smooth"
+          className="flex-1 min-h-0 overflow-y-auto px-1 py-4 space-y-5 scroll-smooth"
         >
-          {loading ? (
+          {loading && !pending ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400">
               <Loader2 size={28} className="animate-spin text-[#00b8d4]" />
               <span className="text-sm">Loading conversation…</span>
             </div>
-          ) : threads.length === 0 && !pending ? (
+          ) : threads.length === 0 && !pending && confirmedEmpty ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
               <div className="w-16 h-16 rounded-full bg-[#00e5ff]/10 border border-[#00e5ff]/20 flex items-center justify-center">
                 <MessageSquarePlus size={28} className="text-[#00b8d4]" />
@@ -766,7 +957,7 @@ export default function ClassStreamTab() {
 
               {/* Optimistic pending question (shown while RAG runs) */}
               {pending && (
-                <div style={{ animation: 'chatFadeIn 0.22s ease both' }}>
+                <div style={{ animation: 'chatFadeIn 0.22s ease forwards' }}>
                   {/* Student question bubble */}
                   <div className="flex items-start gap-2.5">
                     <Avatar name={`${user.f_name} ${user.l_name}`} role={user.role} size={8} />
@@ -843,6 +1034,5 @@ export default function ClassStreamTab() {
           </div>
         </div>
       </div>
-    </>
   );
 }

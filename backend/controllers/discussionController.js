@@ -5,25 +5,60 @@ const createNotification = require('../utilities/createNotification');
 const aiServiceClient = require('../services/aiServiceClient');
 const { triggerReindex } = aiServiceClient;
 
+function getAnswerRecord(questionId, answerId) {
+  return new Promise((resolve, reject) => {
+    db.get(
+      `SELECT
+        a.Answer_ID, a.Questions_ID, a.Text, a.Time,
+        COALESCE(a.User_ID, a.Doctor_ID) AS User_ID,
+        CASE
+          WHEN a.Is_AI_Generated = 1 THEN 'AI Assistant'
+          ELSE COALESCE(u.F_Name || ' ' || u.L_Name, 'Unknown')
+        END AS User_Name,
+        CASE
+          WHEN a.Is_AI_Generated = 1 THEN 'ai'
+          ELSE LOWER(COALESCE(u.Role, 'student'))
+        END AS User_Role,
+        a.Is_AI_Generated,
+        a.Source_Type,
+        a.Source_ID,
+        a.Confidence,
+        a.AI_Metadata
+       FROM Answer a
+       LEFT JOIN User u ON u.User_ID = COALESCE(a.User_ID, a.Doctor_ID)
+       WHERE a.Questions_ID = ? AND a.Answer_ID = ?`,
+      [questionId, answerId],
+      (err, row) => {
+        if (err) return reject(err);
+        resolve(row || null);
+      }
+    );
+  });
+}
+
 // GET /classes/:classId/questions
 const getClassQuestions = asyncWrapper(async (req, res) => {
   const { classId } = req.params;
+  console.log("[GET_CLASS_QUESTIONS] classId =", classId);
+  console.log(`[STREAM LOAD] Loading persisted discussion for classId=${classId}`);
 
   const questions = await new Promise((resolve, reject) => {
     db.all(
       `SELECT 
         q.Questions_ID, q.Class_ID, q.Text,
         COALESCE(q.User_ID, q.Doctor_ID) AS User_ID,
-        u.F_Name || ' ' || u.L_Name AS User_Name,
-        u.Role AS User_Role,
+        COALESCE(u.F_Name || ' ' || u.L_Name, 'Unknown') AS User_Name,
+        LOWER(COALESCE(u.Role, 'student')) AS User_Role,
         u.Image_Url AS User_Image,
         q.Time
        FROM Questions q
-       INNER JOIN User u ON (q.User_ID = u.User_ID OR q.Doctor_ID = u.User_ID)
-       WHERE q.Class_ID = ?`,
+       LEFT JOIN User u ON u.User_ID = COALESCE(q.User_ID, q.Doctor_ID)
+       WHERE q.Class_ID = ?
+       ORDER BY q.Time ASC, q.Questions_ID ASC`,
       [classId],
       (err, rows) => {
         if (err) return reject(err);
+        console.log("[GET_CLASS_QUESTIONS] rows =", (rows || []).length);
         resolve(rows || []);
       }
     );
@@ -38,11 +73,11 @@ const getClassQuestions = asyncWrapper(async (req, res) => {
             COALESCE(a.User_ID, a.Doctor_ID) AS User_ID,
             CASE
               WHEN a.Is_AI_Generated = 1 THEN 'AI Assistant'
-              ELSE u.F_Name || ' ' || u.L_Name
+              ELSE COALESCE(u.F_Name || ' ' || u.L_Name, 'Unknown')
             END AS User_Name,
             CASE
               WHEN a.Is_AI_Generated = 1 THEN 'ai'
-              ELSE u.Role
+              ELSE LOWER(COALESCE(u.Role, 'student'))
             END AS User_Role,
             a.Is_AI_Generated,
             a.Source_Type,
@@ -50,9 +85,9 @@ const getClassQuestions = asyncWrapper(async (req, res) => {
             a.Confidence,
             a.AI_Metadata
            FROM Answer a
-           LEFT JOIN User u ON (a.User_ID = u.User_ID OR a.Doctor_ID = u.User_ID)
+           LEFT JOIN User u ON u.User_ID = COALESCE(a.User_ID, a.Doctor_ID)
            WHERE a.Questions_ID = ?
-           ORDER BY a.Answer_ID ASC`,
+           ORDER BY a.Time ASC, a.Answer_ID ASC`,
           [q.Questions_ID],
           (err, rows) => {
             if (err) return reject(err);
@@ -64,6 +99,10 @@ const getClassQuestions = asyncWrapper(async (req, res) => {
     })
   );
 
+  const answerCount = questionsWithAnswers.reduce((sum, q) => sum + (q.answers?.length || 0), 0);
+  console.log(`[GET_CLASS_QUESTIONS] answers = ${answerCount}`);
+  console.log("[GET_CLASS_QUESTIONS] sample =", questionsWithAnswers[0] || null);
+  console.log(`[STREAM LOAD] Loaded ${questionsWithAnswers.length} persisted questions for classId=${classId}`);
   res.json({ success: httpstatustext.success, data: questionsWithAnswers });
 });
 
@@ -79,10 +118,11 @@ const postQuestion = asyncWrapper(async (req, res) => {
   }
 
   const isDoctor = role === 'Doctor';
+  console.log(`[STREAM SAVE] Saving class question for classId=${classId} userId=${userId} role=${role}`);
 
   const result = await new Promise((resolve, reject) => {
     db.run(
-      `INSERT INTO Questions (Text, Class_ID, User_ID, Doctor_ID) VALUES (?, ?, ?, ?)`,
+      `INSERT INTO Questions (Text, Class_ID, User_ID, Doctor_ID, Time) VALUES (?, ?, ?, ?, datetime('now'))`,
       [text, classId, isDoctor ? null : userId, isDoctor ? userId : null],
       function (err) {
         if (err) return reject(err);
@@ -90,6 +130,7 @@ const postQuestion = asyncWrapper(async (req, res) => {
       }
     );
   });
+  console.log(`[QUESTION SAVED] questionId=${result.lastID} classId=${classId} userId=${userId}`);
 
   // بعت notification لكل الـ students في الـ class
   const students = await new Promise((resolve, reject) => {
@@ -154,6 +195,7 @@ const postAnswer = asyncWrapper(async (req, res) => {
   if (!text) {
     return res.status(400).json({ success: httpstatustext.error, message: { msg: 'text is required' } });
   }
+  console.log(`[STREAM SAVE] Saving answer for questionId=${questionId} userId=${userId} role=${role}`);
 
   const question = await new Promise((resolve, reject) => {
     db.get(`SELECT * FROM Questions WHERE Questions_ID = ?`, [questionId], (err, row) => {
@@ -190,6 +232,7 @@ const postAnswer = asyncWrapper(async (req, res) => {
       }
     );
   });
+  console.log(`[ANSWER SAVED] questionId=${questionId} answerId=${newAnswerId} userId=${userId}`);
 
   // Notify the question owner
   const questionOwnerId = question.User_ID || question.Doctor_ID;
@@ -222,7 +265,13 @@ const postAnswer = asyncWrapper(async (req, res) => {
     triggerReindex(question.Class_ID, 'doctor_answer');
   }
 
-  res.status(201).json({ success: httpstatustext.success, message: { msg: 'Answer posted successfully' } });
+  const savedAnswer = await getAnswerRecord(questionId, newAnswerId);
+
+  res.status(201).json({
+    success: httpstatustext.success,
+    message: { msg: 'Answer posted successfully' },
+    data: savedAnswer,
+  });
 });
 
 // POST /classes/:classId/ai/ask-and-save
@@ -233,6 +282,8 @@ const askAndSave = asyncWrapper(async (req, res) => {
   const userId = req.currentUser.user_id;
   const role = req.currentUser.role;
 
+  console.log(`[STREAM SAVE] Saving AI-routed question for classId=${classId} userId=${userId} role=${role} text="${String(text || '').slice(0, 80)}"`);
+
   if (!text || !String(text).trim()) {
     return res.status(400).json({ success: httpstatustext.error, message: { msg: 'text is required' } });
   }
@@ -240,28 +291,32 @@ const askAndSave = asyncWrapper(async (req, res) => {
   const questionText = String(text).trim();
   const isDoctor = role === 'Doctor';
 
-  // 1. Save the question to DB
+  // 1. Call RAG AI first — greeting/casual inputs are intercepted here without any DB write.
+  let ragResult = null;
+  const aiPayload = { class_id: Number(classId), user_id: userId, question: questionText };
+  console.log(`[ASK_AND_SAVE] calling AI service  url=${process.env.AI_SERVICE_URL || 'http://127.0.0.1:9000'}  payload=${JSON.stringify(aiPayload)}`);
+  try {
+    ragResult = await aiServiceClient.askQuestion(aiPayload);
+    console.log(`[ASK_AND_SAVE] ai response: status=${ragResult?.status} source_type=${ragResult?.source_type} answer="${String(ragResult?.answer||'').slice(0,100)}" confidence=${ragResult?.confidence}`);
+  } catch (e) {
+    console.error('[ASK_AND_SAVE] RAG call failed:', {
+      message: e.message,
+      statusCode: e.statusCode,
+      stack: e.stack?.split('\n')[1]?.trim(),
+    });
+  }
+
+  // 2. Save the question to DB — always, for every real message.
   const questionId = await new Promise((resolve, reject) => {
     db.run(
-      `INSERT INTO Questions (Text, Class_ID, User_ID, Doctor_ID) VALUES (?, ?, ?, ?)`,
+      `INSERT INTO Questions (Text, Class_ID, User_ID, Doctor_ID, Time) VALUES (?, ?, ?, ?, datetime('now'))`,
       [questionText, classId, isDoctor ? null : userId, isDoctor ? userId : null],
       function (err) { if (err) return reject(err); resolve(this.lastID); }
     );
   });
+  console.log(`[QUESTION SAVED] questionId=${questionId} classId=${classId} userId=${userId}`);
 
-  // 2. Call RAG AI
-  let ragResult = null;
-  try {
-    ragResult = await aiServiceClient.askQuestion({
-      class_id: Number(classId),
-      user_id: userId,
-      question: questionText,
-    });
-  } catch (e) {
-    console.error('[askAndSave] RAG error:', e.message);
-  }
-
-  // 3. Build the question row to return
+  // 3. Build the base question object used in all response branches below.
   const userRow = await new Promise((resolve, reject) => {
     db.get(`SELECT F_Name, L_Name, Role FROM User WHERE User_ID = ?`, [userId], (err, row) => {
       if (err) return reject(err);
@@ -280,8 +335,16 @@ const askAndSave = asyncWrapper(async (req, res) => {
     answers: [],
   };
 
-  // 4. If AI answered, save as answer row
-  if (ragResult?.status === 'answered') {
+  // 4. AI answered from class materials or previous Q&A → persist the answer.
+  //    Only source_type values of "material" or "previous_qa" are stored.
+  //    Any other answered status without a recognised source_type falls through to doctor.
+  const isKnowledgeAnswer = (
+    ragResult?.status === 'answered' &&
+    ragResult?.answer &&
+    (ragResult?.source_type === 'material' || ragResult?.source_type === 'previous_qa')
+  );
+
+  if (isKnowledgeAnswer) {
     const answerId = await new Promise((resolve, reject) => {
       db.get(`SELECT MAX(Answer_ID) AS maxId FROM Answer WHERE Questions_ID = ?`, [questionId], (err, row) => {
         if (err) return reject(err);
@@ -296,6 +359,7 @@ const askAndSave = asyncWrapper(async (req, res) => {
       previous_answer: ragResult.previous_answer,
       material_name: ragResult.material_name,
       page: ragResult.page,
+      highlight: ragResult.highlight,
     });
 
     await new Promise((resolve, reject) => {
@@ -315,12 +379,11 @@ const askAndSave = asyncWrapper(async (req, res) => {
       );
     });
 
-    // Index the specific question, then schedule a full class re-index
-    try {
-      await aiServiceClient.indexQuestion(questionId, { class_id: Number(classId) });
-    } catch (e) {
-      console.error('[askAndSave] re-index error:', e.message);
-    }
+    console.log(`[AI ANSWER SAVED] questionId=${questionId} answerId=${answerId} classId=${classId} source_type=${ragResult.source_type}`);
+
+    // Re-index so future questions benefit from this Q&A pair
+    aiServiceClient.indexQuestion(questionId, { class_id: Number(classId) })
+      .catch(e => console.error('[ASK_AND_SAVE] re-index error:', e.message));
     triggerReindex(classId, 'ai_answer');
 
     questionObj.answers = [{
@@ -338,9 +401,8 @@ const askAndSave = asyncWrapper(async (req, res) => {
       AI_Metadata: metadata,
     }];
 
-    // Notify the asking student that AI answered their question
     if (!isDoctor) {
-      await createNotification({
+      createNotification({
         userId,
         type: 'ai_answer_ready',
         title: 'AI answered your question',
@@ -351,10 +413,12 @@ const askAndSave = asyncWrapper(async (req, res) => {
       }).catch(e => console.error('[notify] ai_answer_ready failed:', e.message));
     }
 
+    console.log(`[ASK_AND_SAVE] final response: status=answered source_type=${ragResult.source_type} answers=1`);
     return res.status(201).json({ success: true, data: { status: 'answered', question: questionObj } });
   }
 
-  // 5. Not answered — notify doctor
+  // 5. No usable answer (sent_to_doctor, no material match, generation failed, or unknown source).
+  //    Question is already saved; notify the doctor to reply.
   const classInfo = await new Promise((resolve, reject) => {
     db.get(`SELECT Doctor_ID FROM Class WHERE Class_ID = ?`, [classId], (err, row) => {
       if (err) return reject(err);
@@ -362,7 +426,7 @@ const askAndSave = asyncWrapper(async (req, res) => {
     });
   });
   if (classInfo?.Doctor_ID) {
-    await createNotification({
+    createNotification({
       userId: classInfo.Doctor_ID,
       type: 'doctor_question_pending',
       title: 'Student question needs your review',
@@ -372,8 +436,8 @@ const askAndSave = asyncWrapper(async (req, res) => {
     }).catch(e => console.error('[notify] doctor_question_pending failed:', e.message));
   }
 
-  const status = ragResult?.status === 'sent_to_doctor' ? 'sent_to_doctor' : 'fallback';
-  return res.status(201).json({ success: true, data: { status, question: questionObj } });
+  console.log(`[ASK_AND_SAVE] final response: status=sent_to_doctor answers=0`);
+  return res.status(201).json({ success: true, data: { status: 'sent_to_doctor', question: questionObj } });
 });
 
 module.exports = { getClassQuestions, postQuestion, postAnswer, askAndSave };

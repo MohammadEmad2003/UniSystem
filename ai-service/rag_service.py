@@ -25,9 +25,19 @@ load_dotenv()
 
 
 class RagService:
-    MATERIAL_MATCH_THRESHOLD = 0.50
-    ANSWER_CONFIDENCE_THRESHOLD = 0.6
+    MATERIAL_MATCH_THRESHOLD = 0.38
+    ANSWER_CONFIDENCE_THRESHOLD = 0.55
     MATERIAL_CONTEXT_LIMIT = 5
+
+    # Keywords that boost chunk relevance score slightly during re-ranking.
+    # These cover Fourier/signals/math topics that embedding similarity can underscore.
+    _KEYWORD_BOOST_TERMS: list[str] = [
+        'fourier', 'transform', 'series', 'coefficient', 'coefficients',
+        'linearity', 'parseval', 'harmonic', 'frequency', 'periodic',
+        'convolution', 'spectrum', 'euler', 'signal', 'laplace',
+        'eigenvalue', 'orthogonal', 'integral', 'derivative',
+    ]
+    _KEYWORD_BOOST_PER_HIT = 0.015   # score bonus per matched keyword (capped at 0.06)
 
     def __init__(self) -> None:
         self.backend_client = BackendClient()
@@ -49,7 +59,7 @@ class RagService:
         self.pdf_chunk_overlap = int(os.getenv("PDF_CHUNK_OVERLAP", "150"))
         self.backend_api_url = os.getenv("BACKEND_API_URL", "http://localhost:3000").rstrip("/")
         self.backend_origin = self._get_backend_origin(self.backend_api_url)
-        self.pdf_base_url = os.getenv("PDF_BASE_URL", "http://localhost:3000").rstrip("/")
+        self.pdf_base_url = os.getenv("PDF_BASE_URL", "http://localhost:3001").rstrip("/")
         self.material_summary_cache: dict[tuple[int, int, str], str] = {}
 
         pytesseract.pytesseract.tesseract_cmd = self.tesseract_cmd
@@ -61,7 +71,34 @@ class RagService:
             raise ValueError("Question is required.")
 
         rewritten_question = self.qwen_service.rewrite_question(original_question)
-        search_question = rewritten_question.strip() if rewritten_question else original_question
+        candidate = rewritten_question.strip() if rewritten_question else original_question
+
+        # ── Post-rewrite hallucination guard ─────────────────────────────────
+        # Only apply when the original question contains NO academic terms at all.
+        # If the original already has academic content (e.g. "fourier series"),
+        # the rewriter is allowed to surface related terms (e.g. "properties").
+        # The guard exists purely to catch the case where a completely non-academic
+        # input (like "hello hi") gets rewritten into a technical question.
+        orig_lower = original_question.lower()
+        cand_lower = candidate.lower()
+        original_has_academic = any(
+            term in orig_lower for term in self.qwen_service._ACADEMIC_INJECTION_TERMS
+        )
+        if not original_has_academic:
+            injected = [
+                term for term in self.qwen_service._ACADEMIC_INJECTION_TERMS
+                if term in cand_lower
+            ]
+            if injected:
+                print(
+                    f"[REWRITE] rejected — non-academic original but rewrite introduced: {injected}\n"
+                    f"[REWRITE] original={original_question!r}  candidate={candidate!r}"
+                )
+                search_question = original_question
+            else:
+                search_question = candidate
+        else:
+            search_question = candidate
 
         print(f"Original question: {original_question}")
         print(f"Rewritten question: {rewritten_question or ''}")
@@ -120,44 +157,68 @@ class RagService:
         material_results = self.vector_store.search_materials(
             question_vector, class_id, limit=self.MATERIAL_CONTEXT_LIMIT
         )
-        print("Material results:", len(material_results))
+        print(f"[RAG] Material results: {len(material_results)}")
         print(
-            "Material best score:",
-            material_results[0].score if material_results else None,
+            f"[RAG] Material best score: {material_results[0].score if material_results else None}"
         )
 
         if not material_results:
+            print("[RAG] No material results — sending to doctor")
             return {"status": "sent_to_doctor"}
 
-        top_material_match = material_results[0]
-        if float(top_material_match.score) < self.MATERIAL_MATCH_THRESHOLD:
-            return {"status": "sent_to_doctor"}
+        # ── Apply keyword boost re-ranking ────────────────────────────────────
+        # For math/engineering questions the embedding similarity alone can be
+        # slightly low; a small keyword bonus helps surface the right chunks.
+        q_lower = original_question.lower()
+        boosted: list[tuple[float, Any]] = []
+        for m in material_results:
+            base_score = float(m.score)
+            chunk_text = ((m.payload or {}).get("chunk_text") or "").lower()
+            hits = sum(
+                1 for kw in self._KEYWORD_BOOST_TERMS
+                if kw in q_lower and kw in chunk_text
+            )
+            bonus = min(hits * self._KEYWORD_BOOST_PER_HIT, 0.06)
+            boosted.append((base_score + bonus, m))
+        boosted.sort(key=lambda x: x[0], reverse=True)
+        material_results = [m for _, m in boosted]
 
         # ── Log all retrieved chunks with scores ──────────────────────────────
-        print(f"[RAG] Retrieved {len(material_results)} chunks:")
-        for i, m in enumerate(material_results):
+        print(f"[RAG] Retrieved {len(material_results)} chunks (after keyword re-rank):")
+        for i, (adj_score, m) in enumerate(boosted):
             p = m.payload or {}
+            preview = str(p.get("chunk_text") or "")[:80].replace('\n', ' ')
             print(
-                f"  [{i}] score={m.score:.4f}  chunk_id={p.get('chunk_index')}  "
-                f"page={p.get('page_number')}  mat={p.get('material_id')}  "
-                f"src={p.get('source_name', '')!r:.40}"
+                f"  [RAG] chunk {i}: score={adj_score:.4f} (raw={m.score:.4f})"
+                f"  chunk_id={p.get('chunk_index')}  page={p.get('page_number')}"
+                f"  mat={p.get('material_id')}  src={str(p.get('source_name',''))[:30]!r}"
+                f"  preview={preview!r:.60}"
             )
 
-        # ── Smart chunk selection: if top chunk is far ahead, keep only strong ones
-        scores = [float(m.score) for m in material_results]
-        top_score = scores[0]
-        # Threshold: keep chunks within 15% of top score, minimum 2, maximum all
-        score_cutoff = top_score * 0.85
+        top_material_match = material_results[0]
+        effective_top_score = boosted[0][0]
+        if effective_top_score < self.MATERIAL_MATCH_THRESHOLD:
+            print(
+                f"[RAG] Top score {effective_top_score:.4f} < threshold {self.MATERIAL_MATCH_THRESHOLD} "
+                f"— sending to doctor"
+            )
+            return {"status": "sent_to_doctor"}
+
+        print(f"[RAG] Top score {effective_top_score:.4f} >= threshold {self.MATERIAL_MATCH_THRESHOLD} — proceeding")
+
+        # ── Smart chunk selection: keep chunks within 15% of top score ────────
+        top_adj_score = boosted[0][0]
+        score_cutoff = top_adj_score * 0.85
         selected_results = [
-            m for m in material_results if float(m.score) >= score_cutoff
+            m for adj_score, m in boosted if adj_score >= score_cutoff
         ]
-        # Always keep at least 2 for context breadth, never more than MATERIAL_CONTEXT_LIMIT
         if len(selected_results) < 2 and len(material_results) >= 2:
             selected_results = material_results[:2]
         print(
             f"[RAG] Score cutoff={score_cutoff:.4f}  "
             f"selected {len(selected_results)}/{len(material_results)} chunks"
         )
+        print(f"[RAG] Selected top chunk: index={selected_results[0].payload.get('chunk_index') if selected_results else None}")
 
         context_items = []
         for match in selected_results:
@@ -175,7 +236,10 @@ class RagService:
                 }
             )
 
-        print("🚀 ENTERING MATERIAL ANSWER GENERATION")
+        total_context_len = sum(len(item.get("chunk_text", "")) for item in context_items)
+        print(f"[RAG] entering generation")
+        print(f"[RAG] context length: {total_context_len} chars across {len(context_items)} chunks")
+
         page_numbers_used = [
             item["page_number"] for item in context_items if item.get("page_number") is not None
         ]
@@ -193,21 +257,61 @@ class RagService:
         print(f"[RAG] Selected top chunk index: {top_chunk_index}")
         print(f"[RAG] Summary used: {summary_used}")
         print(f"[RAG] Highlight preview: {highlight[:160]}")
-        qwen_result = self.qwen_service.answer_question(
-            question=original_question,
-            context_items=context_items,
-        )
+
+        print(f"[RAG] generation started")
+        try:
+            qwen_result = self.qwen_service.answer_question(
+                question=original_question,
+                context_items=context_items,
+            )
+        except Exception as gen_exc:
+            print(f"[RAG] generation FAILED with exception: {gen_exc}")
+            return {"status": "sent_to_doctor"}
+
+        print(f"[RAG] generation completed: decision={qwen_result.get('decision')} answer_len={len(qwen_result.get('answer',''))}")
 
         if (
             qwen_result.get("decision") != "answered"
             or not qwen_result.get("answer")
-            or float(qwen_result.get("confidence", 0.0))
-            < self.ANSWER_CONFIDENCE_THRESHOLD
+            or float(qwen_result.get("confidence", 0.0)) < self.ANSWER_CONFIDENCE_THRESHOLD
         ):
+            reason = (
+                f"decision={qwen_result.get('decision')}"
+                if qwen_result.get("decision") != "answered"
+                else f"confidence={qwen_result.get('confidence',0):.3f} < {self.ANSWER_CONFIDENCE_THRESHOLD}"
+                if float(qwen_result.get("confidence", 0.0)) < self.ANSWER_CONFIDENCE_THRESHOLD
+                else "empty answer"
+            )
+            print(f"[RAG] answer rejected ({reason}) — retrying with top 2 chunks only")
+
+            # ── Retry once with top 2 chunks only ────────────────────────────
+            retry_items = context_items[:2]
+            try:
+                qwen_result = self.qwen_service.answer_question(
+                    question=original_question,
+                    context_items=retry_items,
+                )
+                print(f"[RAG] retry completed: decision={qwen_result.get('decision')} answer_len={len(qwen_result.get('answer',''))}")
+            except Exception as retry_exc:
+                print(f"[RAG] retry FAILED: {retry_exc}")
+                return {"status": "sent_to_doctor"}
+
+        # ── Final answer validation ───────────────────────────────────────────
+        raw_answer_text = qwen_result.get("answer", "")
+        min_answer_length = 30
+        if (
+            qwen_result.get("decision") != "answered"
+            or not raw_answer_text
+            or len(raw_answer_text.strip()) < min_answer_length
+        ):
+            print(
+                f"[RAG] Final answer invalid: decision={qwen_result.get('decision')} "
+                f"len={len(raw_answer_text.strip())} < {min_answer_length} — sending to doctor"
+            )
             return {"status": "sent_to_doctor"}
 
         combined_confidence = (
-            float(top_material_match.score) + float(qwen_result["confidence"])
+            effective_top_score + float(qwen_result["confidence"])
         ) / 2
         top_payload = top_material_match.payload or {}
         clean_answer = self.clean_ai_text(qwen_result["answer"])
@@ -274,7 +378,13 @@ class RagService:
         for material in material_rows:
             indexed_material_chunks.extend(self._build_material_chunks(material))
 
-        self.vector_store.bulk_replace_questions(class_id, indexed_questions)
+        print(f"[INDEX] deleting old QA embeddings for class_id={class_id}")
+        deleted_count = self.vector_store.delete_qa_by_class(class_id)
+        print(f"[INDEX] deleted count: {deleted_count}")
+        self.vector_store._upsert(self.vector_store.QA_COLLECTION, [
+            {**self.vector_store._qa_point(r)} for r in indexed_questions
+        ])
+        print(f"[INDEX] QA records inserted: {len(indexed_questions)}")
         self.vector_store.bulk_replace_materials(class_id, indexed_material_chunks)
         print(f"[INDEX] Total material chunks inserted: {len(indexed_material_chunks)}")
 
@@ -285,11 +395,18 @@ class RagService:
             "material_chunks_indexed": len(indexed_material_chunks),
         }
 
+    def clear_class_qa(self, class_id: int) -> dict[str, Any]:
+        print(f"[INDEX] deleting old QA embeddings for class_id={class_id}")
+        deleted_count = self.vector_store.delete_qa_by_class(class_id)
+        print(f"[INDEX] deleted count: {deleted_count}")
+        return {"success": True, "class_id": class_id, "deleted": deleted_count}
+
     def index_question(
         self, question_id: int, payload: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         _ = payload
         question = self.backend_client.get_question(question_id)
+
         record = self._build_indexable_question_record(question)
         if not record or not record.get("answer_text"):
             return {

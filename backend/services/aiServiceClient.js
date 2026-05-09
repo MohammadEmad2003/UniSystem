@@ -1,9 +1,11 @@
 const axios = require("axios");
 
-const baseURL = (process.env.AI_SERVICE_URL || "http://localhost:9000").replace(
+const baseURL = (process.env.AI_SERVICE_URL || "http://127.0.0.1:9000").replace(
   /\/+$/,
   ""
 );
+
+console.log(`[AI_CLIENT] baseURL=${baseURL}`);
 
 const client = axios.create({
   baseURL,
@@ -22,47 +24,72 @@ const buildServiceError = (error, fallbackMessage) => {
   return wrappedError;
 };
 
+const logError = (label, error) => {
+  console.error(`[AI_CLIENT] ${label} FAILED:`, {
+    message: error.message,
+    code: error.code,
+    url: error.config?.url,
+    status: error.response?.status,
+    data: error.response?.data,
+  });
+};
+
 const askQuestion = async (payload) => {
+  console.log(`[AI_CLIENT] POST /rag/ask  payload=${JSON.stringify(payload)}`);
   try {
     const response = await client.post("/rag/ask", payload);
+    console.log(`[AI_CLIENT] /rag/ask  status=${response.status}  answer="${String(response.data?.answer||'').slice(0,80)}"`);
     return response.data;
   } catch (error) {
+    logError('/rag/ask', error);
     throw buildServiceError(error, "AI service is unavailable");
   }
 };
 
 const askGeneral = async (payload) => {
+  console.log(`[AI_CLIENT] POST /ai/chat  payload=${JSON.stringify(payload)}`);
   try {
     const response = await client.post("/ai/chat", payload);
+    console.log(`[AI_CLIENT] /ai/chat  status=${response.status}`);
     return response.data;
   } catch (error) {
+    logError('/ai/chat', error);
     throw buildServiceError(error, "AI service is unavailable");
   }
 };
 
 const indexQuestion = async (questionId, payload = {}) => {
+  console.log(`[AI_CLIENT] POST /rag/index/question/${questionId}`);
   try {
     const response = await client.post(`/rag/index/question/${questionId}`, payload);
+    console.log(`[AI_CLIENT] index/question/${questionId}  status=${response.status}`);
     return response.data;
   } catch (error) {
+    logError(`index/question/${questionId}`, error);
     throw buildServiceError(error, "Failed to index question in AI service");
   }
 };
 
 const indexMaterial = async (materialId, payload = {}) => {
+  console.log(`[AI_CLIENT] POST /rag/index/material/${materialId}`);
   try {
     const response = await client.post(`/rag/index/material/${materialId}`, payload);
+    console.log(`[AI_CLIENT] index/material/${materialId}  status=${response.status}`);
     return response.data;
   } catch (error) {
+    logError(`index/material/${materialId}`, error);
     throw buildServiceError(error, "Failed to index material in AI service");
   }
 };
 
 const indexClass = async (classId, payload = {}) => {
+  console.log(`[AI_CLIENT] POST /rag/index/class/${classId}`);
   try {
     const response = await client.post(`/rag/index/class/${classId}`, payload);
+    console.log(`[AI_CLIENT] index/class/${classId}  status=${response.status}`);
     return response.data;
   } catch (error) {
+    logError(`index/class/${classId}`, error);
     throw buildServiceError(error, "Failed to index class in AI service");
   }
 };

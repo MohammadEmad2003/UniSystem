@@ -562,9 +562,19 @@ export const realMaterialService = {
 export const realDiscussionService = {
   async getQuestions(classId: string): Promise<ApiResponse<Question[]>> {
     const res = await apiClient.get(`/classes/${classId}/questions`);
+    const rawQuestions = Array.isArray(res.data)
+      ? res.data
+      : Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data?.questions)
+          ? res.data.questions
+          : Array.isArray(res.data?.data?.questions)
+            ? res.data.data.questions
+            : [];
+    console.log("[STREAM LOAD RAW]", res.data);
     // normalizeKeys lowercases all keys from the API (Questions_ID → questions_id).
     // Fall through normalised-lowercase → PascalCase → snake_case so any shape works.
-    const mapped = (res.data.data || []).map((q: any) => ({
+    const mapped = rawQuestions.map((q: any) => ({
       q_id: String(q.questions_id || q.Questions_ID || q.q_id || ''),
       class_id: String(q.class_id || q.Class_ID || ''),
       text: q.text || q.Text || '',
@@ -616,14 +626,20 @@ export const realDiscussionService = {
     const res = await apiClient.post(`/questions/${questionId}/answers`, {
       text: data.text,
     });
+    const rawAnswer = res.data?.data ?? res.data?.answer ?? res.data;
     const newAnswer: Answer = {
-      a_id: String(res.data.data?.a_id || Math.random().toString()),
-      question_id: questionId,
-      text: data.text || "",
-      user_id: data.user_id || "",
-      user_name: data.user_name || "",
-      user_role: data.user_role || "student",
-      time: new Date().toISOString(),
+      a_id: String(rawAnswer?.answer_id || rawAnswer?.Answer_ID || rawAnswer?.a_id || Math.random().toString()),
+      question_id: String(rawAnswer?.questions_id || rawAnswer?.Questions_ID || rawAnswer?.question_id || questionId),
+      text: rawAnswer?.text || rawAnswer?.Text || data.text || "",
+      user_id: String(rawAnswer?.user_id ?? rawAnswer?.User_ID ?? data.user_id ?? ""),
+      user_name: rawAnswer?.user_name || rawAnswer?.User_Name || data.user_name || "",
+      user_role: (rawAnswer?.user_role || rawAnswer?.User_Role || data.user_role || "student") as any,
+      time: rawAnswer?.time || rawAnswer?.Time || new Date().toISOString(),
+      is_ai_generated: Boolean(rawAnswer?.is_ai_generated || rawAnswer?.Is_AI_Generated),
+      source_type: rawAnswer?.source_type || rawAnswer?.Source_Type || undefined,
+      source_id: rawAnswer?.source_id || rawAnswer?.Source_ID || undefined,
+      confidence: rawAnswer?.confidence ?? rawAnswer?.Confidence ?? undefined,
+      ai_metadata: rawAnswer?.ai_metadata || rawAnswer?.AI_Metadata || undefined,
     };
     return ok(newAnswer, res.data.message);
   },

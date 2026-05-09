@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Sparkles, Send, X, Bot, User as UserIcon } from "lucide-react";
 import { aiService, classService } from "../services";
 import type { Class } from "../types";
+import MarkdownContent from "../components/MarkdownContent";
 
 type Msg = { role: "user" | "assistant"; text: string; ts: number };
 
@@ -37,25 +38,34 @@ export default function AIChatPanel() {
   const send = async () => {
     const q = input.trim();
     if (!q || loading) return;
-    setMessages((m) => [...m, { role: "user", text: q, ts: Date.now() }]);
+    setMessages((prev) => [...prev, { role: "user", text: q, ts: Date.now() }]);
     setInput("");
     setLoading(true);
     try {
       const res = await aiService.ask(classId, q);
-      const answer =
-        (res.data as { answer?: string })?.answer || "No answer returned.";
-      setMessages((m) => [
-        ...m,
+      console.log("[AIChatPanel] full response:", res);
+      const d = res as any;
+      const answer: string =
+        d?.answer ||
+        d?.data?.answer ||
+        d?.data?.data?.answer ||
+        d?.message ||
+        d?.data?.message ||
+        (d?.data?.status === "sent_to_doctor"
+          ? "No confident answer was found. Your question has been sent to the instructor."
+          : null) ||
+        "Answer returned but frontend could not parse it";
+      console.log("[AIChatPanel] parsed answer:", answer);
+      setMessages((prev) => [
+        ...prev,
         { role: "assistant", text: answer, ts: Date.now() },
       ]);
     } catch (e) {
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          text: e instanceof Error ? e.message : "Request failed",
-          ts: Date.now(),
-        },
+      const errText = e instanceof Error ? e.message : "Request failed";
+      console.error("[AIChatPanel] request error:", e);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", text: errText, ts: Date.now() },
       ]);
     } finally {
       setLoading(false);
@@ -137,10 +147,19 @@ export default function AIChatPanel() {
                 className={`px-4 py-2.5 rounded-2xl text-sm max-w-[210px] whitespace-pre-wrap break-words leading-relaxed
                 ${m.role === "user"
                     ? "bg-[#00e5ff]/20 text-slate-900 dark:text-white border border-[#00e5ff]/30 rounded-tr-sm shadow-[0_0_10px_rgba(0,229,255,0.1)]"
-                    : "bg-white dark:bg-[#111111] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-tl-sm shadow-md"
+                    : "bg-white dark:bg-[#111111] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-tl-sm shadow-md overflow-visible"
                   }`}
               >
-                {m.text}
+                {m.role === "assistant" ? (
+                  <MarkdownContent
+                    size="sm"
+                    className="text-slate-700 dark:text-slate-300 prose-p:my-0 prose-p:leading-relaxed"
+                  >
+                    {m.text}
+                  </MarkdownContent>
+                ) : (
+                  m.text
+                )}
               </div>
             </div>
           ))}

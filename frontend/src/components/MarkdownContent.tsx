@@ -1,8 +1,29 @@
+import { Component, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { sanitizeAiMarkdown } from '../utils/aiMathSanitizer';
+
+// Fallback: if ReactMarkdown + KaTeX throws for any reason, render plain text.
+class MathErrorBoundary extends Component<
+  { children: ReactNode; fallback: string },
+  { caught: boolean }
+> {
+  state = { caught: false };
+  static getDerivedStateFromError() { return { caught: true }; }
+  componentDidUpdate(prevProps: Readonly<{ children: ReactNode; fallback: string }>) {
+    if (this.state.caught && prevProps.fallback !== this.props.fallback) {
+      this.setState({ caught: false });
+    }
+  }
+  render() {
+    if (this.state.caught) {
+      return <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{this.props.fallback}</p>;
+    }
+    return this.props.children;
+  }
+}
 
 interface Props {
   children: string;
@@ -47,6 +68,22 @@ export default function MarkdownContent({
       ? 'prose-code:text-violet-600 dark:prose-code:text-violet-400 prose-code:bg-violet-100/60 dark:prose-code:bg-violet-900/30'
       : 'prose-code:text-[#00e5ff] prose-code:bg-[#00e5ff]/10';
 
+  const contentColors =
+    theme === 'violet'
+      ? `
+        prose-headings:text-white dark:prose-headings:text-violet-100
+        prose-strong:text-white dark:prose-strong:text-violet-100
+        prose-blockquote:border-violet-200/40 dark:prose-blockquote:border-violet-400/30
+        prose-blockquote:text-violet-50/90 dark:prose-blockquote:text-violet-100/80
+        text-violet-50 dark:text-violet-100
+      `
+      : `
+        prose-headings:text-slate-800 dark:prose-headings:text-slate-200
+        prose-strong:text-slate-800 dark:prose-strong:text-slate-200
+        prose-blockquote:border-slate-300 dark:prose-blockquote:border-slate-600
+        text-slate-700 dark:text-slate-300
+      `;
+
   // Run the full normalization + sanitization pipeline
   const sanitized = sanitizeAiMarkdown(children ?? '');
 
@@ -90,31 +127,33 @@ export default function MarkdownContent({
 
   if (inline) {
     return (
-      <span className={`katex-inline-host leading-snug ${className}`}>
-        {mdNode}
-      </span>
+      <MathErrorBoundary fallback={children ?? ''}>
+        <span className={`katex-inline-host leading-relaxed ${className}`}>
+          {mdNode}
+        </span>
+      </MathErrorBoundary>
     );
   }
 
   return (
-    <div className={`overflow-x-auto max-w-full ${className}`}>
-      <div
-        className={`
-          prose ${proseSize} dark:prose-invert max-w-none
-          prose-p:my-1 prose-p:leading-relaxed
-          prose-headings:font-semibold
-          prose-headings:text-slate-800 dark:prose-headings:text-slate-200
-          prose-strong:text-slate-800 dark:prose-strong:text-slate-200
-          ${codeColors}
-          prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs
-          prose-code:before:content-none prose-code:after:content-none
-          prose-ul:my-1 prose-li:my-0.5
-          prose-blockquote:border-slate-300 dark:prose-blockquote:border-slate-600
-          text-slate-700 dark:text-slate-300
-        `}
-      >
-        {mdNode}
+    <MathErrorBoundary fallback={children ?? ''}>
+      <div className={`markdown-content max-w-full ${className}`}>
+        <div
+          className={`
+            prose ${proseSize} dark:prose-invert max-w-none
+            prose-p:my-1 prose-p:leading-relaxed
+            prose-headings:font-semibold
+            ${codeColors}
+            ${contentColors}
+            prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs
+            prose-code:before:content-none prose-code:after:content-none
+            prose-ul:my-1 prose-li:my-0.5
+            ${className}
+          `}
+        >
+          {mdNode}
+        </div>
       </div>
-    </div>
+    </MathErrorBoundary>
   );
 }

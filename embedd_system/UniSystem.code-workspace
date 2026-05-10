@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"name": "embedd_system",
+			"path": "."
+		},
+		{
+			"path": "../../test_socet"
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "test_socet"
+	}
+}

@@ -29,17 +29,23 @@ require('./models/studentModel');
 require('./models/adminModel');
 require('./models/courseModel');
 require('./models/classModel');
+require('./models/roomModel');
 require('./models/lectureModel');
 require('./models/materialModel');
 require('./models/gradeModel');
 require('./models/jusnctionModel');
-require('./models/lectureModel');
-require('./models/materialModel');
 require('./models/questionModel');
 require('./models/answerModel');
 require('./models/attendanceModel');
 require('./models/notificationModel');
-require('./models/roomModel');
+require('./models/userNotificationModel');
+require('./models/classNotificationModel');
+require('./models/academicLevelFeesModel');
+require('./models/prerequisiteModel');
+require('./models/studyOutputModel');
+
+
+
 
 
 // const httpstatustext=require('./utilities/httpstatustext');

@@ -206,20 +206,14 @@ export const realDepartmentService = {
     return ok(res.data.data);
   },
   async create(data: Partial<Department>): Promise<ApiResponse<Department>> {
-    const res = await apiClient.post("/departments", {
-      Dept_Name: data.dept_name,
-      ...data,
-    });
+    const res = await apiClient.post("/departments", data);
     return ok(res.data.data);
   },
   async update(
     deptId: string,
     data: Partial<Department>,
   ): Promise<ApiResponse<Department>> {
-    const res = await apiClient.patch(`/departments/${deptId}`, {
-      Dept_Name: data.dept_name,
-      ...data,
-    });
+    const res = await apiClient.patch(`/departments/${deptId}`, data);
     return ok(res.data.data);
   },
   async delete(deptId: string): Promise<ApiResponse<null>> {
@@ -759,6 +753,10 @@ export const realStudentService = {
   async getPayment(studentId: string): Promise<ApiResponse<any>> {
     const res = await apiClient.get(`/students/${studentId}/payment`);
     return ok(res.data.data);
+  },
+  async makePayment(studentId: string, amount: number): Promise<ApiResponse<any>> {
+    const res = await apiClient.post(`/students/${studentId}/payment`, { amount });
+    return ok(res.data.data, res.data.message);
   },
 };
 

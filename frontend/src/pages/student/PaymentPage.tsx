@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../../hooks/useAuthStore";
+import { studentService } from "../../services";
 import {
   CreditCard,
   CheckCircle2,
@@ -30,10 +31,7 @@ export default function PaymentPage() {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`http://localhost:3000/api/students/${user?.user_id}/payment`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
+    studentService.getPayment(user.user_id)
       .then((res) => {
         if (res.success) setDetails(res.data);
       })
@@ -75,17 +73,7 @@ export default function PaymentPage() {
     setError("");
 
     try {
-      const res = await fetch(
-        `http://localhost:3000/api/students/${user?.user_id}/payment`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ amount: Number(amount) }),
-        },
-      ).then((r) => r.json());
+      const res = await studentService.makePayment(user!.user_id, Number(amount));
 
       if (!res.success) throw new Error(res.message);
 
@@ -212,7 +200,10 @@ export default function PaymentPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#050b14] border border-slate-200 dark:border-slate-800">
                     <span className="text-sm text-slate-500 font-medium uppercase tracking-widest">Tuition Total</span>
-                    <span className="font-bold text-slate-900 dark:text-white">${details.total_fees}</span>
+                    <div className="text-right">
+                       <span className="font-bold text-slate-900 dark:text-white">${details.total_fees}</span>
+                       <p className="text-[10px] text-slate-400 font-bold">{details.total_hours} hrs × ${details.hour_price}</p>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
                     <span className="text-sm text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest">Amount Paid</span>
@@ -233,109 +224,149 @@ export default function PaymentPage() {
             </div>
           </div>
 
-          {/* Right Column: Form */}
-          <div className="lg:w-[55%] p-8 md:p-12 bg-white dark:bg-[#0a192f]">
-            <div className="max-w-md mx-auto">
-              <div className="flex items-center gap-3 mb-10">
-                <div className="p-3 rounded-2xl bg-primary-600 text-white shadow-xl shadow-primary-500/20">
-                  <CreditCard size={24} />
+          {/* Right Column: Form or Approved Status */}
+          <div className="lg:w-[55%] p-8 md:p-12 bg-white dark:bg-[#0a192f] flex flex-col justify-center">
+            <div className="max-w-md mx-auto w-full">
+              {details?.payment_status?.toLowerCase() === 'paid' ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center animate-scale-in">
+                  <div className="w-32 h-32 rounded-full bg-emerald-500/10 flex items-center justify-center border-8 border-emerald-500/20 mb-8 shadow-2xl shadow-emerald-500/20">
+                    <CheckCircle2 size={64} className="text-emerald-500" />
+                  </div>
+                  <h2 className="text-5xl font-black text-emerald-600 dark:text-emerald-400 tracking-tighter mb-4">APPROVED</h2>
+                  <div className="p-6 rounded-2xl bg-slate-50 dark:bg-[#050b14] border border-slate-200 dark:border-slate-800 w-full space-y-3 text-left">
+                     <div className="flex justify-between text-sm"><span className="text-slate-500">Student:</span> <span className="font-bold">{user?.f_name} {user?.l_name}</span></div>
+                     <div className="flex justify-between text-sm"><span className="text-slate-500">Level:</span> <span className="font-bold">{details?.academic_level}</span></div>
+                     <div className="flex justify-between text-sm"><span className="text-slate-500">Status:</span> <span className="px-3 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-black uppercase">Fully Paid</span></div>
+                  </div>
+                  <p className="text-slate-400 text-sm mt-8">Your financial status is clear for the current semester.</p>
                 </div>
-                <h2 className="text-xl font-bold text-slate-800 dark:text-white">Payment Details</h2>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="p-3 rounded-2xl bg-primary-600 text-white shadow-xl shadow-primary-500/20">
+                      <CreditCard size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-800 dark:text-white leading-none">Payment & Data</h2>
+                      <p className="text-xs text-slate-500 mt-1">Verify your info and settle fees</p>
+                    </div>
+                  </div>
 
-              {error && (
-                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-500 text-xs font-bold animate-shake">
-                  <AlertCircle size={18} /> <span>{error}</span>
-                </div>
+                  {error && (
+                    <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-500 text-xs font-bold animate-shake">
+                      <AlertCircle size={18} /> <span>{error}</span>
+                    </div>
+                  )}
+
+                  <div className="space-y-6">
+                    {/* Student Data Section (Non-editable summary) */}
+                    <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-[#050b14] border border-slate-200 dark:border-slate-800 mb-4">
+                       <div className="space-y-1">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Full Name</label>
+                          <p className="text-sm font-bold truncate">{user?.f_name} {user?.l_name}</p>
+                       </div>
+                       <div className="space-y-1">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Email/Login</label>
+                          <p className="text-sm font-bold truncate">{user?.email}</p>
+                       </div>
+                       <div className="space-y-1">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Password</label>
+                          <p className="text-sm font-mono opacity-50">••••••••</p>
+                       </div>
+                       <div className="space-y-1">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Level</label>
+                          <p className="text-sm font-bold">{details?.academic_level}</p>
+                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Card Number</label>
+                      <div className="relative group">
+                        <CreditCard size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                        <input
+                          type="text"
+                          value={cardNumber}
+                          onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                          placeholder="0000 0000 0000 0000"
+                          maxLength={19}
+                          className="w-full bg-slate-50 dark:bg-[#050b14] border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all font-mono text-lg font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Cardholder Name</label>
+                      <div className="relative group">
+                        <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                        <input
+                          type="text"
+                          value={cardHolder}
+                          onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
+                          placeholder="FULL NAME"
+                          className="w-full bg-slate-50 dark:bg-[#050b14] border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all font-bold tracking-wide"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Expiry</label>
+                        <div className="relative group">
+                          <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                          <input
+                            type="text"
+                            value={expiry}
+                            onChange={(e) => setExpiry(formatExpiry(e.target.value))}
+                            placeholder="MM/YY"
+                            maxLength={5}
+                            className="w-full bg-slate-50 dark:bg-[#050b14] border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 transition-all font-bold text-center"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">CVV</label>
+                        <div className="relative group">
+                          <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                          <input
+                            type="password"
+                            value={cvv}
+                            onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                            placeholder="•••"
+                            maxLength={3}
+                            className="w-full bg-slate-50 dark:bg-[#050b14] border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 transition-all font-bold text-center"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Payment Amount</label>
+                      <div className="relative group">
+                        <DollarSign size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" />
+                        <input
+                          type="number"
+                          value={amount}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            const max = details?.remaining_amount || 0;
+                            if (val > max) setAmount(max.toString());
+                            else setAmount(e.target.value);
+                          }}
+                          placeholder="0.00"
+                          className="w-full bg-emerald-500/5 dark:bg-emerald-500/5 border-2 border-emerald-500/20 text-emerald-600 rounded-2xl px-12 py-4 focus:outline-none focus:border-emerald-500 transition-all font-black text-xl"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handlePay}
+                      className="w-full mt-4 btn-primary py-5 rounded-[2rem] text-xl font-black shadow-2xl shadow-primary-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
+                      Process Payment
+                    </button>
+                  </div>
+                </>
               )}
-
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Card Number</label>
-                  <div className="relative group">
-                    <CreditCard size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
-                    <input
-                      type="text"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                      placeholder="0000 0000 0000 0000"
-                      maxLength={19}
-                      className="w-full bg-slate-50 dark:bg-[#050b14] border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all font-mono text-lg font-bold"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Cardholder Name</label>
-                  <div className="relative group">
-                    <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
-                    <input
-                      type="text"
-                      value={cardHolder}
-                      onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
-                      placeholder="FULL NAME"
-                      className="w-full bg-slate-50 dark:bg-[#050b14] border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all font-bold tracking-wide"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Expiry</label>
-                    <div className="relative group">
-                      <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
-                      <input
-                        type="text"
-                        value={expiry}
-                        onChange={(e) => setExpiry(formatExpiry(e.target.value))}
-                        placeholder="MM/YY"
-                        maxLength={5}
-                        className="w-full bg-slate-50 dark:bg-[#050b14] border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 transition-all font-bold text-center"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">CVV</label>
-                    <div className="relative group">
-                      <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
-                      <input
-                        type="password"
-                        value={cvv}
-                        onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                        placeholder="•••"
-                        maxLength={3}
-                        className="w-full bg-slate-50 dark:bg-[#050b14] border-2 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl px-12 py-4 focus:outline-none focus:border-primary-500 transition-all font-bold text-center"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-1">Amount</label>
-                  <div className="relative group">
-                    <DollarSign size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" />
-                    <input
-                      type="number"
-                      value={amount}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value);
-                        const max = details?.remaining_amount || 0;
-                        if (val > max) setAmount(max.toString());
-                        else setAmount(e.target.value);
-                      }}
-                      placeholder="0.00"
-                      className="w-full bg-slate-50 dark:bg-[#050b14] border-2 border-emerald-500/20 text-emerald-600 rounded-2xl px-12 py-4 focus:outline-none focus:border-emerald-500 transition-all font-black text-xl"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  onClick={handlePay}
-                  className="w-full mt-4 btn-primary py-5 rounded-[2rem] text-xl font-black shadow-2xl shadow-primary-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                >
-                  Confirm & Pay
-                </button>
-              </div>
             </div>
           </div>
         </div>

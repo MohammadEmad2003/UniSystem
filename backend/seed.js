@@ -53,6 +53,14 @@ const get = (sql, params = []) =>
     })
   );
 
+const all = (sql, params = []) =>
+  new Promise((resolve, reject) =>
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows);
+    })
+  );
+
 // Insert OR IGNORE and return the row's ID either from lastID or a lookup
 const upsertUser = async (email, insertSql, insertParams) => {
   const res = await run(insertSql, insertParams);
@@ -60,14 +68,29 @@ const upsertUser = async (email, insertSql, insertParams) => {
   return (await get(`SELECT User_ID FROM User WHERE Email = ?`, [email]))?.User_ID;
 };
 
+async function dropAllTables() {
+  console.log("🗑️ Dropping all tables...");
+  await run("PRAGMA foreign_keys = OFF");
+  const tables = await all("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+  for (const table of tables) {
+    await run(`DROP TABLE IF EXISTS "${table.name}"`);
+  }
+  await run("PRAGMA foreign_keys = ON");
+  console.log("✅ Tables dropped.\n");
+}
+
 // ─── ENSURE TABLES EXIST (seed runs standalone — models may not be loaded) ───
 async function ensureTables() {
+  if (process.argv.includes("--replace")) {
+    await dropAllTables();
+  }
   const stmts = [
     `CREATE TABLE IF NOT EXISTS Department (
       Dept_ID INTEGER PRIMARY KEY AUTOINCREMENT,
       Dept_Name VARCHAR(100) UNIQUE NOT NULL,
       Doctor_ID INTEGER,
-      Total_Hours_Required INT DEFAULT 144
+      Total_Hours_Required INT DEFAULT 144,
+      FOREIGN KEY (Doctor_ID) REFERENCES Doctor(User_ID) ON DELETE SET NULL
     )`,
     `CREATE TABLE IF NOT EXISTS Room (
       Room_ID VARCHAR(50) PRIMARY KEY,
@@ -105,7 +128,8 @@ async function ensureTables() {
     )`,
     `CREATE TABLE IF NOT EXISTS Student (
       User_ID INTEGER PRIMARY KEY,
-      Academic_Level INT,
+      Academic_Level INTEGER,
+      Semester VARCHAR(20),
       Payment_Status TEXT CHECK(Payment_Status IN ('Paid','Unpaid','Partial')) DEFAULT 'Unpaid',
       Paid_Amount DECIMAL(10,2) DEFAULT 0.00,
       NFC_Tag_ID VARCHAR(50) UNIQUE,
@@ -114,7 +138,8 @@ async function ensureTables() {
       Total_Hours INT DEFAULT 0,
       Total_GPA DECIMAL(4,2) DEFAULT 0.00,
       FOREIGN KEY (User_ID) REFERENCES User(User_ID) ON DELETE CASCADE,
-      FOREIGN KEY (Dept_ID) REFERENCES Department(Dept_ID) ON DELETE SET NULL
+      FOREIGN KEY (Dept_ID) REFERENCES Department(Dept_ID) ON DELETE SET NULL,
+      FOREIGN KEY (Academic_Level, Semester) REFERENCES Academic_Level_Fees(Academic_Level, Semester) ON DELETE SET NULL
     )`,
     `CREATE TABLE IF NOT EXISTS Academic_Level_Fees (
       Academic_Level INTEGER,
@@ -153,13 +178,14 @@ async function ensureTables() {
     )`,
     `CREATE TABLE IF NOT EXISTS Class (
       Class_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-      Level INT NOT NULL,
+      Level INTEGER NOT NULL,
       Semester VARCHAR(20) NOT NULL,
       Course_Code VARCHAR(20) NOT NULL,
       Doctor_ID INTEGER NOT NULL,
       Capacity INT NOT NULL,
       FOREIGN KEY (Course_Code) REFERENCES Courses(Course_Code) ON DELETE CASCADE,
-      FOREIGN KEY (Doctor_ID) REFERENCES Doctor(User_ID) ON DELETE CASCADE
+      FOREIGN KEY (Doctor_ID) REFERENCES Doctor(User_ID) ON DELETE CASCADE,
+      FOREIGN KEY (Level, Semester) REFERENCES Academic_Level_Fees(Academic_Level, Semester) ON DELETE CASCADE
     )`,
     `CREATE TABLE IF NOT EXISTS Enrollment (
       Class_ID INTEGER NOT NULL,
@@ -181,7 +207,7 @@ async function ensureTables() {
       Date DATE,
       Day VARCHAR(15),
       Time TIME,
-      Room_ID VARCHAR(20),
+      Room_ID VARCHAR(50),
       Meeting_Link VARCHAR(255),
       Type TEXT CHECK(Type IN ('Lecture','Section','Lab','Online')) NOT NULL,
       Class_ID INTEGER NOT NULL,
@@ -189,7 +215,8 @@ async function ensureTables() {
       End_Time DATETIME,
       Attendance_Code VARCHAR(20),
       Status TEXT CHECK(Status IN ('open','closed')) DEFAULT 'closed',
-      FOREIGN KEY (Class_ID) REFERENCES Class(Class_ID) ON DELETE CASCADE
+      FOREIGN KEY (Class_ID) REFERENCES Class(Class_ID) ON DELETE CASCADE,
+      FOREIGN KEY (Room_ID) REFERENCES Room(Room_ID) ON DELETE RESTRICT
     )`,
     `CREATE TABLE IF NOT EXISTS Material (
       Material_ID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -216,7 +243,6 @@ async function ensureTables() {
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_unique ON Attendance(User_ID, Lec_ID)`,
     `CREATE TABLE IF NOT EXISTS Grades (
       Grade_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-      Type TEXT NOT NULL,
       Generate_At DATETIME DEFAULT CURRENT_TIMESTAMP,
       Attendance DECIMAL(5,2) DEFAULT 0,
       Practical DECIMAL(5,2) DEFAULT 0,
@@ -237,6 +263,7 @@ async function ensureTables() {
       User_ID INTEGER,
       Class_ID INTEGER NOT NULL,
       Doctor_ID INTEGER,
+      Time DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (User_ID) REFERENCES Student(User_ID) ON DELETE CASCADE,
       FOREIGN KEY (Class_ID) REFERENCES Class(Class_ID) ON DELETE CASCADE,
       FOREIGN KEY (Doctor_ID) REFERENCES Doctor(User_ID) ON DELETE SET NULL
@@ -248,6 +275,11 @@ async function ensureTables() {
       Time DATETIME DEFAULT CURRENT_TIMESTAMP,
       Doctor_ID INTEGER,
       User_ID INTEGER,
+      Is_AI_Generated INTEGER NOT NULL DEFAULT 0,
+      Source_Type TEXT,
+      Source_ID TEXT,
+      Confidence REAL,
+      AI_Metadata TEXT,
       PRIMARY KEY (Answer_ID, Questions_ID),
       FOREIGN KEY (Questions_ID) REFERENCES Questions(Questions_ID) ON DELETE CASCADE,
       FOREIGN KEY (Doctor_ID) REFERENCES Doctor(User_ID) ON DELETE SET NULL,
@@ -255,21 +287,31 @@ async function ensureTables() {
     )`,
     `CREATE TABLE IF NOT EXISTS Notification (
       Notification_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-      User_ID INTEGER NOT NULL,
       Type TEXT CHECK(Type IN (
-        'new_material','new_question','new_answer','new_grade',
+        'new_material','new_question','new_answer','new_grade','new_lecture','lecture_started',
         'announcement','approval','enrollment',
         'doctor_question_pending','ai_answer_ready','doctor_answer_ready'
       )) NOT NULL,
       Title VARCHAR(255) NOT NULL,
       Message TEXT NOT NULL,
-      Class_ID INTEGER,
       Reference_ID INTEGER,
       Answer_ID INTEGER,
+      Created_At DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS User_Notification (
+      User_ID INTEGER NOT NULL,
+      Notification_ID INTEGER NOT NULL,
       Is_Read BOOLEAN DEFAULT 0,
-      Created_At DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (User_ID, Notification_ID),
       FOREIGN KEY (User_ID) REFERENCES User(User_ID) ON DELETE CASCADE,
-      FOREIGN KEY (Class_ID) REFERENCES Class(Class_ID) ON DELETE SET NULL
+      FOREIGN KEY (Notification_ID) REFERENCES Notification(Notification_ID) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS Class_Notification (
+      Class_ID INTEGER NOT NULL,
+      Notification_ID INTEGER NOT NULL,
+      PRIMARY KEY (Class_ID, Notification_ID),
+      FOREIGN KEY (Class_ID) REFERENCES Class(Class_ID) ON DELETE CASCADE,
+      FOREIGN KEY (Notification_ID) REFERENCES Notification(Notification_ID) ON DELETE CASCADE
     )`,
     `CREATE TABLE IF NOT EXISTS StudyOutput (
       Output_ID    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -367,7 +409,25 @@ async function seed() {
     await run(`INSERT OR IGNORE INTO Work_In (Doctor_ID, Dept_ID) VALUES (?, 2)`, [doc2Id]);
     await run(`INSERT OR IGNORE INTO Work_In (Doctor_ID, Dept_ID) VALUES (?, 3)`, [doc3Id]);
 
-    // ── 5. USERS — Students ───────────────────────────────────────────────────
+    // ── 5. ACADEMIC LEVEL FEES ────────────────────────────────────────────────
+    console.log("💰 Academic Level Fees...");
+    const semesters = ['Fall', 'Spring', 'Summer'];
+    const feesData = [
+      [1, 10000, 18, 12, 600],
+      [2, 12000, 18, 12, 700],
+      [3, 14000, 21, 15, 750],
+      [4, 16000, 21, 15, 800],
+    ];
+    for (const [level, total, maxH, minH, hourPrice] of feesData) {
+      for (const sem of semesters) {
+        await run(
+          `INSERT OR IGNORE INTO Academic_Level_Fees (Academic_Level, Semester, Total_Fees, Max_Hours, Min_Hours, Hour_Price) VALUES (?, ?, ?, ?, ?, ?)`,
+          [level, sem, total, maxH, minH, hourPrice]
+        );
+      }
+    }
+
+    // ── 6. USERS — Students ───────────────────────────────────────────────────
     console.log("👤 Users — students...");
 
     const stu1Id = await upsertUser(
@@ -407,31 +467,14 @@ async function seed() {
     );
 
     // Student rows — NFC tags assigned to approved students
-    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Payment_Status, Paid_Amount, NFC_Tag_ID, SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 2, 'Paid',    8000, 'AA:BB:CC:01', '12345678901234', 1, 60,  3.5)`, [stu1Id]);
-    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Payment_Status, Paid_Amount, NFC_Tag_ID, SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 1, 'Paid',    6000, 'AA:BB:CC:02', '98765432109876', 1, 30,  3.2)`, [stu2Id]);
-    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Payment_Status, Paid_Amount, NFC_Tag_ID, SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 2, 'Partial', 5000, 'AA:BB:CC:03', '11122233344455', 2, 60,  2.9)`, [stu3Id]);
-    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Payment_Status, Paid_Amount, NFC_Tag_ID, SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 1, 'Unpaid',  0,    'AA:BB:CC:04', '22233344455566', 2, 0,   0.0)`, [stu4Id]);
-    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Payment_Status, Paid_Amount, NFC_Tag_ID, SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 3, 'Paid',   10000, 'AA:BB:CC:05', '33344455566677', 3, 90,  3.7)`, [stu5Id]);
-    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Payment_Status, Paid_Amount, NFC_Tag_ID, SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 2, 'Paid',    8000, 'AA:BB:CC:06', '44455566677788', 1, 60,  3.8)`, [stu6Id]);
-    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Payment_Status, Paid_Amount,             SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 1, 'Unpaid',  0,               '55566677788899', 3, 0,   0.0)`, [stu7Id]);
+    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Semester, Payment_Status, Paid_Amount, NFC_Tag_ID, SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 2, 'Spring', 'Unpaid',  0,    'AA:BB:CC:01', '12345678901234', 1, 60,  3.5)`, [stu1Id]);
+    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Semester, Payment_Status, Paid_Amount, NFC_Tag_ID, SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 1, 'Spring', 'Paid',    6000, 'AA:BB:CC:02', '98765432109876', 1, 30,  3.2)`, [stu2Id]);
+    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Semester, Payment_Status, Paid_Amount, NFC_Tag_ID, SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 2, 'Spring', 'Partial', 5000, 'AA:BB:CC:03', '11122233344455', 2, 60,  2.9)`, [stu3Id]);
+    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Semester, Payment_Status, Paid_Amount, NFC_Tag_ID, SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 1, 'Spring', 'Unpaid',  0,    'AA:BB:CC:04', '22233344455566', 2, 0,   0.0)`, [stu4Id]);
+    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Semester, Payment_Status, Paid_Amount, NFC_Tag_ID, SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 3, 'Spring', 'Paid',   10000, 'AA:BB:CC:05', '33344455566677', 3, 90,  3.7)`, [stu5Id]);
+    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Semester, Payment_Status, Paid_Amount, NFC_Tag_ID, SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 2, 'Spring', 'Paid',    8000, 'AA:BB:CC:06', '44455566677788', 1, 60,  3.8)`, [stu6Id]);
+    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Semester, Payment_Status, Paid_Amount,             SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 1, 'Spring', 'Unpaid',  0,               '55566677788899', 3, 0,   0.0)`, [stu7Id]);
 
-    // ── 6. ACADEMIC LEVEL FEES ────────────────────────────────────────────────
-    console.log("💰 Academic Level Fees...");
-    const semesters = ['Fall 2025', 'Spring 2026'];
-    const feesData = [
-      [1, 10000, 18, 12, 600],
-      [2, 12000, 18, 12, 700],
-      [3, 14000, 21, 15, 750],
-      [4, 16000, 21, 15, 800],
-    ];
-    for (const [level, total, maxH, minH, hourPrice] of feesData) {
-      for (const sem of semesters) {
-        await run(
-          `INSERT OR IGNORE INTO Academic_Level_Fees (Academic_Level, Semester, Total_Fees, Max_Hours, Min_Hours, Hour_Price) VALUES (?, ?, ?, ?, ?, ?)`,
-          [level, sem, total, maxH, minH, hourPrice]
-        );
-      }
-    }
 
     // ── 7. COURSES ────────────────────────────────────────────────────────────
     console.log("📚 Courses...");
@@ -482,12 +525,12 @@ async function seed() {
       return r.lastID;
     };
 
-    const cls1Id = await getOrCreateClass('CS201', doc1Id, 'Fall 2025', 2, 35); // Data Structures
-    const cls2Id = await getOrCreateClass('CS301', doc1Id, 'Fall 2025', 3, 30); // Algorithms
-    const cls3Id = await getOrCreateClass('IS101', doc2Id, 'Fall 2025', 1, 40); // DB Fundamentals
-    const cls4Id = await getOrCreateClass('IS201', doc2Id, 'Fall 2025', 2, 30); // Advanced DB
-    const cls5Id = await getOrCreateClass('IT101', doc3Id, 'Fall 2025', 1, 35); // Computer Networks
-    const cls6Id = await getOrCreateClass('CS101', doc1Id, 'Fall 2025', 1, 50); // Intro Programming
+    const cls1Id = await getOrCreateClass('CS201', doc1Id, 'Fall', 2, 35); // Data Structures
+    const cls2Id = await getOrCreateClass('CS301', doc1Id, 'Fall', 3, 30); // Algorithms
+    const cls3Id = await getOrCreateClass('IS101', doc2Id, 'Fall', 1, 40); // DB Fundamentals
+    const cls4Id = await getOrCreateClass('IS201', doc2Id, 'Fall', 2, 30); // Advanced DB
+    const cls5Id = await getOrCreateClass('IT101', doc3Id, 'Fall', 1, 35); // Computer Networks
+    const cls6Id = await getOrCreateClass('CS101', doc1Id, 'Fall', 1, 50); // Intro Programming
 
     // ── 9. ENROLLMENT ─────────────────────────────────────────────────────────
     console.log("📋 Enrollments...");
@@ -658,8 +701,8 @@ async function seed() {
       const ex = await get(`SELECT Grade_ID FROM Grades WHERE User_ID = ? AND Class_ID = ?`, [userId, classId]);
       if (ex) return;
       await run(
-        `INSERT INTO Grades (Type, User_ID, Class_ID, Doctor_ID, Midterm, Project, Practical, Attendance, Final, GPA)
-         VALUES ('final', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO Grades (User_ID, Class_ID, Doctor_ID, Midterm, Project, Practical, Attendance, Final, GPA)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [userId, classId, doctorId, mid, proj, prac, att, final, gpa]
       );
     };
@@ -722,14 +765,26 @@ async function seed() {
     console.log("🔔 Notifications...");
     const notifInsert = async (userId, type, title, message, classId, refId) => {
       const ex = await get(
-        `SELECT Notification_ID FROM Notification WHERE User_ID = ? AND Title = ?`,
+        `SELECT n.Notification_ID FROM Notification n
+         INNER JOIN User_Notification un ON un.Notification_ID = n.Notification_ID
+         WHERE un.User_ID = ? AND n.Title = ?`,
         [userId, title]
       );
       if (ex) return;
-      await run(
-        `INSERT INTO Notification (User_ID, Type, Title, Message, Class_ID, Reference_ID, Is_Read) VALUES (?, ?, ?, ?, ?, ?, 0)`,
-        [userId, type, title, message, classId ?? null, refId ?? null]
+      const { lastID } = await run(
+        `INSERT INTO Notification (Type, Title, Message, Reference_ID) VALUES (?, ?, ?, ?)`,
+        [type, title, message, refId ?? null]
       );
+      await run(
+        `INSERT INTO User_Notification (User_ID, Notification_ID, Is_Read) VALUES (?, ?, 0)`,
+        [userId, lastID]
+      );
+      if (classId != null) {
+        await run(
+          `INSERT OR IGNORE INTO Class_Notification (Class_ID, Notification_ID) VALUES (?, ?)`,
+          [classId, lastID]
+        );
+      }
     };
 
     await notifInsert(stu1Id, 'new_material',  'New Material Added',            'Slides for "Arrays & Linked Lists" are now available in Data Structures.',        cls1Id, lec2);
@@ -743,6 +798,46 @@ async function seed() {
     await notifInsert(stu1Id, 'enrollment',    'Enrolled in Advanced Databases', 'You have been successfully enrolled in Advanced Database Systems.',                cls4Id, null);
     await notifInsert(stu2Id, 'enrollment',    'Enrolled in Computer Networks',  'You have been successfully enrolled in Computer Networks.',                        cls5Id, null);
     await notifInsert(stu7Id, 'approval',      'Registration Pending',           'Your registration is under review. You will be notified once approved.',           null,   null);
+
+    // ── 16. RECORDED COURSES ──────────────────────────────────────────────────
+    console.log("📜 Recorded Courses (Prereqs)...");
+    // Student 1 (L2) passed CS101 so they can take CS201
+    await run(`INSERT OR IGNORE INTO Recorded_Course (User_ID, Course_Code) VALUES (?, 'CS101')`, [stu1Id]);
+    // Student 3 (L2) passed CS101
+    await run(`INSERT OR IGNORE INTO Recorded_Course (User_ID, Course_Code) VALUES (?, 'CS101')`, [stu3Id]);
+    // Student 5 (L3) passed CS101, CS201
+    await run(`INSERT OR IGNORE INTO Recorded_Course (User_ID, Course_Code) VALUES (?, 'CS101')`, [stu5Id]);
+    await run(`INSERT OR IGNORE INTO Recorded_Course (User_ID, Course_Code) VALUES (?, 'CS201')`, [stu5Id]);
+
+    // ── 17. STUDY OUTPUTS ─────────────────────────────────────────────────────
+    console.log("🧠 Study Outputs...");
+    const insertStudyOutput = async (cId, mId, uId, type, opts, content) => {
+      const optsKey = `${type}::` + Object.keys(opts).sort().map(k => `${k}=${opts[k]}`).join('|');
+      await run(
+        `INSERT OR IGNORE INTO StudyOutput (Class_ID, Material_ID, User_ID, Tool_Type, Options_Key, Options_JSON, Content_JSON)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [cId, mId, uId, type, optsKey, JSON.stringify(opts), JSON.stringify(content)]
+      );
+    };
+
+    await insertStudyOutput(cls1Id, 1, stu1Id, 'summarize', { length: 'short' }, { text: 'This material introduces data structures and Big-O notation.' });
+    await insertStudyOutput(cls1Id, 2, stu1Id, 'summarize', { length: 'medium' }, { text: 'Detailed guide on time complexity and algorithm efficiency.' });
+
+    // ── 18. EXTRA TEST CASES (Probation & Overload) ───────────────────────────
+    console.log("🧪 Edge cases (Probation/Overload)...");
+    const probationId = await upsertUser(
+      "probation.student@unisystem.test",
+      `INSERT OR IGNORE INTO User (F_Name, L_Name, Email, Password, Role, Account_Status, is_email_verified) VALUES ('Paul', 'Probation', 'probation.student@unisystem.test', ?, 'Student', 'approved', 1)`,
+      [pw]
+    );
+    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Semester, Payment_Status, Paid_Amount, SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 2, 'Spring', 'Unpaid', 0, '99988877766655', 1, 45, 1.5)`, [probationId]);
+
+    const geniusId = await upsertUser(
+      "genius.student@unisystem.test",
+      `INSERT OR IGNORE INTO User (F_Name, L_Name, Email, Password, Role, Account_Status, is_email_verified) VALUES ('Gina', 'Genius', 'genius.student@unisystem.test', ?, 'Student', 'approved', 1)`,
+      [pw]
+    );
+    await run(`INSERT OR IGNORE INTO Student (User_ID, Academic_Level, Semester, Payment_Status, Paid_Amount, SSN, Dept_ID, Total_Hours, Total_GPA) VALUES (?, 3, 'Spring', 'Paid', 10000, '11122211122211', 1, 90, 3.9)`, [geniusId]);
 
     // ── SUMMARY ───────────────────────────────────────────────────────────────
     console.log("\n✅ Seed complete!\n");

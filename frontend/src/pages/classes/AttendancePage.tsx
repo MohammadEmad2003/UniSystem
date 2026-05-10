@@ -104,6 +104,19 @@ export default function AttendancePage() {
     }
   };
 
+  const handleMarkSignOut = async (studentId: string) => {
+    if (!lectureId) return;
+    setActionLoading(`out-${studentId}`); setActionError(null);
+    try {
+      await realAttendanceService.updateByLectureAndStudent(lectureId, studentId, { lateCheck: 1 });
+      await loadRecords();
+    } catch (err: any) {
+      setActionError(err?.response?.data?.message || err.message || 'Failed to record sign-out');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleDelete = async (studentId: string) => {
     if (!lectureId) return;
     setActionLoading(`del-${studentId}`); setActionError(null);
@@ -264,16 +277,28 @@ export default function AttendancePage() {
                     <div className="flex items-center gap-2">
                       {r.time && <span className="text-xs text-slate-400">{new Date(r.time).toLocaleTimeString()}</span>}
                       {isDoctor && (
-                        <button
-                          onClick={() => handleDelete(r.student_id)}
-                          disabled={actionLoading === `del-${r.student_id}`}
-                          className="p-1.5 hover:bg-red-500/10 text-red-400 rounded-lg transition-colors disabled:opacity-50"
-                          title="Remove record"
-                        >
-                          {actionLoading === `del-${r.student_id}`
-                            ? <div className="w-3.5 h-3.5 border border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                            : <Trash2 size={14} />}
-                        </button>
+                        <>
+                          {!r.late_check && (
+                            <button
+                              onClick={() => handleMarkSignOut(r.student_id)}
+                              disabled={actionLoading === `out-${r.student_id}`}
+                              className="px-2 py-1 bg-amber-500/10 text-amber-600 rounded-lg text-[10px] font-bold hover:bg-amber-500 hover:text-white transition-all disabled:opacity-50"
+                              title="Mark Sign-out"
+                            >
+                              {actionLoading === `out-${r.student_id}` ? '...' : 'Sign-out'}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDelete(r.student_id)}
+                            disabled={actionLoading === `del-${r.student_id}`}
+                            className="p-1.5 hover:bg-red-500/10 text-red-400 rounded-lg transition-colors disabled:opacity-50"
+                            title="Remove record"
+                          >
+                            {actionLoading === `del-${r.student_id}`
+                              ? <div className="w-3.5 h-3.5 border border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                              : <Trash2 size={14} />}
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>

@@ -71,7 +71,7 @@ const createDepartment = asyncWrapper(async (req, res) => {
 
   const newDepartment = await new Promise((resolve, reject) => {
     db.get(
-      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name 
+      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name, d.Total_Hours_Required as total_hours_required
        FROM Department d 
        LEFT JOIN User u ON d.Doctor_ID = u.User_ID
        WHERE d.Dept_ID = ?`,
@@ -94,7 +94,7 @@ const getSingleDepartment = asyncWrapper(async (req, res) => {
   const { departmentId } = req.params;
   const department = await new Promise((resolve, reject) => {
     db.get(
-      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name 
+      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name, d.Total_Hours_Required as total_hours_required
        FROM Department d 
        LEFT JOIN User u ON d.Doctor_ID = u.User_ID
        WHERE d.Dept_ID = ?`,
@@ -169,7 +169,7 @@ const updateDepartment = asyncWrapper(async (req, res) => {
 
   const updatedDepartment = await new Promise((resolve, reject) => {
     db.get(
-      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name 
+      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name, d.Total_Hours_Required as total_hours_required
        FROM Department d 
        LEFT JOIN User u ON d.Doctor_ID = u.User_ID
        WHERE d.Dept_ID = ?`,
@@ -235,7 +235,7 @@ const assignDoctor = asyncWrapper(async (req, res) => {
 
   const updatedDepartment = await new Promise((resolve, reject) => {
     db.get(
-      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name 
+      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name, d.Total_Hours_Required as total_hours_required
        FROM Department d 
        LEFT JOIN User u ON d.Doctor_ID = u.User_ID
        WHERE d.Dept_ID = ?`,

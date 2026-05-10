@@ -20,7 +20,7 @@ io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
 });
 
-require('dotenv').config();// import database to create tables if not exist
+require('dotenv').config();
 
 require('./models/userModel');
 require('./models/departmentModel');

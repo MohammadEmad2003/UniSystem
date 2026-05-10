@@ -29,7 +29,7 @@ export default function LandingPage() {
           />
         </div>
 
-        <div className="relative w-full max-w-7xl px-6 lg:px-12 animate-slide-up">
+        <div className="relative w-full max-w-full px-6 lg:px-24 animate-slide-up">
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-primary-200 dark:border-white/20 bg-white/60 dark:bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-primary-700 dark:text-primary-100 backdrop-blur-md mb-8">
               <span className="h-2 w-2 rounded-full bg-primary-500 animate-ping" />
@@ -56,7 +56,7 @@ export default function LandingPage() {
             <div className="mt-10 flex flex-wrap gap-4">
               <Link
                 to="/academics"
-                className="inline-flex items-center gap-2 rounded-2xl bg-primary-600 px-8 py-4 text-base font-bold text-white shadow-glow hover:bg-primary-700 transition group"
+                className="inline-flex items-center gap-2 rounded-2xl bg-primary-600 px-8 py-4 text-base font-bold text-white shadow-glow hover:bg-primary-700 transition group "
               >
                 Explore Programs
                 <ArrowRight
@@ -64,11 +64,12 @@ export default function LandingPage() {
                   className="group-hover:translate-x-1 transition"
                 />
               </Link>
-              <button
-                className="inline-flex items-center justify-center rounded-2xl border border-primary-200 dark:border-white/30 bg-white/50 dark:bg-white/10 px-8 py-4 text-base font-bold text-primary-900 dark:text-white backdrop-blur-md hover:bg-white/20 transition"
+              <Link
+                to="/campus-life"
+                className="inline-flex items-center justify-center rounded-2xl border border-primary-200 dark:border-white/30 bg-white/50 dark:bg-white/10 px-8 py-4 text-base font-bold text-primary-900 dark:text-white backdrop-blur-md hover:bg-white/80 dark:hover:bg-white/20 transition "
               >
                 Virtual Tour
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -120,7 +121,7 @@ export default function LandingPage() {
             </p>
           </div>
           <Link
-            to="/news"
+            to="/academics"
             className="text-primary-600 font-bold hover:gap-2 transition-all flex items-center gap-1 dark:text-primary-400"
           >
             View All Notices <ArrowRight size={18} />

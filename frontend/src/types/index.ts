@@ -113,13 +113,17 @@ export interface Class {
 export interface Lecture {
   lec_id: string;
   class_id: string;
+  title?: string;
   day: string;
+  date?: string;
   time: string;
   type: LectureType;
+  status?: 'open' | 'closed' | 'scheduled';
+  start_time?: string;
+  end_time?: string;
+  attendance_code?: string;
   meeting_link?: string;
   room_id?: string;
-  title?: string;
-  date?: string;
 }
 
 export interface Material {
@@ -138,12 +142,13 @@ export interface Material {
 
 export interface Attendance {
   attendance_id: string;
-  lecture_id: string;
+  lec_id: string;
   student_id: string;
   student_name?: string;
-  time: string;
-  is_verified: boolean;
-  status: AttendanceStatus;
+  time?: string;
+  early_check: 0 | 1;
+  late_check: 0 | 1;
+  method: 'nfc' | 'manual' | 'online';
 }
 
 // ---- Grades ----

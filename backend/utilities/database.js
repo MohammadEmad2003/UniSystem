@@ -34,6 +34,29 @@ db.serialize(() => {
                         console.log("✅ Migration: Semester column added.");
                     }
                 });
+
+                // Add Time column to Questions if missing
+                // SQLite ALTER TABLE does not allow non-constant defaults, so add nullable then backfill.
+                db.run(`ALTER TABLE Questions ADD COLUMN Time DATETIME`, (err) => {
+                    if (err) {
+                        if (err.message.includes("duplicate column name")) {
+                            // Already migrated — backfill any NULLs left from before migration
+                            db.run(`UPDATE Questions SET Time = datetime('now') WHERE Time IS NULL`, (e2) => {
+                                if (e2) console.log("Questions.Time backfill error:", e2.message);
+                            });
+                        } else if (err.message.includes("locked")) {
+                            console.log("Note: Database busy, skipping Questions.Time migration.");
+                        } else {
+                            console.log("Database status (Questions.Time):", err.message);
+                        }
+                    } else {
+                        // Newly added — backfill existing rows
+                        db.run(`UPDATE Questions SET Time = datetime('now') WHERE Time IS NULL`, (e2) => {
+                            if (e2) console.log("Questions.Time backfill error:", e2.message);
+                            else console.log("✅ Migration: Questions.Time column added and backfilled.");
+                        });
+                    }
+                });
             });
         }
     });

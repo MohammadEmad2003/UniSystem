@@ -236,7 +236,7 @@ function ExplanationPanel({ explanation, correctLabel, isCorrect }: {
 }) {
   return (
     <div
-      className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/50 overflow-hidden"
+      className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/50 overflow-visible"
       style={{ animation: "fadeSlideIn 0.25s ease both" }}
     >
       {/* Correct-answer banner */}
@@ -796,7 +796,7 @@ const FlashcardRenderer = memo(function FlashcardRenderer({ items }: { items: Fl
           </div>
           {/* Back */}
           <div
-            className="absolute inset-0 rounded-2xl border border-[#00e5ff]/30 bg-gradient-to-br from-[#00e5ff]/5 to-[#006080]/5 dark:from-[#0a2540] dark:to-[#0f2038] flex flex-col items-center justify-center p-8 shadow-lg overflow-y-auto"
+            className="absolute inset-0 rounded-2xl border border-[#00e5ff]/30 bg-gradient-to-br from-[#00e5ff]/5 to-[#006080]/5 dark:from-[#0a2540] dark:to-[#0f2038] flex flex-col items-center justify-center p-8 shadow-lg overflow-visible"
             style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
           >
             <SectionLabel color="emerald">Answer</SectionLabel>
@@ -886,7 +886,7 @@ const PageSummaryRenderer = memo(function PageSummaryRenderer({ pages }: { pages
         </div>
       </div>
       {pages.map((pg, i) => (
-        <div key={i} className="bg-white dark:bg-[#112240] rounded-2xl border border-slate-200 dark:border-slate-700/80 overflow-hidden transition-all">
+        <div key={i} className="bg-white dark:bg-[#112240] rounded-2xl border border-slate-200 dark:border-slate-700/80 overflow-visible transition-all">
           <button
             onClick={() => toggle(i)}
             className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group"
@@ -959,7 +959,7 @@ const MarkdownResult = memo(function MarkdownResult({ content, action }: {
 function AiLoader({ action }: { action: string }) {
   const tip = useRotatingTip(action);
   return (
-    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/70 dark:bg-[#0a192f]/80 backdrop-blur-md animate-fade-in">
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/70 dark:bg-[#0a192f]/80 animate-fade-in">
       <div className="relative mb-6">
         <div className="w-20 h-20 rounded-full border-4 border-[#00e5ff]/10" />
         <div className="absolute inset-0 w-20 h-20 rounded-full border-4 border-t-[#00e5ff] border-r-[#00b8d4] border-b-transparent border-l-transparent animate-spin" />
@@ -1331,6 +1331,7 @@ export default function ClassMaterialsTab() {
     try {
       const saved = await studyOutputService.get(classId, mid, tool.action, opts);
       if (saved) {
+        console.log('[STUDY_CACHE] hit', { action: tool.action, material_id: mid, source: 'study_output' });
         const restored = restoreFromCache(tool.action, tool.title, saved.content);
         if (restored) {
           setLastAction(tool.action);
@@ -1425,6 +1426,7 @@ export default function ClassMaterialsTab() {
     try {
       const saved = await studyOutputService.get(classId, mid, action, effectiveOpts);
       if (saved) {
+        console.log('[STUDY_CACHE] hit', { action, material_id: mid, source: 'study_output' });
         const restored = restoreFromCache(action, title, saved.content);
         if (restored) {
           console.log('[StudyAI] loaded from cache:', action);
@@ -1483,6 +1485,7 @@ export default function ClassMaterialsTab() {
       const now = new Date().toISOString();
       await studyOutputService.save(classId, mid, action, opts, serializeResult(generated))
         .catch(e => console.warn('[REGENERATE] persist failed:', e.message));
+      console.log('[STUDY_CACHE] saved regenerated output', { action, material_id: mid });
 
       setAiResult(generated);
       setCacheInfo({ updatedAt: now, wasRegenerated: true });
@@ -1559,7 +1562,7 @@ export default function ClassMaterialsTab() {
 
       {/* Upload modal */}
       {showUpload && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUpload(false)}>
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4" onClick={() => setShowUpload(false)}>
           <div className="bg-slate-50 dark:bg-[#0a192f] border border-slate-300 dark:border-slate-700/50 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8)] w-full max-w-md p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Upload Material</h3>
@@ -1651,7 +1654,7 @@ export default function ClassMaterialsTab() {
       {/* ── Study with AI Modal ─────────────────────────────────────────────── */}
       {activeAiMaterial && (
         <div
-          className="fixed inset-0 bg-slate-900/60 dark:bg-[#050b14]/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 sm:p-6"
+          className="fixed inset-0 bg-slate-900/60 dark:bg-[#050b14]/80 z-[100] flex items-center justify-center p-4 sm:p-6"
           onClick={closeAiModal}
         >
           <div
@@ -1758,22 +1761,24 @@ export default function ClassMaterialsTab() {
 
                 {aiModalStep === "result" && aiResult && (
                   /* ── Result view ──────────────────────────────────────── */
-                  <div className={`max-w-3xl mx-auto animate-fade-in relative transition-opacity duration-300 ${regenerating ? "opacity-50 pointer-events-none" : ""}`} ref={resultContentRef}>
-                    {(aiResult.type === "markdown" || aiResult.type === "error") && (
-                      <MarkdownResult content={aiResult.content} action={aiResult.action} />
-                    )}
-                    {aiResult.type === "quiz" && (
-                      <QuizRenderer
-                        items={aiResult.items}
-                        onRetry={handleRegenerate}
-                      />
-                    )}
-                    {aiResult.type === "flashcards" && (
-                      <FlashcardRenderer items={aiResult.items} />
-                    )}
-                    {aiResult.type === "pages" && (
-                      <PageSummaryRenderer pages={aiResult.pages} />
-                    )}
+                  <div className={`max-w-3xl mx-auto animate-fade-in relative transition-opacity duration-300 ${regenerating ? "opacity-50 pointer-events-none" : ""}`}>
+                    <div ref={resultContentRef} className="study-output overflow-visible">
+                      {(aiResult.type === "markdown" || aiResult.type === "error") && (
+                        <MarkdownResult content={aiResult.content} action={aiResult.action} />
+                      )}
+                      {aiResult.type === "quiz" && (
+                        <QuizRenderer
+                          items={aiResult.items}
+                          onRetry={handleRegenerate}
+                        />
+                      )}
+                      {aiResult.type === "flashcards" && (
+                        <FlashcardRenderer items={aiResult.items} />
+                      )}
+                      {aiResult.type === "pages" && (
+                        <PageSummaryRenderer pages={aiResult.pages} />
+                      )}
+                    </div>
 
                     {/* Cache / regenerate banner */}
                     {cacheInfo && (

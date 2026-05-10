@@ -5,12 +5,17 @@
  * Supports PDF (via html2pdf.js), Markdown (.md), and plain text (.txt).
  *
  * PDF strategy:
- *   Build a standalone HTML string with embedded KaTeX CSS so formulas
- *   render correctly inside the headless-chrome snapshot taken by html2pdf.
+ *   Build a standalone HTML string with KaTeX pre-rendered math (via
+ *   katex.renderToString) so formulas render as proper KaTeX HTML before
+ *   html2canvas captures the snapshot. Raw delimiters are never left in the
+ *   DOM — every $...$ and $$...$$ is converted at HTML-build time.
  *
  * Markdown/TXT strategy:
  *   Serialise the structured data directly — no DOM dependency.
  */
+
+import katex from 'katex';
+import { sanitizeAiMarkdown } from './aiMathSanitizer';
 
 // ── Types (mirrors ClassMaterialsTab) ────────────────────────────────────────
 
@@ -181,14 +186,119 @@ function escHtml(s: string) {
     .replace(/"/g, "&quot;");
 }
 
+function renderMathStr(latex: string, displayMode: boolean): string {
+  try {
+    return katex.renderToString(latex.trim(), {
+      throwOnError: false,
+      displayMode,
+      strict: false,
+    });
+  } catch {
+    return displayMode
+      ? `<div style="font-family:monospace;overflow-x:auto;white-space:pre-wrap">${escHtml(latex)}</div>`
+      : `<code>${escHtml(latex)}</code>`;
+  }
+}
+
+function prepareExportClone(root: HTMLElement) {
+  root.querySelectorAll<HTMLElement>('[class*="overflow-hidden"], [class*="overflow-y-auto"], [class*="overflow-auto"]').forEach((el) => {
+    el.style.overflow = 'visible';
+    el.style.maxHeight = 'none';
+    el.style.height = 'auto';
+  });
+
+  root.querySelectorAll<HTMLElement>('.markdown-content, .katex-display').forEach((el) => {
+    el.style.overflowX = 'auto';
+    el.style.maxWidth = '100%';
+  });
+
+  root.querySelectorAll<HTMLElement>('.markdown-content').forEach((el) => {
+    el.style.overflowY = 'visible';
+  });
+
+  root.querySelectorAll<HTMLElement>('.katex-display').forEach((el) => {
+    el.style.overflowY = 'hidden';
+    el.style.padding = '1rem 0';
+    el.style.margin = '1rem 0';
+  });
+
+  root.querySelectorAll<HTMLElement>('.katex').forEach((el) => {
+    el.style.lineHeight = '1.8';
+    el.style.fontSize = '1.05em';
+    el.style.color = '#1e293b';
+  });
+
+  root.querySelectorAll<HTMLElement>('.ai-answer, .study-output, .pdf-export').forEach((el) => {
+    el.style.color = '#1e293b';
+    el.style.background = 'transparent';
+  });
+}
+
+function buildRenderedPdfShell(result: AiResultData, meta: ExportMeta): string {
+  const date = meta.generatedAt.toLocaleString();
+  const opts = Object.entries(meta.selectedOptions)
+    .filter(([, v]) => v !== undefined && v !== null && v !== "")
+    .map(([k, v]) => `<span class="chip">${k.replace(/_/g, " ")}: <b>${v}</b></span>`)
+    .join(" ");
+
+  return `
+<style>
+  #pdf-export-root * { box-sizing: border-box; }
+  #pdf-export-root {
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-size: 12pt;
+    color: #1e293b;
+    background: #ffffff;
+    padding: 0;
+  }
+  .pdf-cover {
+    padding: 36px 48px 28px;
+    border-bottom: 3px solid #0891b2;
+    background: linear-gradient(135deg, #f0f9ff 0%, #fff 60%);
+  }
+  .pdf-brand  { font-size: 9pt; font-weight: 700; color: #0891b2; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 8px; }
+  .pdf-title  { font-size: 22pt; font-weight: 800; color: #0f172a; line-height: 1.2; }
+  .pdf-sub    { font-size: 10pt; color: #64748b; margin-top: 4px; }
+  .pdf-date   { font-size: 8.5pt; color: #94a3b8; margin-top: 6px; }
+  .pdf-chips  { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip { background:#e0f2fe; color:#0369a1; border-radius:99px; padding:2px 10px; font-size:8pt; border:1px solid #bae6fd; }
+  .pdf-body   { padding: 28px 48px 48px; }
+  .pdf-body .markdown-content { overflow-x: auto; overflow-y: visible; white-space: normal; max-width: 100%; }
+  .pdf-body .katex-display { overflow-x: auto; overflow-y: hidden; padding: 1rem 0; margin: 1rem 0; max-width: 100%; }
+  .pdf-body .katex-display > .katex { display: inline-block; min-width: max-content; }
+  .pdf-body .katex { line-height: 1.8; font-size: 1.05em; }
+  .pdf-body pre, .pdf-body code { white-space: pre-wrap; }
+</style>
+<div class="pdf-cover">
+  <div class="pdf-brand">UniSystem · Study with AI</div>
+  <div class="pdf-title">${escHtml(result.title)}</div>
+  <div class="pdf-sub">${escHtml(meta.materialName)}</div>
+  <div class="pdf-date">Generated on ${date}</div>
+  ${opts ? `<div class="pdf-chips">${opts}</div>` : ""}
+</div>
+<div class="pdf-body"></div>`;
+}
+
 /** Convert basic Markdown to HTML (headings, bold, bullets, blockquotes). */
-function mdToHtml(md: string): string {
-  const lines = md.split("\n");
+function mdToHtml(rawMd: string): string {
+  // Normalize raw LLM math output before rendering so \\frac, \[…\], truncated
+  // commands etc. are cleaned up before KaTeX ever sees them.
+  const md = sanitizeAiMarkdown(rawMd);
+  // Pre-render display math blocks ($$...$$) first — they can span multiple lines.
+  const preRendered = md.replace(/\$\$([\s\S]+?)\$\$/g, (_, m) => renderMathStr(m, true));
+  const lines = preRendered.split("\n");
   const out: string[] = [];
   let inUl = false;
 
   for (const raw of lines) {
     const line = raw;
+    const trimmed = line.trim();
+
+    if (/^<(span|div)\b[^>]*(katex-display|font-family:monospace)/.test(trimmed)) {
+      if (inUl) { out.push("</ul>"); inUl = false; }
+      out.push(trimmed);
+      continue;
+    }
 
     // headings
     const hm = line.match(/^(#{1,6})\s+(.*)/);
@@ -232,13 +342,16 @@ function mdToHtml(md: string): string {
 }
 
 function inlineMarkdown(s: string): string {
-  return s
+  const normalized = sanitizeAiMarkdown(s);
+
+  return normalized
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.*?)\*/g, "<em>$1</em>")
     .replace(/`([^`]+)`/g, "<code>$1</code>")
-    // keep LaTeX delimiters intact for KaTeX auto-render
-    .replace(/\$\$(.+?)\$\$/gs, (_, m) => `$$${m}$$`)
-    .replace(/\$(.+?)\$/g, (_, m) => `$${m}$`);
+    // Pre-render math with KaTeX so html2canvas captures actual formula glyphs.
+    // Display math first (longer delimiter) to avoid partial matches.
+    .replace(/\$\$(.+?)\$\$/gs, (_, m) => renderMathStr(m, true))
+    .replace(/\$(.+?)\$/g, (_, m) => renderMathStr(m, false));
 }
 
 // ── Per-type HTML builders ────────────────────────────────────────────────────
@@ -264,18 +377,18 @@ function quizHtml(items: QuizItem[]): string {
       const cls = oi === ci ? "correct" : "neutral";
       return `<li class="opt ${cls}">
         <span class="opt-letter">${letters[oi] ?? oi + 1}</span>
-        <span>${o}</span>
+        <span>${inlineMarkdown(o)}</span>
       </li>`;
     }).join("\n");
 
     const exp = q.explanation
-      ? `<div class="explanation"><span class="exp-label">Explanation: </span>${q.explanation}</div>`
+      ? `<div class="explanation"><span class="exp-label">Explanation: </span>${inlineMarkdown(q.explanation)}</div>`
       : "";
 
     return `<div class="q-block">
   <div class="q-header">
     <div class="q-num">${i + 1}</div>
-    <div class="q-text">${q.question}</div>
+    <div class="q-text">${inlineMarkdown(q.question)}</div>
     <div class="q-badges">${typeBadge}${diffBadge}</div>
   </div>
   <ul class="opts">${opts}</ul>
@@ -299,18 +412,18 @@ function flashcardsHtml(items: FlashItem[]): string {
     const fl  = c.focus_type ? focusLabel[c.focus_type] ?? c.focus_type : "";
     const badge = fl ? `<span class="focus-badge ${fc}">${fl}</span>` : "";
     const ex    = c.example
-      ? `<div class="flash-example"><b>Example:</b> ${c.example}</div>`
+      ? `<div class="flash-example"><b>Example:</b> ${inlineMarkdown(c.example)}</div>`
       : "";
     return `<div class="flash-card">
   <div class="flash-num">Card ${i + 1}</div>
   <div class="flash-face flash-front">
     ${badge}
     <div class="flash-label">Front</div>
-    <div class="flash-text">${c.front}</div>
+    <div class="flash-text">${inlineMarkdown(c.front)}</div>
   </div>
   <div class="flash-face flash-back">
     <div class="flash-label">Back</div>
-    <div class="flash-text">${c.back}</div>
+    <div class="flash-text">${inlineMarkdown(c.back)}</div>
     ${ex}
   </div>
 </div>`;
@@ -387,10 +500,11 @@ export async function exportStudyContent(
   // by the app, and place it in a VISIBLE, FIXED, FULL-VIEWPORT position so
   // html2canvas can capture it without overflow-clip issues.
 
-  const bodyContent = _buildBodyContent(result, meta);
+  const useRenderedClone = Boolean(contentEl && result.type === "markdown");
 
   const exportDiv = document.createElement("div");
   exportDiv.id = "pdf-export-root";
+  exportDiv.className = "pdf-export";
   exportDiv.style.cssText = [
     "position:fixed",
     "top:0",
@@ -404,7 +518,18 @@ export async function exportStudyContent(
     "visibility:visible",
     "pointer-events:none",
   ].join(";");
-  exportDiv.innerHTML = bodyContent;
+
+  if (useRenderedClone && contentEl) {
+    exportDiv.innerHTML = buildRenderedPdfShell(result, meta);
+    const pdfBody = exportDiv.querySelector(".pdf-body");
+    const clonedContent = contentEl.cloneNode(true) as HTMLElement;
+
+    prepareExportClone(clonedContent);
+    pdfBody?.appendChild(clonedContent);
+  } else {
+    exportDiv.innerHTML = _buildBodyContent(result, meta);
+  }
+
   document.body.appendChild(exportDiv);
 
   console.log("[PDF_EXPORT] Export div attached:", {
@@ -452,12 +577,6 @@ export async function exportStudyContent(
     console.log("[PDF_EXPORT] canvas.width:", canvas.width);
     console.log("[PDF_EXPORT] canvas.height:", canvas.height);
     console.log("[PDF_EXPORT] canvas preview:", canvas.toDataURL("image/png").slice(0, 100));
-
-    // Debug: download canvas as PNG so we can see what html2canvas captured
-    const debugA = document.createElement("a");
-    debugA.href = canvas.toDataURL("image/png");
-    debugA.download = "debug-export-canvas.png";
-    debugA.click();
 
     if (canvas.width === 0 || canvas.height === 0) {
       throw new Error("html2canvas returned zero-dimension canvas");
@@ -554,6 +673,7 @@ function _buildBodyContent(result: AiResultData, meta: ExportMeta): string {
   li { margin:3px 0; line-height:1.6; }
   blockquote { border-left:3px solid #0891b2; margin:8px 0; padding:4px 12px; color:#475569; background:#f8fafc; border-radius:0 4px 4px 0; }
   code { background:#f1f5f9; padding:1px 5px; border-radius:3px; font-size:9.5pt; font-family:monospace; color:#1d4ed8; }
+  pre  { white-space:pre-wrap; }
   hr   { border:none; border-top:1px solid #e2e8f0; margin:18px 0; }
 
   /* Quiz */
@@ -578,7 +698,7 @@ function _buildBodyContent(result: AiResultData, meta: ExportMeta): string {
 
   /* Flashcards */
   .card-grid  { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  .flash-card { border:1.5px solid #e2e8f0; border-radius:10px; overflow:hidden; page-break-inside:avoid; }
+  .flash-card { border:1.5px solid #e2e8f0; border-radius:10px; overflow:visible; page-break-inside:avoid; }
   .flash-num  { font-size:8pt; color:#94a3b8; padding:6px 12px 0; }
   .flash-face { padding:12px; }
   .flash-front{ background:#f8fafc; border-bottom:1.5px solid #e2e8f0; }
@@ -596,6 +716,13 @@ function _buildBodyContent(result: AiResultData, meta: ExportMeta): string {
   .page-header  { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
   .page-num-circle { width:30px; height:30px; border-radius:50%; background:#0891b2; color:#fff; font-weight:800; font-size:10pt; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .page-title { font-weight:700; font-size:11pt; color:#1e293b; }
+
+  /* KaTeX display-mode equations — centered block with breathing room */
+  .markdown-content { overflow-x:auto; overflow-y:visible; white-space:normal; max-width:100%; }
+  .katex-display { display:block; text-align:center; margin:1rem 0; padding:1rem 0; overflow-x:auto; overflow-y:hidden; max-width:100%; }
+  .katex-display > .katex { display:inline-block; min-width:max-content; }
+  .katex { line-height:1.8; font-size:1.05em; color:#1e293b; }
+  .katex-html { overflow-x:visible; max-width:100%; }
 </style>
 <div class="pdf-cover">
   <div class="pdf-brand">UniSystem · Study with AI</div>

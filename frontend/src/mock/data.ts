@@ -986,121 +986,18 @@ export const mockGradeSummaries: StudentGradeSummary[] = [
 
 // ---- Attendance ----
 export const mockAttendance: Attendance[] = [
-  // Lecture 1 attendance
-  {
-    attendance_id: "att-1",
-    lecture_id: "lec-1",
-    student_id: "student-1",
-    student_name: "Ahmed Hassan",
-    time: "2025-02-02T08:55:00Z",
-    is_verified: true,
-    status: "present",
-  },
-  {
-    attendance_id: "att-2",
-    lecture_id: "lec-1",
-    student_id: "student-2",
-    student_name: "Fatma Ali",
-    time: "2025-02-02T09:02:00Z",
-    is_verified: true,
-    status: "present",
-  },
-  // Lecture 2 attendance
-  {
-    attendance_id: "att-3",
-    lecture_id: "lec-2",
-    student_id: "student-1",
-    student_name: "Ahmed Hassan",
-    time: "2025-02-05T10:58:00Z",
-    is_verified: true,
-    status: "present",
-  },
-  {
-    attendance_id: "att-4",
-    lecture_id: "lec-2",
-    student_id: "student-2",
-    student_name: "Fatma Ali",
-    time: "",
-    is_verified: false,
-    status: "absent",
-  },
-  // Lecture 3 attendance
-  {
-    attendance_id: "att-5",
-    lecture_id: "lec-3",
-    student_id: "student-1",
-    student_name: "Ahmed Hassan",
-    time: "2025-02-09T09:15:00Z",
-    is_verified: true,
-    status: "late",
-  },
-  {
-    attendance_id: "att-6",
-    lecture_id: "lec-3",
-    student_id: "student-2",
-    student_name: "Fatma Ali",
-    time: "2025-02-09T08:50:00Z",
-    is_verified: true,
-    status: "present",
-  },
-  // Lecture 5 attendance (class 2)
-  {
-    attendance_id: "att-7",
-    lecture_id: "lec-5",
-    student_id: "student-1",
-    student_name: "Ahmed Hassan",
-    time: "2025-02-03T09:55:00Z",
-    is_verified: true,
-    status: "present",
-  },
-  {
-    attendance_id: "att-8",
-    lecture_id: "lec-5",
-    student_id: "student-2",
-    student_name: "Fatma Ali",
-    time: "2025-02-03T10:00:00Z",
-    is_verified: true,
-    status: "present",
-  },
-  // Lecture 8 attendance (class 3)
-  {
-    attendance_id: "att-9",
-    lecture_id: "lec-8",
-    student_id: "student-1",
-    student_name: "Ahmed Hassan",
-    time: "2025-02-04T13:58:00Z",
-    is_verified: true,
-    status: "present",
-  },
-  {
-    attendance_id: "att-10",
-    lecture_id: "lec-8",
-    student_id: "student-2",
-    student_name: "Fatma Ali",
-    time: "",
-    is_verified: false,
-    status: "absent",
-  },
-  // Lecture 11 attendance (class 4)
-  {
-    attendance_id: "att-11",
-    lecture_id: "lec-11",
-    student_id: "student-3",
-    student_name: "Omar Mahmoud",
-    time: "2025-02-02T12:55:00Z",
-    is_verified: true,
-    status: "present",
-  },
-  // Lecture 13 attendance (class 5)
-  {
-    attendance_id: "att-12",
-    lecture_id: "lec-13",
-    student_id: "student-3",
-    student_name: "Omar Mahmoud",
-    time: "2025-02-03T14:10:00Z",
-    is_verified: true,
-    status: "late",
-  },
+  { attendance_id: "att-1",  lec_id: "lec-1",  student_id: "student-1", student_name: "Ahmed Hassan", time: "2025-02-02T08:55:00Z", early_check: 1, late_check: 0, method: "nfc" },
+  { attendance_id: "att-2",  lec_id: "lec-1",  student_id: "student-2", student_name: "Fatma Ali",    time: "2025-02-02T09:02:00Z", early_check: 1, late_check: 0, method: "nfc" },
+  { attendance_id: "att-3",  lec_id: "lec-2",  student_id: "student-1", student_name: "Ahmed Hassan", time: "2025-02-05T10:58:00Z", early_check: 0, late_check: 0, method: "manual" },
+  { attendance_id: "att-4",  lec_id: "lec-2",  student_id: "student-2", student_name: "Fatma Ali",    time: "2025-02-05T11:10:00Z", early_check: 0, late_check: 1, method: "nfc" },
+  { attendance_id: "att-5",  lec_id: "lec-3",  student_id: "student-1", student_name: "Ahmed Hassan", time: "2025-02-09T09:15:00Z", early_check: 0, late_check: 0, method: "nfc" },
+  { attendance_id: "att-6",  lec_id: "lec-3",  student_id: "student-2", student_name: "Fatma Ali",    time: "2025-02-09T08:50:00Z", early_check: 1, late_check: 0, method: "nfc" },
+  { attendance_id: "att-7",  lec_id: "lec-5",  student_id: "student-1", student_name: "Ahmed Hassan", time: "2025-02-03T09:55:00Z", early_check: 1, late_check: 0, method: "nfc" },
+  { attendance_id: "att-8",  lec_id: "lec-5",  student_id: "student-2", student_name: "Fatma Ali",    time: "2025-02-03T10:00:00Z", early_check: 1, late_check: 0, method: "nfc" },
+  { attendance_id: "att-9",  lec_id: "lec-8",  student_id: "student-1", student_name: "Ahmed Hassan", time: "2025-02-04T13:58:00Z", early_check: 0, late_check: 1, method: "nfc" },
+  { attendance_id: "att-10", lec_id: "lec-8",  student_id: "student-2", student_name: "Fatma Ali",    time: "2025-02-04T14:05:00Z", early_check: 0, late_check: 1, method: "manual" },
+  { attendance_id: "att-11", lec_id: "lec-11", student_id: "student-3", student_name: "Omar Mahmoud", time: "2025-02-02T12:55:00Z", early_check: 1, late_check: 0, method: "nfc" },
+  { attendance_id: "att-12", lec_id: "lec-13", student_id: "student-3", student_name: "Omar Mahmoud", time: "2025-02-03T14:10:00Z", early_check: 0, late_check: 0, method: "online" },
 ];
 
 // ---- Notifications ----

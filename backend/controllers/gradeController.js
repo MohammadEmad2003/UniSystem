@@ -16,7 +16,7 @@ const getStudentGrades = asyncWrapper(async (req, res, next) => {
 
   const grades = await gradeQueries.customQuery(
     `SELECT 
-      g.Grade_ID, g.User_ID, g.Class_ID, g.Type, g.Generate_At,
+      g.Grade_ID, g.User_ID, g.Class_ID, g.Generate_At,
       g.Attendance, g.Practical, g.Project, g.Midterm, g.Final, g.GPA,
       g.Doctor_ID, c.Course_Code, c.Level, c.Semester, co.Name as Course_Name
     FROM Grades g
@@ -44,7 +44,6 @@ const getStudentGrades = asyncWrapper(async (req, res, next) => {
     course_name: grade.Course_Name,
     level: grade.Level,
     semester: grade.Semester,
-    type: grade.Type,
     attendance: grade.Attendance,
     practical: grade.Practical,
     project: grade.Project,

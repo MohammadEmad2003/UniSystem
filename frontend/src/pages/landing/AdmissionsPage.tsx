@@ -37,7 +37,7 @@ export default function AdmissionsPage() {
           <div className="absolute -top-24 -left-24 w-96 h-96 bg-primary-500 rounded-full blur-3xl" />
           <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-blue-500 rounded-full blur-3xl" />
         </div>
-        
+
         <div className="relative max-w-7xl mx-auto px-6 text-center pt-12">
           <h1 className="text-5xl md:text-8xl font-black mb-8 tracking-tighter">
             Join the <span className="text-primary-400">Class of 2030.</span>
@@ -49,9 +49,9 @@ export default function AdmissionsPage() {
             <Link to="/register" className="px-10 py-5 bg-white text-primary-950 rounded-2xl font-black shadow-xl hover:scale-105 transition">
               Start Application
             </Link>
-            <button className="px-10 py-5 bg-primary-800 text-white rounded-2xl font-black hover:bg-primary-700 transition">
+            <Link to="/campus-life" className="px-10 py-5 bg-primary-800 text-white rounded-2xl font-black hover:bg-primary-700 transition">
               Request Information
-            </button>
+            </Link>
           </div>
         </div>
       </section>
@@ -137,9 +137,9 @@ export default function AdmissionsPage() {
         <p className="text-slate-600 dark:text-slate-400 mb-10">
           Our admissions team is here to help you through every step of the process. Contact us for personalized guidance.
         </p>
-        <button className="inline-flex items-center gap-3 px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-2xl font-bold hover:scale-105 transition">
+        <Link to="/register" className="inline-flex items-center gap-3 px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-2xl font-bold hover:scale-105 transition">
           <Send size={18} /> Contact Admissions Team
-        </button>
+        </Link>
       </section>
     </div>
   );

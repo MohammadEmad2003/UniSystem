@@ -188,6 +188,9 @@ export default function Sidebar() {
                       <NavLink to="/admin/fees" className={linkClass} onClick={() => setOpen(false)}>
                         <DollarSign size={20} /> Manage Fees
                       </NavLink>
+                      <NavLink to="/admin/rooms" className={linkClass} onClick={() => setOpen(false)}>
+                        <Building2 size={20} /> Manage Rooms
+                      </NavLink>
                     </>
                   ) : (
                     // Student Affairs (Level 2) Links

@@ -26,6 +26,7 @@ import ClassMaterialsTab from "./pages/classes/ClassMaterialsTab";
 import ClassLecturesTab from "./pages/classes/ClassLecturesTab";
 import ClassStudentsTab from "./pages/classes/ClassStudentsTab";
 import ClassGradesTab from "./pages/classes/ClassGradesTab";
+import AttendancePage from "./pages/classes/AttendancePage";
 import ApprovalQueuePage from "./pages/admin/ApprovalQueuePage";
 import ManageUsersPage from "./pages/admin/ManageUsersPage";
 import ManageDepartmentsPage from "./pages/admin/ManageDepartmentsPage";
@@ -42,6 +43,7 @@ import AcademicsPage from "./pages/landing/AcademicsPage";
 import AdmissionsPage from "./pages/landing/AdmissionsPage";
 import ResearchPage from "./pages/landing/ResearchPage";
 import CampusLifePage from "./pages/landing/CampusLifePage";
+import ManageRoomsPage from "./pages/admin/ManageRoomsPage";
 
 
 // Route guard component
@@ -157,6 +159,7 @@ export default function App() {
           <Route path="lectures" element={<ClassLecturesTab />} />
           <Route path="students" element={<ClassStudentsTab />} />
           <Route path="grades" element={<ClassGradesTab />} />
+          <Route path="attendance/:lectureId" element={<AttendancePage />} />
         </Route>
 
         {/* Admin routes */}
@@ -229,6 +232,14 @@ export default function App() {
           element={
             <ProtectedRoute roles={["admin"]}>
               <ManageFeesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/rooms"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <ManageRoomsPage />
             </ProtectedRoute>
           }
         />

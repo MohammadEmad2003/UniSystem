@@ -170,6 +170,30 @@ const createLecture = asyncWrapper(async (req, res) => {
 
     const result = await lectureModel.create(newData);
 
+    // Send notifications to all students in the class
+    db.all(
+        `SELECT User_ID FROM Enrollment WHERE Class_ID = ?`,
+        [classId],
+        (err, students) => {
+            if (!err && students) {
+                const now = new Date().toISOString();
+                const insertNotif = db.prepare(
+                    `INSERT INTO Notification (User_ID, Title, Message, Type, Is_Read, Created_At) VALUES (?, ?, ?, ?, 0, ?)`
+                );
+                students.forEach(student => {
+                    insertNotif.run(
+                        student.User_ID,
+                        'New Lecture Scheduled',
+                        `A new lecture "${title}" has been scheduled for ${date} at ${time}.`,
+                        'new_lecture',
+                        now
+                    );
+                });
+                insertNotif.finalize();
+            }
+        }
+    );
+
     res.status(201).json({
         success: true,
         message: "Lecture created successfully",
@@ -267,6 +291,29 @@ const startLecture = asyncWrapper(async (req, res) => {
     if (result.changes === 0) {
         return res.status(404).json({ success: false, message: "Lecture not found" });
     }
+
+    // Send notifications to all students in the class
+    db.all(
+        `SELECT User_ID FROM Enrollment WHERE Class_ID = ?`,
+        [lecture.Class_ID],
+        (err, students) => {
+            if (!err && students) {
+                const insertNotif = db.prepare(
+                    `INSERT INTO Notification (User_ID, Title, Message, Type, Is_Read, Created_At) VALUES (?, ?, ?, ?, 0, ?)`
+                );
+                students.forEach(student => {
+                    insertNotif.run(
+                        student.User_ID,
+                        'Lecture Started',
+                        `The lecture "${lecture.Title}" has started. You can now record your attendance.`,
+                        'lecture_started',
+                        now
+                    );
+                });
+                insertNotif.finalize();
+            }
+        }
+    );
 
     res.status(200).json({
         success: true,

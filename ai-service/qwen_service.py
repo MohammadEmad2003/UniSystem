@@ -174,23 +174,63 @@ class QwenService:
 
     # ── Public methods ─────────────────────────────────────────────────────────
 
+    # Academic terms that must NOT appear in a rewrite if absent from the original
+    _ACADEMIC_INJECTION_TERMS: list[str] = [
+        'fourier', 'series', 'transform', 'properties', 'theorem', 'parseval',
+        'linearity', 'harmonic', 'frequency', 'convolution', 'laplace', 'algorithm',
+        'complexity', 'eigenvalue', 'integral', 'derivative', 'coefficient',
+    ]
+
     def rewrite_question(self, question: str) -> str | None:
+        print(f"[REWRITE] original: {question!r}")
+
         prompt = (
-            "Rewrite the student question as a concise academic search query.\n\n"
+            "Rewrite the student question as a natural, concise version that keeps all the original meaning.\n\n"
             "Rules (follow strictly):\n"
-            "- Return plain text only — no markdown, no JSON.\n"
-            "- Keep ALL mathematical symbols, variable names, and technical terms EXACTLY as written.\n"
-            "- Do NOT replace symbols (e.g. keep omega_0, D_k, T_0, Fourier, theta as-is).\n"
+            "- Return ONLY a natural rewritten version of the question. Nothing else.\n"
+            "- Do NOT add metadata phrases like 'academic search query', 'retrieval query',\n"
+            "  'semantic search', 'optimized query', 'search query for', or similar wording.\n"
+            "- Keep ALL technical terms, names, symbols and concepts EXACTLY as in the original.\n"
+            "- Do NOT replace domain terms (e.g. keep Fourier, omega_0, D_k, T_0, Parseval, linearity).\n"
             "- Only fix obvious spelling or grammar mistakes.\n"
             "- Do NOT add concepts that are not in the original question.\n"
+            "- Do NOT use previous questions, chat history, retrieved documents, or examples\n"
+            "  to infer a new topic. Base the rewrite ONLY on the words in the input below.\n"
+            "- If the input is a greeting, short casual phrase, or not an academic question,\n"
+            "  return it UNCHANGED.\n"
             "- Do NOT answer the question.\n"
-            "- Output one line only.\n\n"
+            "- Output ONE line only — just the rewritten question.\n\n"
+            "Examples of GOOD rewrites:\n"
+            "  Input: 'explain fourier series properties'\n"
+            "  Output: Properties of Fourier Series\n\n"
+            "  Input: 'what is parseval theorem'\n"
+            "  Output: Parseval's theorem explanation\n\n"
+            "  Input: 'hello hi'\n"
+            "  Output: hello hi\n\n"
+            "Examples of BAD rewrites (NEVER do this):\n"
+            "  BAD: 'Fourier Series Properties academic search query'\n"
+            "  BAD: 'semantic search: fourier series'\n"
+            "  BAD: 'retrieval query for Fourier Series Properties'\n"
+            "  BAD: introducing a topic (e.g. Fourier) that was NOT in the original input\n\n"
             f"Student question:\n{question}"
         )
-        return self._call_ollama(
+        result = self._call_ollama(
             "query rewrite", SYSTEM_PROMPT, prompt,
             timeout=30, temperature=0.1, top_p=0.9,
         )
+
+        if result:
+            # Strip any search-engine wording the model may have appended
+            result = re.sub(
+                r'\s*(?:academic\s+)?(?:search\s+query|retrieval\s+query|semantic\s+search'
+                r'|optimized\s+query|search\s+term|query\s+for\s+retrieval)[\s:]*$',
+                '',
+                result.strip(),
+                flags=re.IGNORECASE,
+            ).strip()
+
+        print(f"[REWRITE] candidate: {result!r}")
+        return result or None
 
     def summarize_pdf_chunk(self, text: str) -> str | None:
         prompt = (
@@ -580,18 +620,28 @@ class QwenService:
         prompt = (
             f"Class context:\n{context}\n\n"
             f"Student question:\n{question}\n\n"
-            "Return only the final answer.\n"
-            "Write ALL math in LaTeX ($...$ or $$...$$).\n"
-            "Use Markdown. Use bullet points when helpful.\n"
-            "Do not wrap the output in ``` code fences.\n"
-            "Do not return JSON."
+            "Instructions:\n"
+            "- Return ONLY the final answer. Do not say 'Here is the answer' or 'Certainly'.\n"
+            "- Write ALL math in LaTeX ($...$ for inline, $$...$$ for display equations).\n"
+            "- Use Markdown. Use bullet points and bold for key terms.\n"
+            "- If the question asks about PROPERTIES or THEOREMS, list EACH property separately.\n"
+            "- If the question asks about Fourier Series, cover: linearity, time shift, frequency shift,\n"
+            "  symmetry, Parseval's theorem, and coefficient formulas — if they appear in the context.\n"
+            "- Provide a complete answer. Do NOT stop mid-sentence.\n"
+            "- Do NOT wrap the output in ``` code fences.\n"
+            "- Do NOT return JSON.\n"
+            "- If the context does not contain enough information to answer, return exactly: SEND_TO_DOCTOR"
         )
         answer = self._call_ollama(
             "answer generation", QA_SYSTEM_PROMPT, prompt,
+            timeout=180,
+            num_predict=2048,
             temperature=0.15, top_p=0.8, repeat_penalty=1.1,
         )
         if answer:
             print(f"[OLLAMA] answer preview: {answer[:160]}{'...' if len(answer)>160 else ''}")
+        else:
+            print(f"[OLLAMA] answer generation returned None (model may have timed out or refused)")
         return answer
 
     # ── OCR / math artifact corrections applied to chunk text before LLM ─────

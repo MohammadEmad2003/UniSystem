@@ -160,8 +160,8 @@ const recordAttendance = asyncWrapper(async (req, res) => {
   const { lectureId } = req.params;
   const { student_id, status, is_verified } = req.body;
 
-  if (!student_id || !status) {
-    return res.status(400).json({ success: httpstatustext.error, message: { msg: 'student_id and status are required' } });
+  if (!student_id) {
+    return res.status(400).json({ success: httpstatustext.error, message: 'student_id is required' });
   }
 
   // تأكد إن الـ lecture موجودة
@@ -173,7 +173,7 @@ const recordAttendance = asyncWrapper(async (req, res) => {
   });
 
   if (!lecture) {
-    return res.status(404).json({ success: httpstatustext.error, message: { msg: 'Lecture not found' } });
+    return res.status(404).json({ success: httpstatustext.error, message: 'Lecture not found' });
   }
 
   // تأكد مش سجّل قبل كده
@@ -189,7 +189,7 @@ const recordAttendance = asyncWrapper(async (req, res) => {
   });
 
   if (existing) {
-    return res.status(400).json({ success: httpstatustext.error, message: { msg: 'Attendance already recorded' } });
+    return res.status(400).json({ success: httpstatustext.error, message: 'Attendance already recorded' });
   }
 
   await new Promise((resolve, reject) => {
@@ -203,7 +203,7 @@ const recordAttendance = asyncWrapper(async (req, res) => {
     );
   });
 
-  res.status(201).json({ success: httpstatustext.success, message: { msg: 'Attendance recorded successfully' } });
+  res.status(201).json({ success: httpstatustext.success, message: 'Attendance recorded successfully' });
 });
 
 // POST /attendance/nfc

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { departmentService } from '../../services';
+import { departmentService, adminService } from '../../services';
 import { Building2, Plus, Pencil, Trash2, X, GraduationCap, Clock } from 'lucide-react';
 import { useAuthStore } from '../../hooks/useAuthStore';
 import type { Department } from '../../types';
@@ -19,7 +19,7 @@ export default function ManageDepartmentsPage() {
   useEffect(() => {
     Promise.all([
       departmentService.getAll(),
-      fetch('http://localhost:3000/api/admin/doctors', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+      adminService.getAllDoctors()
     ]).then(([deptRes, docRes]) => {
       setDepartments(deptRes.data);
       if (docRes.success) setDoctors(docRes.data);
@@ -35,7 +35,8 @@ export default function ManageDepartmentsPage() {
       if (editing) {
         const res = await departmentService.update(editing.dept_id, { 
           dept_name: name,
-          total_hours_required: hours 
+          total_hours_required: hours,
+          head_id: headId || undefined
         });
         setDepartments(prev => prev.map(d => d.dept_id === editing.dept_id ? res.data : d));
       } else {
@@ -63,6 +64,7 @@ export default function ManageDepartmentsPage() {
     setEditing(d); 
     setName(d.dept_name); 
     setTotalHours(String(d.total_hours_required || 144));
+    setHeadId(d.head_id || '');
     setShowForm(true); 
   };
 
@@ -138,17 +140,15 @@ export default function ManageDepartmentsPage() {
                 </div>
               </div>
 
-              {!editing && (
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-500 ml-1">Head of Department</label>
-                  <select value={headId} onChange={e => setHeadId(e.target.value)} className="input-field font-bold">
-                    <option value="">Select Head (Optional)</option>
-                    {doctors.map(d => (
-                      <option key={d.user_id} value={d.user_id}>{d.f_name} {d.l_name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-500 ml-1">Head of Department</label>
+                <select value={headId} onChange={e => setHeadId(e.target.value)} className="input-field font-bold">
+                  <option value="">Select Head (Optional)</option>
+                  {doctors.map(d => (
+                    <option key={d.user_id} value={d.user_id}>{d.f_name} {d.l_name}</option>
+                  ))}
+                </select>
+              </div>
 
               <button onClick={handleSave} className="btn-primary w-full py-4 text-lg font-bold shadow-xl shadow-primary-500/30 mt-4">
                 {editing ? 'Save Changes' : 'Create Department'}

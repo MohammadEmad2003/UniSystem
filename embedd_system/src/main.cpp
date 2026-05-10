@@ -13,7 +13,7 @@
 
 const char *ssid = "MZandEB";
 const char *password = "16520053071982MMA";
-const char *serverUrl = "http://192.168.1.51:3000";
+const char *serverUrl = "http://192.168.1.66:3000";
 
 char serialBuffer[256];
 uint16_t serialIndex = 0;

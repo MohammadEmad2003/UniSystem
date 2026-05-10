@@ -1,7 +1,11 @@
 const httpstatustext = require('../utilities/httpstatustext');
 const asyncWrapper = require('../middleware/asyncWrapper');
 const db = require('../utilities/database');
-const adminController = require('./adminController');
+
+const normalizeRoomKey = (room_id) => {
+  if (room_id === null || room_id === undefined || room_id === '') return '';
+  return String(room_id).trim();
+};
 
 // GET /lectures/:lectureId/attendance
 
@@ -215,29 +219,42 @@ const nfcAttendance = asyncWrapper(async (req, res) => {
     return res.status(400).json({ success: httpstatustext.error, message: "uid and room_id are required" });
   }
 
+  const rk = normalizeRoomKey(room_id);
+
+  const roomOk = await new Promise((resolve, reject) => {
+    db.get(`SELECT Room_ID FROM Room WHERE Room_ID = ?`, [rk], (err, row) => {
+      if (err) return reject(err);
+      resolve(!!row);
+    });
+  });
+  if (!roomOk) {
+    return res.status(404).json({ success: httpstatustext.error, message: "Room not found" });
+  }
+
   // Find the active lecture in this room
   const lecture = await new Promise((resolve, reject) => {
-    db.get(`SELECT Lec_ID FROM Lecture WHERE Room_ID = ? AND Status = 'open'`, [room_id], (err, row) => {
+    db.get(`SELECT Lec_ID FROM Lecture WHERE Room_ID = ? AND Status = 'open'`, [rk], (err, row) => {
       if (err) return reject(err);
       resolve(row);
     });
   });
 
-  if (!lecture) {
-    return res.status(400).json({ success: httpstatustext.error, message: "No active lecture in this room" });
-  }
+  const lec_id = lecture?.Lec_ID;
 
-  const lec_id = lecture.Lec_ID;
-
-  // 1. Monitor Path: Emit to Socket.io IMMEDIATELY (Proxy Mode)
+  // Monitor Path: Emit to Socket.io (Proxy Mode)
+  // This allows the Admin/Link Card page to see the scan even if no lecture is active.
   const io = req.app.get("io");
   if (io) {
     io.emit("nfc_scan", {
       uid,
       lec_id,
-      room_id,
+      room_id: rk,
       time: new Date().toISOString()
     });
+  }
+
+  if (!lecture) {
+    return res.status(400).json({ success: httpstatustext.error, message: "No active lecture in this room" });
   }
 
   // Find student by NFC UID
@@ -264,9 +281,20 @@ const manualAttendance = asyncWrapper(async (req, res) => {
     return res.status(400).json({ success: httpstatustext.error, message: "studentId, password and room_id are required" });
   }
 
+  const rk = normalizeRoomKey(room_id);
+  const roomOk = await new Promise((resolve, reject) => {
+    db.get(`SELECT Room_ID FROM Room WHERE Room_ID = ?`, [rk], (err, row) => {
+      if (err) return reject(err);
+      resolve(!!row);
+    });
+  });
+  if (!roomOk) {
+    return res.status(404).json({ success: httpstatustext.error, message: "Room not found" });
+  }
+
   // Find the active lecture in this room
   const lecture = await new Promise((resolve, reject) => {
-    db.get(`SELECT Lec_ID FROM Lecture WHERE Room_ID = ? AND Status = 'open'`, [room_id], (err, row) => {
+    db.get(`SELECT Lec_ID FROM Lecture WHERE Room_ID = ? AND Status = 'open'`, [rk], (err, row) => {
       if (err) return reject(err);
       resolve(row);
     });
@@ -357,6 +385,22 @@ async function processAttendance(userId, lecId, method, res) {
 
   if (!lecture) {
     return res.status(400).json({ success: httpstatustext.error, message: "Lecture is not open for attendance" });
+  }
+
+  // NEW: Verify student enrollment in this class
+  const enrollment = await new Promise((resolve, reject) => {
+    db.get(
+      `SELECT * FROM Enrollment WHERE User_ID = ? AND Class_ID = ?`,
+      [userId, lecture.Class_ID],
+      (err, row) => {
+        if (err) return reject(err);
+        resolve(row);
+      }
+    );
+  });
+
+  if (!enrollment) {
+    return res.status(403).json({ success: httpstatustext.error, message: "Student is not enrolled in this class" });
   }
 
   const now = new Date();

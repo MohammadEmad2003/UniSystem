@@ -67,11 +67,15 @@ export default function ManageRoomsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this room?")) return;
+    setError(null);
     try {
       await apiClient.delete(`/rooms/${id}`);
       fetchRooms();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to delete room", err);
+      const msg = err?.response?.data?.message || "Failed to delete room";
+      setError(msg);
+      alert(msg);
     }
   };
 

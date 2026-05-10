@@ -84,7 +84,7 @@ const getPaymentDetails = asyncWrapper(async (req, res) => {
 
     const student = await new Promise((resolve, reject) => {
         db.get(
-            `SELECT Academic_Level, Payment_Status, Paid_Amount
+            `SELECT Academic_Level, Semester, Payment_Status, Paid_Amount
              FROM Student
              WHERE User_ID = ?`,
             [studentId],
@@ -116,18 +116,27 @@ const getPaymentDetails = asyncWrapper(async (req, res) => {
         );
     });
 
-    // Calculate Total Fees based on individual course prices
-    let totalFees = 0;
-    courses.forEach(c => {
-        if (c.Hour_Price > 0) {
-            totalFees += (c.Credit_Hours * c.Hour_Price);
-        } else {
-            // If no hour price, maybe fallback to a fraction of fixed fees? 
-            // Or if they have a fixed fee per semester, we should handle that.
-            // For now, let's just sum what we find.
-            totalFees += (c.Fixed_Fees || 0);
-        }
+    const feeInfo = await new Promise((resolve, reject) => {
+        db.get(
+            `SELECT Hour_Price, Total_Fees 
+             FROM Academic_Level_Fees 
+             WHERE Academic_Level = ? AND Semester = ?`,
+            [student.Academic_Level, student.Semester],
+            (err, row) => {
+                if (err) return reject(err);
+                resolve(row);
+            }
+        );
     });
+
+    let totalHours = 0;
+    courses.forEach(c => totalHours += (c.Credit_Hours || 0));
+
+    let totalFees = 0;
+    if (feeInfo) {
+        // If they have hours, multiply. Otherwise use fixed Total_Fees
+        totalFees = totalHours > 0 ? (totalHours * (feeInfo.Hour_Price || 0)) : (feeInfo.Total_Fees || 0);
+    }
 
     const remaining = Math.max(0, totalFees - (student.Paid_Amount || 0));
 
@@ -139,6 +148,8 @@ const getPaymentDetails = asyncWrapper(async (req, res) => {
             paid_amount: student.Paid_Amount,
             total_fees: totalFees,
             remaining_amount: remaining,
+            total_hours: totalHours,
+            hour_price: feeInfo?.Hour_Price || 0,
             courses: courses
         }
     });
@@ -153,7 +164,7 @@ const makePayment = asyncWrapper(async (req, res) => {
     }
 
     const student = await new Promise((resolve, reject) => {
-        db.get(`SELECT Paid_Amount FROM Student WHERE User_ID = ?`, [studentId], (err, row) => {
+        db.get(`SELECT Paid_Amount, Academic_Level, Semester FROM Student WHERE User_ID = ?`, [studentId], (err, row) => {
             if (err) return reject(err);
             resolve(row);
         });
@@ -180,14 +191,26 @@ const makePayment = asyncWrapper(async (req, res) => {
         );
     });
 
-    let totalFees = 0;
-    courses.forEach(c => {
-        if (c.Hour_Price > 0) {
-            totalFees += (c.Credit_Hours * c.Hour_Price);
-        } else {
-            totalFees += (c.Fixed_Fees || 0);
-        }
+    const feeInfo = await new Promise((resolve, reject) => {
+        db.get(
+            `SELECT Hour_Price, Total_Fees 
+             FROM Academic_Level_Fees 
+             WHERE Academic_Level = ? AND Semester = ?`,
+            [student.Academic_Level, student.Semester],
+            (err, row) => {
+                if (err) return reject(err);
+                resolve(row);
+            }
+        );
     });
+
+    let totalHours = 0;
+    courses.forEach(c => totalHours += (c.Credit_Hours || 0));
+
+    let totalFees = 0;
+    if (feeInfo) {
+        totalFees = totalHours > 0 ? (totalHours * (feeInfo.Hour_Price || 0)) : (feeInfo.Total_Fees || 0);
+    }
 
     const newPaidAmount = (student.Paid_Amount || 0) + Number(amount);
     let newStatus = 'Unpaid';

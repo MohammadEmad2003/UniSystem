@@ -1,11 +1,29 @@
 const db = require('../utilities/database');
 const asyncWrapper = require("../middleware/asyncWrapper");
 const genericQueries = require('../utilities/genericQueries');
+const { createBroadcastNotification } = require('../utilities/createNotification');
 
 const lectureModel = genericQueries('Lecture', {
     primaryKey: 'Lec_ID',
     emailField: 'none'
 });
+
+/** Match Room.Room_ID (VARCHAR); null/empty = no room */
+const normalizeRoomId = (room_id) => {
+    if (room_id === null || room_id === undefined || room_id === '') return null;
+    const s = String(room_id).trim();
+    return s || null;
+};
+
+const roomExists = (room_id) =>
+    new Promise((resolve, reject) => {
+        const id = normalizeRoomId(room_id);
+        if (!id) return resolve(false);
+        db.get(`SELECT Room_ID FROM Room WHERE Room_ID = ?`, [id], (err, row) => {
+            if (err) return reject(err);
+            resolve(!!row);
+        });
+    });
 
 const checkRoomOccupiedNow = async (room_id, exclude_lec_id = null) => {
     return new Promise((resolve, reject) => {
@@ -96,18 +114,26 @@ const updateLecture = asyncWrapper(async (req, res) => {
         return res.status(400).json({ success: false, message: "Can't update an open lecture" });
     }
 
+    const nextRoom =
+        room_id !== undefined ? normalizeRoomId(room_id) : lecture.Room_ID;
+
     const nextData = {
         Title: title ?? lecture.Title,
         Date: date ?? lecture.Date,
         Day: day ?? lecture.Day,
         Time: time ?? lecture.Time,
         Type: type ?? lecture.Type,
-        Room_ID: (room_id !== undefined) ? (room_id || null) : lecture.Room_ID,
+        Room_ID: nextRoom,
         Meeting_Link: (meeting_link !== undefined) ? (meeting_link || null) : lecture.Meeting_Link
     };
 
     // Validate room constraints for offline types
     if (['Lecture', 'Section', 'Lab'].includes(nextData.Type) && nextData.Room_ID) {
+        const exists = await roomExists(nextData.Room_ID);
+        if (!exists) {
+            return res.status(400).json({ success: false, message: "Room not found" });
+        }
+
         const scheduleCheck = await checkRoomScheduledConflict(nextData.Room_ID, nextData.Date, nextData.Time);
         if (!scheduleCheck.available) {
             // If conflict is with itself, allow (same lecture)
@@ -143,15 +169,22 @@ const createLecture = asyncWrapper(async (req, res) => {
         return res.status(400).json({ success: false, message: "Missing fields" });
     }
 
-    if (['Lecture', 'Section', 'Lab'].includes(type) && room_id) {
+    const rid = normalizeRoomId(room_id);
+
+    if (['Lecture', 'Section', 'Lab'].includes(type) && rid) {
+        const exists = await roomExists(rid);
+        if (!exists) {
+            return res.status(400).json({ success: false, message: "Room not found" });
+        }
+
         // 1. Check scheduling conflicts
-        const scheduleCheck = await checkRoomScheduledConflict(room_id, date, time);
+        const scheduleCheck = await checkRoomScheduledConflict(rid, date, time);
         if (!scheduleCheck.available) {
             return res.status(400).json({ success: false, message: scheduleCheck.reason });
         }
 
         // 2. Check if the room is currently occupied (prevents on-the-fly overlap)
-        const occupiedCheck = await checkRoomOccupiedNow(room_id);
+        const occupiedCheck = await checkRoomOccupiedNow(rid);
         if (!occupiedCheck.available) {
             return res.status(400).json({ success: false, message: occupiedCheck.reason });
         }
@@ -163,36 +196,30 @@ const createLecture = asyncWrapper(async (req, res) => {
         Day: day,
         Time: time,
         Type: type,
-        Room_ID: room_id || null,
+        Room_ID: rid,
         Meeting_Link: meeting_link || null,
         Class_ID: classId
     };
 
     const result = await lectureModel.create(newData);
 
-    // Send notifications to all students in the class
-    db.all(
-        `SELECT User_ID FROM Enrollment WHERE Class_ID = ?`,
-        [classId],
-        (err, students) => {
-            if (!err && students) {
-                const now = new Date().toISOString();
-                const insertNotif = db.prepare(
-                    `INSERT INTO Notification (User_ID, Title, Message, Type, Is_Read, Created_At) VALUES (?, ?, ?, ?, 0, ?)`
-                );
-                students.forEach(student => {
-                    insertNotif.run(
-                        student.User_ID,
-                        'New Lecture Scheduled',
-                        `A new lecture "${title}" has been scheduled for ${date} at ${time}.`,
-                        'new_lecture',
-                        now
-                    );
-                });
-                insertNotif.finalize();
-            }
-        }
-    );
+    const students = await new Promise((resolve, reject) => {
+        db.all(
+            `SELECT User_ID FROM Enrollment WHERE Class_ID = ?`,
+            [classId],
+            (err, rows) => (err ? reject(err) : resolve(rows || []))
+        );
+    });
+    if (students.length) {
+        createBroadcastNotification({
+            userIds: students.map((s) => s.User_ID),
+            classId: Number(classId),
+            type: 'new_lecture',
+            title: 'New Lecture Scheduled',
+            message: `A new lecture "${title}" has been scheduled for ${date} at ${time}.`,
+            referenceId: result.lastID,
+        }).catch((e) => console.error('[notify] new_lecture broadcast failed:', e.message));
+    }
 
     res.status(201).json({
         success: true,
@@ -265,6 +292,13 @@ const startLecture = asyncWrapper(async (req, res) => {
     }
 
     if (['Lecture', 'Section', 'Lab'].includes(lecture.Type) && lecture.Room_ID) {
+        const rid = normalizeRoomId(lecture.Room_ID);
+        if (rid) {
+            const exists = await roomExists(rid);
+            if (!exists) {
+                return res.status(400).json({ success: false, message: "Lecture room no longer exists" });
+            }
+        }
         const occupiedCheck = await checkRoomOccupiedNow(lecture.Room_ID, lecId);
         if (!occupiedCheck.available) {
             return res.status(400).json({ success: false, message: occupiedCheck.reason });
@@ -292,28 +326,23 @@ const startLecture = asyncWrapper(async (req, res) => {
         return res.status(404).json({ success: false, message: "Lecture not found" });
     }
 
-    // Send notifications to all students in the class
-    db.all(
-        `SELECT User_ID FROM Enrollment WHERE Class_ID = ?`,
-        [lecture.Class_ID],
-        (err, students) => {
-            if (!err && students) {
-                const insertNotif = db.prepare(
-                    `INSERT INTO Notification (User_ID, Title, Message, Type, Is_Read, Created_At) VALUES (?, ?, ?, ?, 0, ?)`
-                );
-                students.forEach(student => {
-                    insertNotif.run(
-                        student.User_ID,
-                        'Lecture Started',
-                        `The lecture "${lecture.Title}" has started. You can now record your attendance.`,
-                        'lecture_started',
-                        now
-                    );
-                });
-                insertNotif.finalize();
-            }
-        }
-    );
+    const students = await new Promise((resolve, reject) => {
+        db.all(
+            `SELECT User_ID FROM Enrollment WHERE Class_ID = ?`,
+            [lecture.Class_ID],
+            (err, rows) => (err ? reject(err) : resolve(rows || []))
+        );
+    });
+    if (students.length) {
+        createBroadcastNotification({
+            userIds: students.map((s) => s.User_ID),
+            classId: Number(lecture.Class_ID),
+            type: 'lecture_started',
+            title: 'Lecture Started',
+            message: `The lecture "${lecture.Title}" has started. You can now record your attendance.`,
+            referenceId: Number(lecId),
+        }).catch((e) => console.error('[notify] lecture_started broadcast failed:', e.message));
+    }
 
     res.status(200).json({
         success: true,

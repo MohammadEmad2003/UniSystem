@@ -3,10 +3,11 @@ const { query } = require('./database');
 const genericQueries = (tableName, options = {}) => {
   const primaryKey = options.primaryKey || 'id';
   const emailField = options.emailField || 'email';
+  const safeTableName = tableName === 'User' ? '"User"' : tableName;
 
   const getAll = async () => {
     try {
-      const result = await query(`SELECT * FROM ${tableName}`);
+      const result = await query(`SELECT * FROM ${safeTableName}`);
       return result.rows;
     } catch (err) {
       throw err;
@@ -15,7 +16,7 @@ const genericQueries = (tableName, options = {}) => {
 
   const getById = async (id) => {
     try {
-      const result = await query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = $1`, [id]);
+      const result = await query(`SELECT * FROM ${safeTableName} WHERE ${primaryKey} = $1`, [id]);
       return result.rows[0];
     } catch (err) {
       throw err;
@@ -24,7 +25,7 @@ const genericQueries = (tableName, options = {}) => {
 
   const getByEmail = async (email) => {
     try {
-      const result = await query(`SELECT * FROM ${tableName} WHERE ${emailField} = $1`, [email]);
+      const result = await query(`SELECT * FROM ${safeTableName} WHERE ${emailField} = $1`, [email]);
       return result.rows[0];
     } catch (err) {
       throw err;
@@ -33,7 +34,7 @@ const genericQueries = (tableName, options = {}) => {
 
   const findByField = async (fieldName, value) => {
     try {
-      const result = await query(`SELECT * FROM ${tableName} WHERE ${fieldName} = $1`, [value]);
+      const result = await query(`SELECT * FROM ${safeTableName} WHERE ${fieldName} = $1`, [value]);
       return result.rows[0];
     } catch (err) {
       throw err;
@@ -47,7 +48,7 @@ const genericQueries = (tableName, options = {}) => {
       const values = Object.values(data);
       
       const result = await query(
-        `INSERT INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`,
+        `INSERT INTO ${safeTableName} (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`,
         values
       );
       return result.rows[0];
@@ -63,7 +64,7 @@ const genericQueries = (tableName, options = {}) => {
       const values = [...Object.values(data), id];
       
       const result = await query(
-        `UPDATE ${tableName} SET ${sets} WHERE ${primaryKey} = $${values.length} RETURNING *`,
+        `UPDATE ${safeTableName} SET ${sets} WHERE ${primaryKey} = $${values.length} RETURNING *`,
         values
       );
       return result.rows[0];
@@ -74,7 +75,7 @@ const genericQueries = (tableName, options = {}) => {
 
   const deleteRow = async (id) => {
     try {
-      const result = await query(`DELETE FROM ${tableName} WHERE ${primaryKey} = $1 RETURNING *`, [id]);
+      const result = await query(`DELETE FROM ${safeTableName} WHERE ${primaryKey} = $1 RETURNING *`, [id]);
       return result.rows[0];
     } catch (err) {
       throw err;
@@ -83,7 +84,7 @@ const genericQueries = (tableName, options = {}) => {
 
   const getAllByField = async (fieldName, value) => {
     try {
-      const result = await query(`SELECT * FROM ${tableName} WHERE ${fieldName} = $1`, [value]);
+      const result = await query(`SELECT * FROM ${safeTableName} WHERE ${fieldName} = $1`, [value]);
       return result.rows;
     } catch (err) {
       throw err;
@@ -92,7 +93,7 @@ const genericQueries = (tableName, options = {}) => {
 
   const count = async () => {
     try {
-      const result = await query(`SELECT COUNT(*) as count FROM ${tableName}`);
+      const result = await query(`SELECT COUNT(*) as count FROM ${safeTableName}`);
       return parseInt(result.rows[0].count);
     } catch (err) {
       throw err;
@@ -101,7 +102,7 @@ const genericQueries = (tableName, options = {}) => {
 
   const countByField = async (fieldName, value) => {
     try {
-      const result = await query(`SELECT COUNT(*) as count FROM ${tableName} WHERE ${fieldName} = $1`, [value]);
+      const result = await query(`SELECT COUNT(*) as count FROM ${safeTableName} WHERE ${fieldName} = $1`, [value]);
       return parseInt(result.rows[0].count);
     } catch (err) {
       throw err;
@@ -114,7 +115,7 @@ const genericQueries = (tableName, options = {}) => {
       const whereClause = fields.map((f, i) => `${f} = $${i + 1}`).join(' AND ');
       const values = Object.values(conditions);
 
-      const result = await query(`SELECT COUNT(*) as count FROM ${tableName} WHERE ${whereClause}`, values);
+      const result = await query(`SELECT COUNT(*) as count FROM ${safeTableName} WHERE ${whereClause}`, values);
       return parseInt(result.rows[0].count);
     } catch (err) {
       throw err;
@@ -123,7 +124,7 @@ const genericQueries = (tableName, options = {}) => {
 
   const countDistinct = async (fieldName, conditions = {}) => {
     try {
-      let sql = `SELECT COUNT(DISTINCT ${fieldName}) as count FROM ${tableName}`;
+      let sql = `SELECT COUNT(DISTINCT ${fieldName}) as count FROM ${safeTableName}`;
       let values = [];
 
       if (Object.keys(conditions).length > 0) {
@@ -142,7 +143,7 @@ const genericQueries = (tableName, options = {}) => {
 
   const countWithWhereClause = async (whereClause, params = []) => {
     try {
-      const result = await query(`SELECT COUNT(*) as count FROM ${tableName} WHERE ${whereClause}`, params);
+      const result = await query(`SELECT COUNT(*) as count FROM ${safeTableName} WHERE ${whereClause}`, params);
       return parseInt(result.rows[0].count);
     } catch (err) {
       throw err;
@@ -151,7 +152,7 @@ const genericQueries = (tableName, options = {}) => {
 
   const countDistinctWithWhereClause = async (fieldName, whereClause, params = []) => {
     try {
-      const result = await query(`SELECT COUNT(DISTINCT ${fieldName}) as count FROM ${tableName} WHERE ${whereClause}`, params);
+      const result = await query(`SELECT COUNT(DISTINCT ${fieldName}) as count FROM ${safeTableName} WHERE ${whereClause}`, params);
       return parseInt(result.rows[0].count);
     } catch (err) {
       throw err;
@@ -160,7 +161,7 @@ const genericQueries = (tableName, options = {}) => {
 
   const getAllWithWhereClause = async (whereClause, params = [], orderBy = null) => {
     try {
-      let sql = `SELECT * FROM ${tableName} WHERE ${whereClause}`;
+      let sql = `SELECT * FROM ${safeTableName} WHERE ${whereClause}`;
       if (orderBy) {
         sql += ` ORDER BY ${orderBy}`;
       }

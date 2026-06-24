@@ -2,7 +2,7 @@ const { query } = require('./database');
 
 const genericQueries = (tableName, options = {}) => {
   const primaryKey = options.primaryKey || 'id';
-  const emailField = options.emailField || 'Email';
+  const emailField = options.emailField || 'email';
 
   const getAll = async () => {
     try {

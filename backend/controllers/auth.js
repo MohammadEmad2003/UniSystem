@@ -4,17 +4,17 @@ const db = require("../utilities/database");
 const crypto = require("crypto");
 const emailService = require("../services/email.service");
 const userQueries = genericQueries("User", {
-  primaryKey: "User_ID",
+  primaryKey: "user_id",
   emailField: "email",
 });
 const studentQueries = genericQueries("Student", {
-  primaryKey: "User_ID",
+  primaryKey: "user_id",
 });
 const doctorQueries = genericQueries("Doctor", {
-  primaryKey: "User_ID",
+  primaryKey: "user_id",
 });
 const adminQueries = genericQueries("Admin", {
-  primaryKey: "User_ID",
+  primaryKey: "user_id",
 });
 const asyncWrapper = require('../middleware/asyncWrapper');
 const bcrypt = require("bcryptjs");

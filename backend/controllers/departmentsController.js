@@ -2,7 +2,7 @@ const asyncWrapper = require("../middleware/asyncWrapper");
 const genericQueries = require("../utilities/genericQueries");
 const db = require("../utilities/database");
 const departmentQueries = genericQueries("Department", {
-  primaryKey: "Dept_ID",
+  primaryKey: "dept_id",
 });
 
 const getAllDepartments = asyncWrapper(async (req, res) => {

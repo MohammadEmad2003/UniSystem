@@ -2,7 +2,7 @@ const httpStatus = require('../utilities/httpstatustext');
 const asyncWrapper = require("../middleware/asyncWrapper");
 const genericQueries = require('../utilities/genericQueries');
 
-const gradeQueries = genericQueries('Grades', { primaryKey: 'Grade_ID' });
+const gradeQueries = genericQueries('Grades', { primaryKey: 'grade_id' });
 
 // GET STUDENT GRADES - Get all grades for a student across all classes
 const getStudentGrades = asyncWrapper(async (req, res, next) => {

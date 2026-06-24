@@ -68,7 +68,7 @@ const buildEmailVerificationHTML = (user, verificationToken) => {
   <div style="font-family: Arial; max-width: 600px; margin: auto;">
     <h2 style="color:#2c3e50;">Welcome to UniSystem 🎓</h2>
     
-    <p>Hello ${user.F_Name || ""},</p>
+    <p>Hello ${user.f_name || ""},</p>
     
     <p>Please verify your email by clicking the button below:</p>
 
@@ -98,7 +98,7 @@ const buildPasswordResetHTML = (user, resetToken) => {
   <div style="font-family: Arial; max-width: 600px; margin: auto;">
     <h2 style="color:#e67e22;">Reset Your Password 🔐</h2>
     
-    <p>Hello ${user.F_Name || ""},</p>
+    <p>Hello ${user.f_name || ""},</p>
     
     <p>You requested to reset your password.</p>
 
@@ -121,12 +121,12 @@ const buildPasswordResetHTML = (user, resetToken) => {
 
 // ================== Send Verification Email ==================
 const sendVerificationEmail = async (user, verificationToken) => {
-  if (!user?.Email) throw new Error("User email is required");
+  if (!user?.email) throw new Error("User email is required");
 
   const html = buildEmailVerificationHTML(user, verificationToken);
 
   return sendMail({
-    to: user.Email,
+    to: user.email,
     subject: "Verify Your Email - UniSystem",
     html,
   });
@@ -134,12 +134,12 @@ const sendVerificationEmail = async (user, verificationToken) => {
 
 // ================== Send Password Reset Email ==================
 const sendPasswordResetEmail = async (user, resetToken) => {
-  if (!user?.Email) throw new Error("User email is required");
+  if (!user?.email) throw new Error("User email is required");
 
   const html = buildPasswordResetHTML(user, resetToken);
 
   return sendMail({
-    to: user.Email,
+    to: user.email,
     subject: "Reset Your Password - UniSystem",
     html,
   });

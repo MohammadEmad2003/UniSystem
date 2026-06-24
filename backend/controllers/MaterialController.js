@@ -5,7 +5,7 @@ const asyncWrapper = require('../middleware/asyncWrapper');
 const path = require('path');
 const aiServiceClient = require('../services/aiServiceClient');
 
-const materialModel = genericQueries('Material', { primaryKey: 'Material_ID' });
+const materialModel = genericQueries('Material', { primaryKey: 'material_id' });
 
 const createMaterial = asyncWrapper(async (req, res) => {
     // recived data from client
@@ -25,12 +25,12 @@ const createMaterial = asyncWrapper(async (req, res) => {
     }
 
     const result = await materialModel.create({
-        Lec_ID: lecture_id,
-        Name: name,
-        URL: finalURL,
-        Document: finalDocument,
-        Summarize: summarize,
-        Type: type 
+        lec_id: lecture_id,
+        name: name,
+        url: finalURL,
+        document: finalDocument,
+        summarize: summarize,
+        type: type 
     });
 
     try {
@@ -96,7 +96,7 @@ const getMaterialsByLectureID = asyncWrapper(async (req, res) => {
     const { lectureId } = req.params;
 
   
-    const rows = await materialModel.getAllByField('Lec_ID', lectureId);
+    const rows = await materialModel.getAllByField('lec_id', lectureId);
 
     if (!rows || rows.length === 0) {
         return res.status(200).json({ success: true, data: [], message: "No materials found for this lecture" });

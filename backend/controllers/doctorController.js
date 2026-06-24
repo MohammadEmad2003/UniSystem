@@ -2,11 +2,11 @@ const httpStatus = require('../utilities/httpstatustext');
 const asyncWrapper = require("../middleware/asyncWrapper");
 const genericQueries = require('../utilities/genericQueries');
 
-const classQueries = genericQueries('Class', { primaryKey: 'Class_ID' });
-const lectureQueries = genericQueries('Lecture', { primaryKey: 'Lec_ID' });
-const materialQueries = genericQueries('Material', { primaryKey: 'Material_ID' });
-const questionQueries = genericQueries('Questions', { primaryKey: 'Questions_ID' });
-const enrollmentQueries = genericQueries('Enrollment', { primaryKey: 'Class_ID' });
+const classQueries = genericQueries('Class', { primaryKey: 'class_id' });
+const lectureQueries = genericQueries('Lecture', { primaryKey: 'lec_id' });
+const materialQueries = genericQueries('Material', { primaryKey: 'material_id' });
+const questionQueries = genericQueries('Questions', { primaryKey: 'questions_id' });
+const enrollmentQueries = genericQueries('Enrollment', { primaryKey: 'class_id' });
 
 const db = require("../utilities/database");
 

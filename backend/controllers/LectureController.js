@@ -4,7 +4,7 @@ const genericQueries = require('../utilities/genericQueries');
 const { createBroadcastNotification } = require('../utilities/createNotification');
 
 const lectureModel = genericQueries('Lecture', {
-    primaryKey: 'Lec_ID',
+    primaryKey: 'lec_id',
     emailField: 'none'
 });
 
@@ -56,7 +56,7 @@ const getLecturesByClassID = asyncWrapper(async (req, res) => {
     const { classId } = req.params;
 
     // مفيش Loop هنا! قاعدة البيانات بتبعتلك المصفوفة جاهزة
-    const lectures = await lectureModel.getAllByField('Class_ID', classId);
+    const lectures = await lectureModel.getAllByField('class_id', classId);
 
     res.status(200).json({
         success: true,

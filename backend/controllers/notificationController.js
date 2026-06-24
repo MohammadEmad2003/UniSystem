@@ -2,7 +2,7 @@ const genericQueries = require('../utilities/genericQueries');
 const httpstatustext = require('../utilities/httpstatustext');
 const asyncWrapper = require('../middleware/asyncWrapper');
 const db = require('../utilities/database');
-const notifQueries = genericQueries('Notification', { primaryKey: 'Notification_ID' });
+const notifQueries = genericQueries('Notification', { primaryKey: 'notification_id' });
 
 // GET /notifications
 const getNotifications = asyncWrapper(async (req, res) => {

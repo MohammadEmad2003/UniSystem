@@ -5,7 +5,7 @@ const crypto = require("crypto");
 const emailService = require("../services/email.service");
 const userQueries = genericQueries("User", {
   primaryKey: "User_ID",
-  emailField: "Email",
+  emailField: "email",
 });
 const studentQueries = genericQueries("Student", {
   primaryKey: "User_ID",
@@ -69,14 +69,14 @@ const register = asyncWrapper(async (req, res, next) => {
 
   // Create user with "pending" status for students
   const userResult = await userQueries.create({
-    F_Name: f_name,
-    L_Name: l_name,
-    Email: email,
-    Password: hashedPassword,
-    Role: "Student",
-    Account_Status: "pending",
-    Document: documentPath,
-    Image_Url: imageUrl,
+    f_name: f_name,
+    l_name: l_name,
+    email: email,
+    password: hashedPassword,
+    role: "Student",
+    account_status: "pending",
+    document: documentPath,
+    image_url: imageUrl,
     is_email_verified: false,
     email_verification_token: verificationToken,
     email_verification_expires: verificationExpires,
@@ -87,11 +87,11 @@ const register = asyncWrapper(async (req, res, next) => {
   // Create student record with SSN, academic level, and department
   if (ssn || academic_level || department_id) {
     await studentQueries.create({
-      User_ID: userId,
-      SSN: ssn,
-      Academic_Level: academic_level,
-      Dept_ID: department_id || null,
-      Payment_Status: "Unpaid",
+      user_id: userId,
+      ssn: ssn,
+      academic_level: academic_level,
+      dept_id: department_id || null,
+      payment_status: "Unpaid",
     });
   }
 
@@ -176,22 +176,22 @@ const login = asyncWrapper(async (req, res, next) => {
   }
 
   // Check account status
-  if (user.Account_Status === "Suspended") {
+  if (user.account_status === "Suspended") {
     const error = new Error("Account is suspended");
     error.statusCode = 403;
     return next(error);
   }
 
-  console.log("Account Status:", user.Account_Status);
+  console.log("Account Status:", user.account_status);
 
-  if (user.Account_Status === "pending" && user.Role === "Student") {
+  if (user.account_status === "pending" && user.role === "Student") {
     const error = new Error("Account pending approval");
     error.statusCode = 403;
     return next(error);
   }
 
   // Validate password
-  const isValidPassword = await bcrypt.compare(password, user.Password);
+  const isValidPassword = await bcrypt.compare(password, user.password);
   if (!isValidPassword) {
     const error = new Error("Invalid credentials");
     error.statusCode = 401;
@@ -201,11 +201,11 @@ const login = asyncWrapper(async (req, res, next) => {
   // Create JWT token
   const token = jwt.sign(
     {
-      user_id: user.User_ID,
-      f_name: user.F_Name,
-      l_name: user.L_Name,
-      email: user.Email,
-      role: user.Role,
+      user_id: user.user_id,
+      f_name: user.f_name,
+      l_name: user.l_name,
+      email: user.email,
+      role: user.role,
     },
     jwtSecret,
     { expiresIn: "5h" },
@@ -213,34 +213,34 @@ const login = asyncWrapper(async (req, res, next) => {
 
   // Get additional student/doctor data if applicable
   let additionalData = {};
-  if (user.Role === "Student") {
-    const student = await studentQueries.getById(user.User_ID);
+  if (user.role === "Student") {
+    const student = await studentQueries.getById(user.user_id);
     if (student) {
       additionalData = {
-        ssn: student.SSN,
-        academic_level: student.Academic_Level,
-        department_id: student.Dept_ID,
-        total_hours: student.Total_Hours,
-        total_gpa: student.Total_GPA,
-        payment_status: student.Payment_Status,
+        ssn: student.ssn,
+        academic_level: student.academic_level,
+        department_id: student.dept_id,
+        total_hours: student.total_hours,
+        total_gpa: student.total_gpa,
+        payment_status: student.payment_status,
       };
     }
-  } else if (user.Role === "Doctor") {
-    const doctor = await doctorQueries.getById(user.User_ID);
+  } else if (user.role === "Doctor") {
+    const doctor = await doctorQueries.getById(user.user_id);
     if (doctor) {
       // Find departments this doctor manages
-      const managedDepts = await db.query(`SELECT dept_id FROM Department WHERE doctor_id = $1`, [user.User_ID]);
+      const managedDepts = await db.query(`SELECT dept_id FROM Department WHERE doctor_id = $1`, [user.user_id]);
       additionalData = {
-        specialization: doctor.Specialization,
-        permissions_level: doctor.Permission,
+        specialization: doctor.specialization,
+        permissions_level: doctor.permission,
         managed_departments: managedDepts.rows.map(d => d.dept_id)
       };
     }
-  } else if (user.Role === "Admin") {
-    const admin = await adminQueries.getById(user.User_ID);
+  } else if (user.role === "Admin") {
+    const admin = await adminQueries.getById(user.user_id);
     if (admin) {
       additionalData = {
-        permissions_level: admin.Permissions_Level,
+        permissions_level: admin.permissions_level,
       };
     }
   }
@@ -251,14 +251,14 @@ const login = asyncWrapper(async (req, res, next) => {
     data: {
       token,
       user: {
-        user_id: user.User_ID,
-        f_name: user.F_Name,
-        l_name: user.L_Name,
-        email: user.Email,
-        role: user.Role,
-        account_status: user.Account_Status,
-        document: user.Document,
-        image_url: user.Image_Url,
+        user_id: user.user_id,
+        f_name: user.f_name,
+        l_name: user.l_name,
+        email: user.email,
+        role: user.role,
+        account_status: user.account_status,
+        document: user.document,
+        image_url: user.image_url,
         created_at: new Date().toISOString(),
         ...additionalData,
       },
@@ -293,7 +293,7 @@ const verifyEmail = asyncWrapper(async (req, res, next) => {
   }
 
   // Update user - email verified
-  await userQueries.update(user.User_ID, {
+  await userQueries.update(user.user_id, {
     is_email_verified: true,
     email_verification_token: null,
     email_verification_expires: null,
@@ -331,7 +331,7 @@ const forgotPassword = asyncWrapper(async (req, res, next) => {
   const resetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
 
   // Update user with reset token
-  await userQueries.update(user.User_ID, {
+  await userQueries.update(user.user_id, {
     password_reset_token: resetToken,
     password_reset_expires: resetExpires,
   });
@@ -404,8 +404,8 @@ const resetPassword = asyncWrapper(async (req, res, next) => {
   const hashedPassword = await bcrypt.hash(password, salt);
 
   // Update user - new password and clear reset token
-  await userQueries.update(user.User_ID, {
-    Password: hashedPassword,
+  await userQueries.update(user.user_id, {
+    password: hashedPassword,
     password_reset_token: null,
     password_reset_expires: null,
   });
@@ -447,7 +447,7 @@ const resendVerificationEmail = asyncWrapper(async (req, res, next) => {
   const verificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
 
   // Update user with new token
-  await userQueries.update(user.User_ID, {
+  await userQueries.update(user.user_id, {
     email_verification_token: verificationToken,
     email_verification_expires: verificationExpires,
   });
@@ -496,7 +496,7 @@ const resendPasswordResetEmail = asyncWrapper(async (req, res, next) => {
   const resetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
 
   // Update user with new reset token
-  await userQueries.update(user.User_ID, {
+  await userQueries.update(user.user_id, {
     password_reset_token: resetToken,
     password_reset_expires: resetExpires,
   });
@@ -540,47 +540,47 @@ const profile = asyncWrapper(async (req, res, next) => {
 
   // Build response object with user data
   let profileData = {
-    user_id: user.User_ID,
-    f_name: user.F_Name,
-    l_name: user.L_Name,
-    email: user.Email,
-    role: user.Role,
-    account_status: user.Account_Status,
-    document: user.Document,
-    image_url: user.Image_Url,
-    created_at: user.Created_at,
+    user_id: user.user_id,
+    f_name: user.f_name,
+    l_name: user.l_name,
+    email: user.email,
+    role: user.role,
+    account_status: user.account_status,
+    document: user.document,
+    image_url: user.image_url,
+    created_at: user.created_at,
   };
 
   // Get role-specific data
-  if (user.Role === "Student") {
-    const student = await studentQueries.getById(user.User_ID);
+  if (user.role === "Student") {
+    const student = await studentQueries.getById(user.user_id);
     if (student) {
       profileData = {
         ...profileData,
-        ssn: student.SSN,
-        academic_level: student.Academic_Level,
-        department_id: student.Dept_ID,
-        nfc_tag_id: student.NFC_Tag_ID,
-        payment_status: student.Payment_Status,
-        total_hours: student.Total_Hours,
-        total_gpa: student.Total_GPA,
+        ssn: student.ssn,
+        academic_level: student.academic_level,
+        department_id: student.dept_id,
+        nfc_tag_id: student.nfc_tag_id,
+        payment_status: student.payment_status,
+        total_hours: student.total_hours,
+        total_gpa: student.total_gpa,
       };
     }
-  } else if (user.Role === "Doctor") {
-    const doctor = await doctorQueries.getById(user.User_ID);
+  } else if (user.role === "Doctor") {
+    const doctor = await doctorQueries.getById(user.user_id);
     if (doctor) {
       profileData = {
         ...profileData,
-        specialization: doctor.Specialization,
-        department_id: doctor.Dept_ID,
+        specialization: doctor.specialization,
+        department_id: doctor.dept_id,
       };
     }
-  } else if (user.Role === "Admin") {
-    const admin = await adminQueries.getById(user.User_ID);
+  } else if (user.role === "Admin") {
+    const admin = await adminQueries.getById(user.user_id);
     if (admin) {
       profileData = {
         ...profileData,
-        permissions_level: admin.Permissions_Level,
+        permissions_level: admin.permissions_level,
       };
     }
   }

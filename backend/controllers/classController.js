@@ -4,7 +4,7 @@ const asyncWrapper = require('../middleware/asyncWrapper');
 const db = require('../utilities/database');
 const gpaService = require('../services/gpaService');
 
-const classQueries = genericQueries('Class', { primaryKey: 'Class_ID' });
+const classQueries = genericQueries('Class', { primaryKey: 'class_id' });
 
 // GET /classes — Admin only
 const getAllClasses = asyncWrapper(async (req, res) => {

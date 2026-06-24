@@ -2,13 +2,13 @@ const asyncWrapper = require("../middleware/asyncWrapper");
 const genericQueries = require("../utilities/genericQueries");
 const db = require("../utilities/database");
 const bcrypt = require("bcryptjs");
-const userQueries = genericQueries("User", { primaryKey: "User_ID" });
-const doctorQueries = genericQueries("Doctor", { primaryKey: "User_ID" });
+const userQueries = genericQueries("User", { primaryKey: "user_id" });
+const doctorQueries = genericQueries("Doctor", { primaryKey: "user_id" });
 const departmentQueries = genericQueries("Department", {
-  primaryKey: "Dept_ID",
+  primaryKey: "dept_id",
 });
-const workInQueries = genericQueries("Work_In", { primaryKey: "Doctor_ID" }); // assuming composite key, but let's see
-const adminQueries = genericQueries("Admin", { primaryKey: "User_ID" });
+const workInQueries = genericQueries("Work_In", { primaryKey: "doctor_id" });
+const adminQueries = genericQueries("Admin", { primaryKey: "user_id" });
 const getCount = async (table, where = "") => {
   const result = await db.query(`SELECT COUNT(*) as count FROM ${table} ${where}`);
   return result.rows[0] ? result.rows[0].count : 0;
@@ -125,7 +125,7 @@ const getPendingStudents = asyncWrapper(async (req, res) => {
 
 const changeStudentStatus = asyncWrapper(async (req, res) => {
   const { studentId } = req.params;
-  const { Account_Status: status } = req.body;
+  const { status } = req.body;
 
   if (!status || !["approved", "rejected"].includes(status)) {
     return res.status(400).json({
@@ -136,7 +136,7 @@ const changeStudentStatus = asyncWrapper(async (req, res) => {
 
   const student = await userQueries.getById(studentId);
 
-  if (!student || student.Role !== "Student") {
+  if (!student || student.role !== "Student") {
     return res.status(404).json({
       success: false,
       message: "Student not found",

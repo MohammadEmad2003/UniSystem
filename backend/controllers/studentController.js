@@ -3,8 +3,8 @@ const asyncWrapper = require("../middleware/asyncWrapper");
 const genericQueries = require('../utilities/genericQueries');
 const gpaService = require('../services/gpaService');
 
-const studentQueries = genericQueries('Student', { primaryKey: 'User_ID' });
-const userQueries = genericQueries('User', { primaryKey: 'User_ID' });
+const studentQueries = genericQueries('Student', { primaryKey: 'user_id' });
+const userQueries = genericQueries('User', { primaryKey: 'user_id' });
 
 const getStudentStats = asyncWrapper(async (req, res) => {
     const { studentId } = req.params;
@@ -51,24 +51,24 @@ const getAllStudents = asyncWrapper(async (req, res) => {
 
     const studentsWithUserData = await Promise.all(
         students.map(async (student) => {
-            const user = await userQueries.getById(student.User_ID);
+            const user = await userQueries.getById(student.user_id);
             if (!user) {
                 return null;
             }
 
             return {
-                User_ID: student.User_ID,
-                F_Name: user.F_Name,
-                L_Name: user.L_Name,
-                Email: user.Email,
-                Account_Status: user.Account_Status,
-                Academic_Level: student.Academic_Level,
-                Payment_Status: student.Payment_Status,
-                NFC_Tag_ID: student.NFC_Tag_ID,
-                SSN: student.SSN,
-                Dept_ID: student.Dept_ID,
-                Total_Hours: student.Total_Hours,
-                Total_GPA: student.Total_GPA
+                user_id: student.user_id,
+                f_name: user.f_name,
+                l_name: user.l_name,
+                email: user.email,
+                account_status: user.account_status,
+                academic_level: student.academic_level,
+                payment_status: student.payment_status,
+                nfc_tag_id: student.nfc_tag_id,
+                ssn: student.ssn,
+                dept_id: student.dept_id,
+                total_hours: student.total_hours,
+                total_gpa: student.total_gpa
             };
         })
     );

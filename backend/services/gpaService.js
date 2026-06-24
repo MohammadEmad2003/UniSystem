@@ -23,41 +23,36 @@ const calculateCourseGPA = (totalMarks) => {
  * @param {number} studentId 
  */
 const recalculateStudentGPA = async (studentId) => {
-    return new Promise((resolve, reject) => {
-        const query = `
-            SELECT 
-                g.GPA,
-                c.Course_Code,
-                co.Credit_Hours
-            FROM Grades g
-            JOIN Class c ON g.Class_ID = c.Class_ID
-            JOIN Courses co ON c.Course_Code = co.Course_Code
-            WHERE g.User_ID = ? AND g.Final IS NOT NULL
-        `;
+    const query = `
+        SELECT 
+            g.gpa,
+            c.course_code,
+            co.credit_hours
+        FROM Grades g
+        JOIN Class c ON g.class_id = c.class_id
+        JOIN Courses co ON c.course_code = co.course_code
+        WHERE g.user_id = $1 AND g.final IS NOT NULL
+    `;
 
-        db.all(query, [studentId], async (err, rows) => {
-            if (err) return reject(err);
+    const result = await db.query(query, [studentId]);
+    const rows = result.rows || [];
 
-            let totalPoints = 0;
-            let totalHours = 0;
+    let totalPoints = 0;
+    let totalHours = 0;
 
-            rows.forEach(row => {
-                totalPoints += (row.GPA * row.Credit_Hours);
-                totalHours += row.Credit_Hours;
-            });
-
-            const cumulativeGPA = totalHours > 0 ? (totalPoints / totalHours).toFixed(2) : 0.00;
-
-            db.run(
-                `UPDATE Student SET Total_GPA = ?, Total_Hours = ? WHERE User_ID = ?`,
-                [cumulativeGPA, totalHours, studentId],
-                (updateErr) => {
-                    if (updateErr) return reject(updateErr);
-                    resolve({ cumulativeGPA, totalHours });
-                }
-            );
-        });
+    rows.forEach(row => {
+        totalPoints += (row.gpa * row.credit_hours);
+        totalHours += row.credit_hours;
     });
+
+    const cumulativeGPA = totalHours > 0 ? (totalPoints / totalHours).toFixed(2) : 0.00;
+
+    await db.query(
+        `UPDATE Student SET total_gpa = $1, total_hours = $2 WHERE user_id = $3`,
+        [cumulativeGPA, totalHours, studentId]
+    );
+
+    return { cumulativeGPA, totalHours };
 };
 
 /**
@@ -67,150 +62,138 @@ const recalculateStudentGPA = async (studentId) => {
  * @returns {Promise<{canEnroll: boolean, message: string}>}
  */
 const canEnrollInClass = async (studentId, classId) => {
-    return new Promise((resolve, reject) => {
-        // 1. Get student's academic level, total GPA, and target class semester/level
-        db.get(
-            `SELECT s.Academic_Level, s.Total_GPA, alf.Max_Hours, c.Semester as TargetSemester, c.Level as TargetLevel, co.Credit_Hours as NewClassHours
-             FROM Student s
-             JOIN Class c ON c.Class_ID = ?
-             JOIN Courses co ON c.Course_Code = co.Course_Code
-             LEFT JOIN Academic_Level_Fees alf ON s.Academic_Level = alf.Academic_Level AND c.Semester = alf.Semester
-             WHERE s.User_ID = ?`,
-            [classId, studentId],
-            (err, data) => {
-                if (err) return reject(err);
-                if (!data) return resolve({ canEnroll: false, message: "Required data not found" });
+    // 1. Get student's academic level, total GPA, and target class semester/level
+    const dataResult = await db.query(
+        `SELECT s.academic_level, s.total_gpa, alf.max_hours, c.semester as target_semester, c.level as target_level, co.credit_hours as new_class_hours
+         FROM Student s
+         JOIN Class c ON c.class_id = $1
+         JOIN Courses co ON c.course_code = co.course_code
+         LEFT JOIN Academic_Level_Fees alf ON s.academic_level = alf.academic_level AND c.semester = alf.semester
+         WHERE s.user_id = $2`,
+        [classId, studentId]
+    );
+    const data = dataResult.rows[0];
 
-                const { Academic_Level, Total_GPA, Max_Hours, TargetSemester, TargetLevel, NewClassHours } = data;
+    if (!data) return { canEnroll: false, message: "Required data not found" };
 
-                // Determine dynamic Max Hours based on GPA
-                let effectiveMaxHours = Max_Hours || 18; // Default to 18 if not set
-                let statusMessage = "";
+    const { academic_level, total_gpa, max_hours, target_semester, target_level, new_class_hours } = data;
 
-                if (Total_GPA >= 3.4) {
-                    effectiveMaxHours = 21;
-                    statusMessage = " (Overload allowed for high GPA)";
-                } else if (Total_GPA < 2.0 && Total_GPA > 0) {
-                    effectiveMaxHours = 12;
-                    statusMessage = " (Probation limit applied due to low GPA)";
-                }
+    // Determine dynamic Max Hours based on GPA
+    let effectiveMaxHours = max_hours || 18; // Default to 18 if not set
+    let statusMessage = "";
 
-                // 2. Get current enrolled hours for this SPECIFIC semester and level
-                db.all(
-                    `SELECT co.Credit_Hours
-                     FROM Enrollment e
-                     JOIN Class c ON e.Class_ID = c.Class_ID
-                     JOIN Courses co ON c.Course_Code = co.Course_Code
-                     WHERE e.User_ID = ? AND c.Level = ? AND c.Semester = ?`,
-                    [studentId, TargetLevel, TargetSemester],
-                    (enrollErr, enrolledCourses) => {
-                        if (enrollErr) return reject(enrollErr);
+    if (total_gpa >= 3.4) {
+        effectiveMaxHours = 21;
+        statusMessage = " (Overload allowed for high GPA)";
+    } else if (total_gpa < 2.0 && total_gpa > 0) {
+        effectiveMaxHours = 12;
+        statusMessage = " (Probation limit applied due to low GPA)";
+    }
 
-                        const currentHours = enrolledCourses.reduce((sum, course) => sum + course.Credit_Hours, 0);
+    // 2. Get current enrolled hours for this SPECIFIC semester and level
+    const enrolledResult = await db.query(
+        `SELECT co.credit_hours
+         FROM Enrollment e
+         JOIN Class c ON e.class_id = c.class_id
+         JOIN Courses co ON c.course_code = co.course_code
+         WHERE e.user_id = $1 AND c.level = $2 AND c.semester = $3`,
+        [studentId, target_level, target_semester]
+    );
+    const enrolledCourses = enrolledResult.rows || [];
 
-                        if (currentHours + NewClassHours > effectiveMaxHours) {
-                            return resolve({ 
-                                canEnroll: false, 
-                                message: `Limit exceeded! For ${TargetSemester} (Level ${TargetLevel}), your max is ${effectiveMaxHours} hours${statusMessage}. You are currently at ${currentHours} hours.` 
-                            });
-                        }
+    const currentHours = enrolledCourses.reduce((sum, course) => sum + course.credit_hours, 0);
 
-                        resolve({ canEnroll: true, message: "Success" });
-                    }
-                );
-            }
-        );
-    });
+    if (currentHours + new_class_hours > effectiveMaxHours) {
+        return { 
+            canEnroll: false, 
+            message: `Limit exceeded! For ${target_semester} (Level ${target_level}), your max is ${effectiveMaxHours} hours${statusMessage}. You are currently at ${currentHours} hours.` 
+        };
+    }
+
+    return { canEnroll: true, message: "Success" };
 };
 
 const checkPrerequisites = async (studentId, classId) => {
-    return new Promise((resolve, reject) => {
-        db.get(`SELECT Course_Code FROM Class WHERE Class_ID = ?`, [classId], (err, cls) => {
-            if (err) return reject(err);
-            if (!cls) return resolve({ canEnroll: false, message: "Class not found" });
+    const clsResult = await db.query(`SELECT course_code FROM Class WHERE class_id = $1`, [classId]);
+    const cls = clsResult.rows[0];
 
-            db.all(`SELECT Prereq_Course_Code FROM Course_Prerequisites WHERE Course_Code = ?`, [cls.Course_Code], (prereqErr, prereqs) => {
-                if (prereqErr) return reject(prereqErr);
-                if (prereqs.length === 0) return resolve({ canEnroll: true });
+    if (!cls) return { canEnroll: false, message: "Class not found" };
 
-                const prereqCodes = prereqs.map(p => p.Prereq_Course_Code);
-                const placeholders = prereqCodes.map(() => '?').join(',');
+    const prereqsResult = await db.query(`SELECT prereq_course_code FROM Course_Prerequisites WHERE course_code = $1`, [cls.course_code]);
+    const prereqs = prereqsResult.rows || [];
 
-                db.all(
-                    `SELECT c.Course_Code 
-                     FROM Grades g
-                     JOIN Class c ON g.Class_ID = c.Class_ID
-                     WHERE g.User_ID = ? AND c.Course_Code IN (${placeholders}) AND g.GPA > 0`,
-                    [studentId, ...prereqCodes],
-                    (passErr, passedPrereqs) => {
-                        if (passErr) return reject(passErr);
+    if (prereqs.length === 0) return { canEnroll: true };
 
-                        const passedCodes = passedPrereqs.map(p => p.Course_Code);
-                        const missing = prereqCodes.filter(code => !passedCodes.includes(code));
+    const prereqCodes = prereqs.map(p => p.prereq_course_code);
+    const placeholders = prereqCodes.map((_, i) => `$${i + 2}`).join(',');
 
-                        if (missing.length > 0) {
-                            return resolve({ 
-                                canEnroll: false, 
-                                message: `Missing prerequisites: ${missing.join(', ')}. You must pass these courses first.` 
-                            });
-                        }
+    const passedResult = await db.query(
+        `SELECT c.course_code 
+         FROM Grades g
+         JOIN Class c ON g.class_id = c.class_id
+         WHERE g.user_id = $1 AND c.course_code IN (${placeholders}) AND g.gpa > 0`,
+        [studentId, ...prereqCodes]
+    );
+    const passedPrereqs = passedResult.rows || [];
 
-                        resolve({ canEnroll: true });
-                    }
-                );
-            });
-        });
-    });
+    const passedCodes = passedPrereqs.map(p => p.course_code);
+    const missing = prereqCodes.filter(code => !passedCodes.includes(code));
+
+    if (missing.length > 0) {
+        return { 
+            canEnroll: false, 
+            message: `Missing prerequisites: ${missing.join(', ')}. You must pass these courses first.` 
+        };
+    }
+
+    return { canEnroll: true };
 };
 
 const getStudentTranscript = async (studentId) => {
-    return new Promise((resolve, reject) => {
-        const query = `
-            SELECT 
-                g.GPA,
-                g.Midterm, g.Project, g.Practical, g.Attendance, g.Final,
-                c.Semester,
-                c.Level,
-                c.Course_Code,
-                co.Name as Course_Name,
-                co.Credit_Hours
-            FROM Grades g
-            JOIN Class c ON g.Class_ID = c.Class_ID
-            JOIN Courses co ON c.Course_Code = co.Course_Code
-            WHERE g.User_ID = ?
-            ORDER BY c.Level ASC, c.Semester ASC
-        `;
+    const query = `
+        SELECT 
+            g.gpa,
+            g.midterm, g.project, g.practical, g.attendance, g.final,
+            c.semester,
+            c.level,
+            c.course_code,
+            co.name as course_name,
+            co.credit_hours
+        FROM Grades g
+        JOIN Class c ON g.class_id = c.class_id
+        JOIN Courses co ON c.course_code = co.course_code
+        WHERE g.user_id = $1
+        ORDER BY c.level ASC, c.semester ASC
+    `;
 
-        db.all(query, [studentId], (err, rows) => {
-            if (err) return reject(err);
+    const result = await db.query(query, [studentId]);
+    const rows = result.rows || [];
 
-            const transcript = {};
-            rows.forEach(row => {
-                const key = `Level ${row.Level} - ${row.Semester}`;
-                if (!transcript[key]) {
-                    transcript[key] = {
-                        semester: row.Semester,
-                        level: row.Level,
-                        courses: [],
-                        semesterGPA: 0,
-                        totalHours: 0,
-                        totalPoints: 0
-                    };
-                }
-                transcript[key].courses.push(row);
-                if (row.Final !== null) {
-                    transcript[key].totalPoints += (row.GPA * row.Credit_Hours);
-                    transcript[key].totalHours += row.Credit_Hours;
-                }
-            });
-
-            Object.values(transcript).forEach(sem => {
-                sem.semesterGPA = sem.totalHours > 0 ? (sem.totalPoints / sem.totalHours).toFixed(2) : "0.00";
-            });
-
-            resolve(transcript);
-        });
+    const transcript = {};
+    rows.forEach(row => {
+        const key = `Level ${row.level} - ${row.semester}`;
+        if (!transcript[key]) {
+            transcript[key] = {
+                semester: row.semester,
+                level: row.level,
+                courses: [],
+                semesterGPA: 0,
+                totalHours: 0,
+                totalPoints: 0
+            };
+        }
+        transcript[key].courses.push(row);
+        if (row.final !== null) {
+            transcript[key].totalPoints += (row.gpa * row.credit_hours);
+            transcript[key].totalHours += row.credit_hours;
+        }
     });
+
+    Object.values(transcript).forEach(sem => {
+        sem.semesterGPA = sem.totalHours > 0 ? (sem.totalPoints / sem.totalHours).toFixed(2) : "0.00";
+    });
+
+    return transcript;
 };
 
 module.exports = {

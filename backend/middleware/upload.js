@@ -1,18 +1,8 @@
 const multer = require('multer');
 const path = require('path');
 
-// Configure storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // Save files in uploads folder
-    cb(null, path.join(__dirname, '../uploads/'));
-  },
-  filename: (req, file, cb) => {
-    // Generate unique filename: timestamp_originalname
-    const uniqueSuffix = Date.now() + '_' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure storage - use memory storage for Vercel compatibility
+const storage = multer.memoryStorage();
 
 // Custom file filter for multiple file types
 const fileFilter = (req, file, cb) => {

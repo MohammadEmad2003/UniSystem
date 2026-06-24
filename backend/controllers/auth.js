@@ -56,13 +56,10 @@ const register = asyncWrapper(async (req, res, next) => {
   let documentPath = null;
   let imageUrl = null;
 
+  // Skip file upload for now - Vercel doesn't support persistent storage
+  // Files would need to be uploaded to a cloud storage service like AWS S3
   if (req.files) {
-    if (req.files.document && req.files.document.length > 0) {
-      documentPath = `/uploads/${req.files.document[0].filename}`;
-    }
-    if (req.files.image && req.files.image.length > 0) {
-      imageUrl = `/uploads/${req.files.image[0].filename}`;
-    }
+    console.log('File upload detected but skipped for Vercel compatibility');
   }
   const verificationToken = crypto.randomBytes(32).toString("hex");
   const verificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
@@ -82,7 +79,7 @@ const register = asyncWrapper(async (req, res, next) => {
     email_verification_expires: verificationExpires,
   });
 
-  const userId = userResult.lastID;
+  const userId = userResult.user_id;
 
   // Create student record with SSN, academic level, and department
   if (ssn || academic_level || department_id) {
@@ -111,9 +108,9 @@ const register = asyncWrapper(async (req, res, next) => {
   // ============Send verification email=============
   try {
     const userForEmail = {
-      F_Name: f_name,
-      L_Name: l_name,
-      Email: email,
+      f_name: f_name,
+      l_name: l_name,
+      email: email,
     };
     await emailService.sendVerificationEmail(userForEmail, verificationToken);
     console.log(`✅ Confirmation email sent to: ${email}`);

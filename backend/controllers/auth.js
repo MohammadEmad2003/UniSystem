@@ -62,7 +62,7 @@ const register = asyncWrapper(async (req, res, next) => {
     console.log('File upload detected but skipped for Vercel compatibility');
   }
   const verificationToken = crypto.randomBytes(32).toString("hex");
-  const verificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+  const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
   // Create user with "pending" status for students
   const userResult = await userQueries.create({
@@ -325,7 +325,7 @@ const forgotPassword = asyncWrapper(async (req, res, next) => {
 
   // Generate reset token
   const resetToken = crypto.randomBytes(32).toString("hex");
-  const resetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+  const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
   // Update user with reset token
   await userQueries.update(user.user_id, {
@@ -441,7 +441,7 @@ const resendVerificationEmail = asyncWrapper(async (req, res, next) => {
 
   // Generate new verification token
   const verificationToken = crypto.randomBytes(32).toString("hex");
-  const verificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+  const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
   // Update user with new token
   await userQueries.update(user.user_id, {
@@ -490,7 +490,7 @@ const resendPasswordResetEmail = asyncWrapper(async (req, res, next) => {
 
   // Generate new reset token
   const resetToken = crypto.randomBytes(32).toString("hex");
-  const resetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+  const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
   // Update user with new reset token
   await userQueries.update(user.user_id, {

@@ -161,9 +161,30 @@ const importTable = async (tableName) => {
       try {
         const values = columns.map(col => row[col]);
         
-        // Handle NULL values
-        const processedValues = values.map(v => {
+        // Handle NULL values and safe date parsing
+        const processedValues = values.map((v, index) => {
           if (v === null || v === undefined || v === '') return null;
+          
+          const colName = lowercaseColumns[index];
+          const isDateCol = colName.endsWith('_expires') || 
+                            colName.endsWith('_at') || 
+                            colName.endsWith('_date') || 
+                            colName.endsWith('_time') || 
+                            colName === 'date' || 
+                            colName === 'time';
+                            
+          if (isDateCol) {
+            const num = Number(v);
+            if (!isNaN(num) && num > 100000000000) {
+              return new Date(num);
+            }
+          }
+
+          // Convert SQLite 1/0 to true/false for PostgreSQL BOOLEAN columns
+          if (colName.startsWith('is_')) {
+            return v === 1 || v === '1' || v === true || v === 'true';
+          }
+
           return v;
         });
 
@@ -190,6 +211,38 @@ const importTable = async (tableName) => {
   }
 };
 
+const resetSequences = async () => {
+  console.log('\nResetting PostgreSQL identity sequences...');
+  const identityTables = [
+    { table: 'Department', id: 'dept_id' },
+    { table: 'User', id: 'user_id' },
+    { table: 'Class', id: 'class_id' },
+    { table: 'Lecture', id: 'lec_id' },
+    { table: 'Material', id: 'material_id' },
+    { table: 'Grades', id: 'grade_id' },
+    { table: 'Attendance', id: 'attendance_id' },
+    { table: 'Questions', id: 'questions_id' },
+    { table: 'Answers', id: 'answer_id' },
+    { table: 'Notification', id: 'notification_id' },
+    { table: 'StudyOutput', id: 'output_id' }
+  ];
+
+  for (const { table, id } of identityTables) {
+    try {
+      const quotedTable = table === 'User' ? '"User"' : table.toLowerCase();
+      await query(`
+        SELECT setval(
+          pg_get_serial_sequence('${quotedTable}', '${id}'), 
+          COALESCE(MAX(${id}), 1)
+        ) FROM ${quotedTable}
+      `);
+      console.log(`✅ Reset sequence for ${table} (${id})`);
+    } catch (err) {
+      console.warn(`⚠️ Could not reset sequence for ${table}:`, err.message);
+    }
+  }
+};
+
 const importAll = async () => {
   try {
     console.log('Starting data import to PostgreSQL...\n');
@@ -197,6 +250,8 @@ const importAll = async () => {
     for (const table of tables) {
       await importTable(table);
     }
+
+    await resetSequences();
 
     console.log('\n✅ All data imported successfully!');
     process.exit(0);

@@ -1,44 +1,41 @@
-const db = require('./database');
+const { query } = require('./database');
 
 function buildDuplicateSql(hasClassId) {
   const classClause = hasClassId
-    ? `EXISTS (SELECT 1 FROM Class_Notification cn WHERE cn.Notification_ID = n.Notification_ID AND cn.Class_ID = ?)`
-    : `NOT EXISTS (SELECT 1 FROM Class_Notification cn WHERE cn.Notification_ID = n.Notification_ID)`;
+    ? `EXISTS (SELECT 1 FROM Class_Notification cn WHERE cn.notification_id = n.notification_id AND cn.class_id = $7)`
+    : `NOT EXISTS (SELECT 1 FROM Class_Notification cn WHERE cn.notification_id = n.notification_id)`;
 
   return `
-    SELECT n.Notification_ID
+    SELECT n.notification_id
     FROM Notification n
-    INNER JOIN User_Notification un ON un.Notification_ID = n.Notification_ID
-    WHERE un.User_ID = ?
-      AND n.Type = ?
-      AND (n.Reference_ID IS ? OR (n.Reference_ID IS NULL AND ? IS NULL))
-      AND (n.Answer_ID IS ? OR (n.Answer_ID IS NULL AND ? IS NULL))
+    INNER JOIN User_Notification un ON un.notification_id = n.notification_id
+    WHERE un.user_id = $1
+      AND n.type = $2
+      AND (n.reference_id = $3 OR (n.reference_id IS NULL AND $4 IS NULL))
+      AND (n.answer_id = $5 OR (n.answer_id IS NULL AND $6 IS NULL))
       AND (${classClause})
     LIMIT 1
   `;
 }
 
-function insertLinks(notificationId, userId, classId, cb) {
-  db.run(
-    `INSERT INTO User_Notification (User_ID, Notification_ID, Is_Read) VALUES (?, ?, 0)`,
-    [userId, notificationId],
-    (err) => {
-      if (err) return cb(err);
-      if (classId == null || classId === '') return cb(null);
-      db.run(
-        `INSERT OR IGNORE INTO Class_Notification (Class_ID, Notification_ID) VALUES (?, ?)`,
-        [classId, notificationId],
-        cb
-      );
-    }
+async function insertLinks(notificationId, userId, classId) {
+  await query(
+    `INSERT INTO User_Notification (user_id, notification_id, is_read) VALUES ($1, $2, FALSE) ON CONFLICT DO NOTHING`,
+    [userId, notificationId]
   );
+  if (classId != null && classId !== '') {
+    await query(
+      `INSERT INTO Class_Notification (class_id, notification_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [classId, notificationId]
+    );
+  }
 }
 
 /**
  * One notification row + User_Notification (+ optional Class_Notification).
  * Duplicate: same user + type + ref + answer + class scope → skip.
  */
-const createNotification = ({
+const createNotification = async ({
   userId,
   type,
   title,
@@ -47,40 +44,38 @@ const createNotification = ({
   referenceId = null,
   answerId = null,
 }) => {
-  return new Promise((resolve, reject) => {
+  try {
     const hasClass = classId != null && classId !== '';
     const dupSql = buildDuplicateSql(hasClass);
     const dupParams = hasClass
       ? [userId, type, referenceId, referenceId, answerId, answerId, classId]
       : [userId, type, referenceId, referenceId, answerId, answerId];
 
-    db.get(dupSql, dupParams, (err, existing) => {
-      if (err) return reject(err);
-      if (existing) {
-        return resolve({ success: true, skipped: true, notificationId: existing.Notification_ID });
-      }
+    const existingResult = await query(dupSql, dupParams);
+    const existing = existingResult.rows[0];
+    if (existing) {
+      return { success: true, skipped: true, notificationId: existing.notification_id };
+    }
 
-      db.run(
-        `INSERT INTO Notification (Type, Title, Message, Reference_ID, Answer_ID)
-         VALUES (?, ?, ?, ?, ?)`,
-        [type, title, message, referenceId, answerId],
-        function (insErr) {
-          if (insErr) return reject(insErr);
-          const nid = this.lastID;
-          insertLinks(nid, userId, hasClass ? classId : null, (linkErr) => {
-            if (linkErr) return reject(linkErr);
-            resolve({ success: true, notificationId: nid });
-          });
-        }
-      );
-    });
-  });
+    const insResult = await query(
+      `INSERT INTO Notification (type, title, message, reference_id, answer_id)
+       VALUES ($1, $2, $3, $4, $5) RETURNING notification_id`,
+      [type, title, message, referenceId, answerId]
+    );
+    const nid = insResult.rows[0].notification_id;
+
+    await insertLinks(nid, userId, hasClass ? classId : null);
+    return { success: true, notificationId: nid };
+  } catch (err) {
+    console.error("Error creating notification:", err);
+    throw err;
+  }
 };
 
 /**
  * One shared notification for many users + optional class link (e.g. lecture broadcast).
  */
-const createBroadcastNotification = ({
+const createBroadcastNotification = async ({
   userIds,
   classId = null,
   type,
@@ -89,41 +84,38 @@ const createBroadcastNotification = ({
   referenceId = null,
   answerId = null,
 }) => {
-  return new Promise((resolve, reject) => {
+  try {
     const ids = [...new Set((userIds || []).map(Number).filter(Boolean))];
     if (!ids.length) {
-      return resolve({ success: true, notificationId: null, skipped: true });
+      return { success: true, notificationId: null, skipped: true };
     }
 
-    db.run(
-      `INSERT INTO Notification (Type, Title, Message, Reference_ID, Answer_ID)
-       VALUES (?, ?, ?, ?, ?)`,
-      [type, title, message, referenceId, answerId],
-      function (err) {
-        if (err) return reject(err);
-        const nid = this.lastID;
-
-        const stmt = db.prepare(
-          `INSERT OR IGNORE INTO User_Notification (User_ID, Notification_ID, Is_Read) VALUES (?, ?, 0)`
-        );
-        ids.forEach((uid) => stmt.run(uid, nid));
-        stmt.finalize((e) => {
-          if (e) return reject(e);
-          if (classId == null || classId === '') {
-            return resolve({ success: true, notificationId: nid });
-          }
-          db.run(
-            `INSERT OR IGNORE INTO Class_Notification (Class_ID, Notification_ID) VALUES (?, ?)`,
-            [classId, nid],
-            (e2) => {
-              if (e2) return reject(e2);
-              resolve({ success: true, notificationId: nid });
-            }
-          );
-        });
-      }
+    const insResult = await query(
+      `INSERT INTO Notification (type, title, message, reference_id, answer_id)
+       VALUES ($1, $2, $3, $4, $5) RETURNING notification_id`,
+      [type, title, message, referenceId, answerId]
     );
-  });
+    const nid = insResult.rows[0].notification_id;
+
+    for (const uid of ids) {
+      await query(
+        `INSERT INTO User_Notification (user_id, notification_id, is_read) VALUES ($1, $2, FALSE) ON CONFLICT DO NOTHING`,
+        [uid, nid]
+      );
+    }
+
+    if (classId != null && classId !== '') {
+      await query(
+        `INSERT INTO Class_Notification (class_id, notification_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [classId, nid]
+      );
+    }
+
+    return { success: true, notificationId: nid };
+  } catch (err) {
+    console.error("Error creating broadcast notification:", err);
+    throw err;
+  }
 };
 
 module.exports = createNotification;

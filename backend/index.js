@@ -135,7 +135,7 @@ app.all(/.*/, (req, res) => {
 });
 
 // global error handling middleware
-//we put err in the first parameter because we send it in asyncwrapper by next() method
+//we put err in the first parameter because we send it in asyncWrapper by next() method
 app.use((err, req, res, next) => {
   res.status(err.statusCode || 500).json({
     success: httpstatustext.error,

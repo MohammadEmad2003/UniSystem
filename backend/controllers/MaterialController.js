@@ -65,35 +65,30 @@ const getMaterialsByClass = asyncWrapper(async (req, res) => {
 
   const query = `
         SELECT 
-            m.Material_ID AS material_id,
-            m.Lec_ID AS lecture_id,
-            l.Class_ID AS class_id,
-            m.Name AS name,
-            m.URL AS url,
-            m.Document AS document,
-            m.Type AS type,
-            m.Summarize AS summarize,
-            m.Uploaded_At AS uploaded_at,
-            (u.F_Name || ' ' || u.L_Name) AS uploaded_by 
+            m.material_id,
+            m.lec_id AS lecture_id,
+            l.class_id,
+            m.name,
+            m.url,
+            m.document,
+            m.type,
+            m.summarize,
+            m.uploaded_at,
+            (u.f_name || ' ' || u.l_name) AS uploaded_by 
        FROM Material m
-        LEFT JOIN Lecture l ON m.Lec_ID = l.Lec_ID
-        LEFT JOIN Class c ON l.Class_ID = c.Class_ID
-        LEFT JOIN User u ON c.Doctor_ID = u.User_ID
-        WHERE l.Class_ID = ?
+        LEFT JOIN Lecture l ON m.lec_id = l.lec_id
+        LEFT JOIN Class c ON l.class_id = c.class_id
+        LEFT JOIN "User" u ON c.doctor_id = u.user_id
+        WHERE l.class_id = $1
     `;
-    db.all(query, [classId], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ success: false, message: err.message });
-        }
+    const result = await db.query(query, [classId]);
+    const formattedRows = result.rows.map(row => ({
+        ...row,
+        document: row.document ? `http://localhost:3000/uploads/${path.basename(row.document)}` : null        }));
 
-        const formattedRows = rows.map(row => ({
-            ...row,
-            document: row.document ? `http://localhost:3000/uploads/${path.basename(row.document)}` : null        }));
-
-        res.status(200).json({
-            success: true,
-            data: formattedRows
-        });
+    res.status(200).json({
+        success: true,
+        data: formattedRows
     });
 });
 
@@ -108,13 +103,13 @@ const getMaterialsByLectureID = asyncWrapper(async (req, res) => {
     }
 
     const formattedRows = rows.map(row => ({
-        material_id: row.Material_ID,
-        lecture_id: row.Lec_ID,
-        name: row.Name,
-        url: row.URL,
-        document: row.Document ? `http://localhost:3000/uploads/${path.basename(row.Document)}` : null,
-        type: row.Type,
-        summarize: row.Summarize
+        material_id: row.material_id,
+        lecture_id: row.lec_id,
+        name: row.name,
+        url: row.url,
+        document: row.document ? `http://localhost:3000/uploads/${path.basename(row.document)}` : null,
+        type: row.type,
+        summarize: row.summarize
     }));
 
     res.status(200).json({
@@ -133,18 +128,13 @@ const deleteMaterial = asyncWrapper(async (req, res) => {
     }
 
     // Resolve classId before deleting so we can re-index afterwards
-    const lectureRow = await new Promise((resolve, reject) => {
-        db.get('SELECT Class_ID FROM Lecture WHERE Lec_ID = ?', [material.Lec_ID], (err, row) => {
-            if (err) return reject(err);
-            resolve(row);
-        });
-    });
-    const classId = lectureRow?.Class_ID;
+    const lectureResult = await db.query('SELECT class_id FROM Lecture WHERE lec_id = $1', [material.lec_id]);
+    const classId = lectureResult.rows[0]?.class_id;
 
     const result = await materialModel.delete(materialId);
 
-    if (result.changes > 0 && material.Document) {
-        const filePath = material.Document;
+    if (material.document) {
+        const filePath = material.document;
 
         const attemptDelete = (path, retries = 3) => {
             fs.unlink(path, (err) => {

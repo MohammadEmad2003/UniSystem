@@ -1,0 +1,26 @@
+[
+  {
+    "Output_ID": 1,
+    "Class_ID": 1,
+    "Material_ID": 1,
+    "User_ID": 6,
+    "Tool_Type": "summarize",
+    "Options_Key": "summarize::length=short",
+    "Options_JSON": "{\"length\":\"short\"}",
+    "Content_JSON": "{\"text\":\"This material introduces data structures and Big-O notation.\"}",
+    "Created_At": "2026-05-10 22:07:50",
+    "Updated_At": "2026-05-10 22:07:50"
+  },
+  {
+    "Output_ID": 2,
+    "Class_ID": 1,
+    "Material_ID": 2,
+    "User_ID": 6,
+    "Tool_Type": "summarize",
+    "Options_Key": "summarize::length=medium",
+    "Options_JSON": "{\"length\":\"medium\"}",
+    "Content_JSON": "{\"text\":\"Detailed guide on time complexity and algorithm efficiency.\"}",
+    "Created_At": "2026-05-10 22:07:50",
+    "Updated_At": "2026-05-10 22:07:50"
+  }
+]

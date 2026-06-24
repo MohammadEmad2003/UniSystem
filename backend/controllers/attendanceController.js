@@ -12,22 +12,17 @@ const normalizeRoomKey = (room_id) => {
 const getLectureAttendance = asyncWrapper(async (req, res) => {
   const { lectureId } = req.params;
 
-  const records = await new Promise((resolve, reject) => {
-    db.all(
+  const result = await db.query(
       `SELECT 
-        a.Attendance_ID, a.Lec_ID, a.User_ID AS Student_ID,
-        u.F_Name || ' ' || u.L_Name AS Student_Name,
-        a.Time, a.Early_Check, a.Late_Check, a.Method
+        a.attendance_id, a.lec_id, a.user_id AS student_id,
+        u.f_name || ' ' || u.l_name AS student_name,
+        a.time, a.early_check, a.late_check, a.method
        FROM Attendance a
-       INNER JOIN User u ON a.User_ID = u.User_ID
-       WHERE a.Lec_ID = ?`,
-      [lectureId],
-      (err, rows) => {
-        if (err) return reject(err);
-        resolve(rows || []);
-      }
-    );
-  });
+       INNER JOIN "User" u ON a.user_id = u.user_id
+       WHERE a.lec_id = $1`,
+      [lectureId]
+  );
+  const records = result.rows || [];
 
   res.json({ success: httpstatustext.success, data: records });
 });
@@ -36,23 +31,18 @@ const getLectureAttendance = asyncWrapper(async (req, res) => {
 const getStudentAttendanceByClass = asyncWrapper(async (req, res) => {
   const { studentId, classId } = req.params;
 
-  const records = await new Promise((resolve, reject) => {
-    db.all(
+  const result = await db.query(
       `SELECT 
-        a.Attendance_ID, a.Lec_ID, a.User_ID AS Student_ID,
-        u.F_Name || ' ' || u.L_Name AS Student_Name,
-        a.Time, a.Early_Check, a.Late_Check, a.Method
+        a.attendance_id, a.lec_id, a.user_id AS student_id,
+        u.f_name || ' ' || u.l_name AS student_name,
+        a.time, a.early_check, a.late_check, a.method
        FROM Attendance a
-       INNER JOIN User u ON a.User_ID = u.User_ID
-       INNER JOIN Lecture l ON a.Lec_ID = l.Lec_ID
-       WHERE a.User_ID = ? AND l.Class_ID = ?`,
-      [studentId, classId],
-      (err, rows) => {
-        if (err) return reject(err);
-        resolve(rows || []);
-      }
-    );
-  });
+       INNER JOIN "User" u ON a.user_id = u.user_id
+       INNER JOIN Lecture l ON a.lec_id = l.lec_id
+       WHERE a.user_id = $1 AND l.class_id = $2`,
+      [studentId, classId]
+  );
+  const records = result.rows || [];
 
   res.json({ success: httpstatustext.success, data: records });
 });
@@ -61,22 +51,17 @@ const getStudentAttendanceByClass = asyncWrapper(async (req, res) => {
 const getAttendanceByLectureAndStudent = asyncWrapper(async (req, res) => {
   const { lectureId, studentId } = req.params;
 
-  const record = await new Promise((resolve, reject) => {
-    db.get(
+  const result = await db.query(
       `SELECT 
-        a.Attendance_ID, a.Lec_ID, a.User_ID AS Student_ID,
-        u.F_Name || ' ' || u.L_Name AS Student_Name,
-        a.Time, a.Early_Check, a.Late_Check, a.Method
+        a.attendance_id, a.lec_id, a.user_id AS student_id,
+        u.f_name || ' ' || u.l_name AS student_name,
+        a.time, a.early_check, a.late_check, a.method
        FROM Attendance a
-       INNER JOIN User u ON a.User_ID = u.User_ID
-       WHERE a.Lec_ID = ? AND a.User_ID = ?`,
-      [lectureId, studentId],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row || null);
-      }
-    );
-  });
+       INNER JOIN "User" u ON a.user_id = u.user_id
+       WHERE a.lec_id = $1 AND a.user_id = $2`,
+      [lectureId, studentId]
+  );
+  const record = result.rows[0] || null;
 
   if (!record) {
     return res.status(404).json({ success: httpstatustext.error, message: "Attendance not found" });
@@ -107,32 +92,22 @@ const updateAttendanceByLectureAndStudent = asyncWrapper(async (req, res) => {
   }
 
   // Ensure record exists first
-  const existing = await new Promise((resolve, reject) => {
-    db.get(`SELECT * FROM Attendance WHERE User_ID = ? AND Lec_ID = ?`, [studentId, lectureId], (err, row) => {
-      if (err) return reject(err);
-      resolve(row || null);
-    });
-  });
+  const existingResult = await db.query(`SELECT * FROM Attendance WHERE user_id = $1 AND lec_id = $2`, [studentId, lectureId]);
+  const existing = existingResult.rows[0] || null;
 
   if (!existing) {
     return res.status(404).json({ success: httpstatustext.error, message: "Attendance not found" });
   }
 
-  const nextEarly = early !== undefined ? early : existing.Early_Check;
-  const nextLate = late !== undefined ? late : existing.Late_Check;
-  const nextMethod = method || existing.Method;
+  const nextEarly = early !== undefined ? early : existing.early_check;
+  const nextLate = late !== undefined ? late : existing.late_check;
+  const nextMethod = method || existing.method;
   const nextTime = new Date().toISOString();
 
-  await new Promise((resolve, reject) => {
-    db.run(
-      `UPDATE Attendance SET Early_Check = ?, Late_Check = ?, Method = ?, Time = ? WHERE User_ID = ? AND Lec_ID = ?`,
-      [nextEarly, nextLate, nextMethod, nextTime, studentId, lectureId],
-      (err) => {
-        if (err) return reject(err);
-        resolve();
-      }
-    );
-  });
+  await db.query(
+      `UPDATE Attendance SET early_check = $1, late_check = $2, method = $3, time = $4 WHERE user_id = $5 AND lec_id = $6`,
+      [nextEarly, nextLate, nextMethod, nextTime, studentId, lectureId]
+  );
 
   res.json({
     success: httpstatustext.success,
@@ -145,14 +120,9 @@ const updateAttendanceByLectureAndStudent = asyncWrapper(async (req, res) => {
 const deleteAttendanceByLectureAndStudent = asyncWrapper(async (req, res) => {
   const { lectureId, studentId } = req.params;
 
-  const result = await new Promise((resolve, reject) => {
-    db.run(`DELETE FROM Attendance WHERE User_ID = ? AND Lec_ID = ?`, [studentId, lectureId], function (err) {
-      if (err) return reject(err);
-      resolve({ changes: this.changes });
-    });
-  });
+  const result = await db.query(`DELETE FROM Attendance WHERE user_id = $1 AND lec_id = $2`, [studentId, lectureId]);
 
-  if (!result.changes) {
+  if (result.rowCount === 0) {
     return res.status(404).json({ success: httpstatustext.error, message: "Attendance not found" });
   }
 
@@ -169,43 +139,28 @@ const recordAttendance = asyncWrapper(async (req, res) => {
   }
 
   // تأكد إن الـ lecture موجودة
-  const lecture = await new Promise((resolve, reject) => {
-    db.get(`SELECT * FROM Lecture WHERE Lec_ID = ?`, [lectureId], (err, row) => {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
+  const lectureResult = await db.query(`SELECT * FROM Lecture WHERE lec_id = $1`, [lectureId]);
+  const lecture = lectureResult.rows[0];
 
   if (!lecture) {
     return res.status(404).json({ success: httpstatustext.error, message: 'Lecture not found' });
   }
 
   // تأكد مش سجّل قبل كده
-  const existing = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT * FROM Attendance WHERE User_ID = ? AND Lec_ID = ?`,
-      [student_id, lectureId],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row);
-      }
-    );
-  });
+  const existingResult = await db.query(
+      `SELECT * FROM Attendance WHERE user_id = $1 AND lec_id = $2`,
+      [student_id, lectureId]
+  );
+  const existing = existingResult.rows[0];
 
   if (existing) {
     return res.status(400).json({ success: httpstatustext.error, message: 'Attendance already recorded' });
   }
 
-  await new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO Attendance (User_ID, Lec_ID, Early_Check, Late_Check, Method) VALUES (?, ?, ?, ?, ?)`,
-      [student_id, lectureId, 1, 0, 'manual'],
-      function (err) {
-        if (err) return reject(err);
-        resolve({ lastID: this.lastID });
-      }
-    );
-  });
+  await db.query(
+      `INSERT INTO Attendance (user_id, lec_id, early_check, late_check, method) VALUES ($1, $2, $3, $4, $5)`,
+      [student_id, lectureId, 1, 0, 'manual']
+  );
 
   res.status(201).json({ success: httpstatustext.success, message: 'Attendance recorded successfully' });
 });
@@ -221,25 +176,17 @@ const nfcAttendance = asyncWrapper(async (req, res) => {
 
   const rk = normalizeRoomKey(room_id);
 
-  const roomOk = await new Promise((resolve, reject) => {
-    db.get(`SELECT Room_ID FROM Room WHERE Room_ID = ?`, [rk], (err, row) => {
-      if (err) return reject(err);
-      resolve(!!row);
-    });
-  });
+  const roomResult = await db.query(`SELECT room_id FROM Room WHERE room_id = $1`, [rk]);
+  const roomOk = !!(roomResult.rows && roomResult.rows.length > 0);
   if (!roomOk) {
     return res.status(404).json({ success: httpstatustext.error, message: "Room not found" });
   }
 
   // Find the active lecture in this room
-  const lecture = await new Promise((resolve, reject) => {
-    db.get(`SELECT Lec_ID FROM Lecture WHERE Room_ID = ? AND Status = 'open'`, [rk], (err, row) => {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
+  const lectureResult = await db.query(`SELECT lec_id FROM Lecture WHERE room_id = $1 AND status = 'open'`, [rk]);
+  const lecture = lectureResult.rows[0];
 
-  const lec_id = lecture?.Lec_ID;
+  const lec_id = lecture?.lec_id;
 
   // Monitor Path: Emit to Socket.io (Proxy Mode)
   // This allows the Admin/Link Card page to see the scan even if no lecture is active.
@@ -258,18 +205,14 @@ const nfcAttendance = asyncWrapper(async (req, res) => {
   }
 
   // Find student by NFC UID
-  const student = await new Promise((resolve, reject) => {
-    db.get(`SELECT User_ID FROM Student WHERE NFC_Tag_ID = ?`, [uid], (err, row) => {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
+  const studentResult = await db.query(`SELECT user_id FROM Student WHERE nfc_tag_id = $1`, [uid]);
+  const student = studentResult.rows[0];
 
   if (!student) {
     return res.status(404).json({ success: httpstatustext.error, message: "Student not found with this NFC tag" });
   }
 
-  return processAttendance(student.User_ID, lec_id, 'nfc', res);
+  return processAttendance(student.user_id, lec_id, 'nfc', res);
 });
 
 // POST /attendance/manual
@@ -282,49 +225,37 @@ const manualAttendance = asyncWrapper(async (req, res) => {
   }
 
   const rk = normalizeRoomKey(room_id);
-  const roomOk = await new Promise((resolve, reject) => {
-    db.get(`SELECT Room_ID FROM Room WHERE Room_ID = ?`, [rk], (err, row) => {
-      if (err) return reject(err);
-      resolve(!!row);
-    });
-  });
+  const roomResult = await db.query(`SELECT room_id FROM Room WHERE room_id = $1`, [rk]);
+  const roomOk = !!(roomResult.rows && roomResult.rows.length > 0);
   if (!roomOk) {
     return res.status(404).json({ success: httpstatustext.error, message: "Room not found" });
   }
 
   // Find the active lecture in this room
-  const lecture = await new Promise((resolve, reject) => {
-    db.get(`SELECT Lec_ID FROM Lecture WHERE Room_ID = ? AND Status = 'open'`, [rk], (err, row) => {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
+  const lectureResult = await db.query(`SELECT lec_id FROM Lecture WHERE room_id = $1 AND status = 'open'`, [rk]);
+  const lecture = lectureResult.rows[0];
 
   if (!lecture) {
     return res.status(400).json({ success: httpstatustext.error, message: "No active lecture in this room" });
   }
 
-  const lec_id = lecture.Lec_ID;
+  const lec_id = lecture.lec_id;
 
   // Validate user
-  const user = await new Promise((resolve, reject) => {
-    db.get(`SELECT * FROM User WHERE User_ID = ?`, [studentId], (err, row) => {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
+  const userResult = await db.query(`SELECT * FROM "User" WHERE user_id = $1`, [studentId]);
+  const user = userResult.rows[0];
 
   if (!user) {
     return res.status(401).json({ success: httpstatustext.error, message: "Invalid credentials" });
   }
 
   const bcrypt = require('bcryptjs');
-  const isMatch = await bcrypt.compare(password, user.Password);
+  const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
     return res.status(401).json({ success: httpstatustext.error, message: "Invalid credentials" });
   }
 
-  return processAttendance(user.User_ID, lec_id, 'manual', res);
+  return processAttendance(user.user_id, lec_id, 'manual', res);
 });
 
 // POST /attendance/online
@@ -336,22 +267,18 @@ const onlineAttendance = asyncWrapper(async (req, res) => {
   }
 
   // 1. Get lecture and verify code
-  const lecture = await new Promise((resolve, reject) => {
-    db.get(`SELECT * FROM Lecture WHERE Lec_ID = ?`, [lectureId], (err, row) => {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
+  const lectureResult = await db.query(`SELECT * FROM Lecture WHERE lec_id = $1`, [lectureId]);
+  const lecture = lectureResult.rows[0];
 
   if (!lecture) {
     return res.status(404).json({ success: httpstatustext.error, message: "Lecture not found" });
   }
 
-  if (lecture.Type !== 'Online') {
+  if (lecture.type !== 'Online') {
     return res.status(400).json({ success: httpstatustext.error, message: "This is not an online lecture" });
   }
 
-  if (lecture.Attendance_Code !== code) {
+  if (lecture.attendance_code !== code) {
     return res.status(400).json({ success: httpstatustext.error, message: "Invalid attendance code" });
   }
 
@@ -362,50 +289,35 @@ const onlineAttendance = asyncWrapper(async (req, res) => {
 // Helper function to process attendance logic
 async function processAttendance(userId, lecId, method, res) {
   // Fetch student/user name for response (for LCD display)
-  const userInfo = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT User_ID, F_Name, L_Name FROM User WHERE User_ID = ?`,
-      [userId],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row);
-      }
-    );
-  });
-
-  const studentName = userInfo ? `${userInfo.F_Name || ''} ${userInfo.L_Name || ''}`.trim() : null;
+  const userInfoResult = await db.query(
+      `SELECT user_id, f_name, l_name FROM "User" WHERE user_id = $1`,
+      [userId]
+  );
+  const userInfo = userInfoResult.rows[0];
+  const studentName = userInfo ? `${userInfo.f_name || ''} ${userInfo.l_name || ''}`.trim() : null;
 
   // Check lecture status
-  const lecture = await new Promise((resolve, reject) => {
-    db.get(`SELECT * FROM Lecture WHERE Lec_ID = ? AND Status = 'open'`, [lecId], (err, row) => {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
+  const lectureResult = await db.query(`SELECT * FROM Lecture WHERE lec_id = $1 AND status = 'open'`, [lecId]);
+  const lecture = lectureResult.rows[0];
 
   if (!lecture) {
     return res.status(400).json({ success: httpstatustext.error, message: "Lecture is not open for attendance" });
   }
 
   // NEW: Verify student enrollment in this class
-  const enrollment = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT * FROM Enrollment WHERE User_ID = ? AND Class_ID = ?`,
-      [userId, lecture.Class_ID],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row);
-      }
-    );
-  });
+  const enrollmentResult = await db.query(
+      `SELECT * FROM Enrollment WHERE user_id = $1 AND class_id = $2`,
+      [userId, lecture.class_id]
+  );
+  const enrollment = enrollmentResult.rows[0];
 
   if (!enrollment) {
     return res.status(403).json({ success: httpstatustext.error, message: "Student is not enrolled in this class" });
   }
 
   const now = new Date();
-  const startTime = new Date(lecture.Start_Time);
-  const endTime = lecture.End_Time ? new Date(lecture.End_Time) : null;
+  const startTime = new Date(lecture.start_time);
+  const endTime = lecture.end_time ? new Date(lecture.end_time) : null;
 
   let earlyCheck = 0;
   let lateCheck = 0;
@@ -422,9 +334,7 @@ async function processAttendance(userId, lecId, method, res) {
 
     if (timeSinceEnd > 15 * 60000) {
       // 15 minutes have passed since the lecture ended! Close it permanently in DB.
-      await new Promise((resolve) => {
-        db.run(`UPDATE Lecture SET Status = 'closed' WHERE Lec_ID = ?`, [lecId], resolve);
-      });
+      await db.query(`UPDATE Lecture SET status = 'closed' WHERE lec_id = $1`, [lecId]);
       return res.status(400).json({ success: httpstatustext.error, message: "Attendance window closed (15 minutes passed since lecture ended)" });
     } else {
       // Student is scanning within the 15-minute grace period after End_Time
@@ -433,44 +343,28 @@ async function processAttendance(userId, lecId, method, res) {
   }
 
   // Check if attendance already exists
-  const existing = await new Promise((resolve, reject) => {
-    db.get(`SELECT * FROM Attendance WHERE User_ID = ? AND Lec_ID = ?`, [userId, lecId], (err, row) => {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
+  const existingResult = await db.query(`SELECT * FROM Attendance WHERE user_id = $1 AND lec_id = $2`, [userId, lecId]);
+  const existing = existingResult.rows[0];
 
   if (existing) {
     // Update existing record with new flags (don't overwrite 1 with 0)
     const updateData = {
-      Early_Check: existing.Early_Check || earlyCheck,
-      Late_Check: existing.Late_Check || lateCheck,
-      Method: method,
-      Time: new Date().toISOString()
+      early_check: existing.early_check || earlyCheck,
+      late_check: existing.late_check || lateCheck,
+      method: method,
+      time: new Date().toISOString()
     };
 
-    await new Promise((resolve, reject) => {
-      db.run(
-        `UPDATE Attendance SET Early_Check = ?, Late_Check = ?, Method = ?, Time = ? WHERE User_ID = ? AND Lec_ID = ?`,
-        [updateData.Early_Check, updateData.Late_Check, updateData.Method, updateData.Time, userId, lecId],
-        (err) => {
-          if (err) return reject(err);
-          resolve();
-        }
-      );
-    });
+    await db.query(
+      `UPDATE Attendance SET early_check = $1, late_check = $2, method = $3, time = $4 WHERE user_id = $5 AND lec_id = $6`,
+      [updateData.early_check, updateData.late_check, updateData.method, updateData.time, userId, lecId]
+    );
   } else {
     // Insert new record
-    await new Promise((resolve, reject) => {
-      db.run(
-        `INSERT INTO Attendance (User_ID, Lec_ID, Early_Check, Late_Check, Method) VALUES (?, ?, ?, ?, ?)`,
-        [userId, lecId, earlyCheck, lateCheck, method],
-        (err) => {
-          if (err) return reject(err);
-          resolve();
-        }
-      );
-    });
+    await db.query(
+      `INSERT INTO Attendance (user_id, lec_id, early_check, late_check, method) VALUES ($1, $2, $3, $4, $5)`,
+      [userId, lecId, earlyCheck, lateCheck, method]
+    );
   }
 
   // Short status message for LCD:

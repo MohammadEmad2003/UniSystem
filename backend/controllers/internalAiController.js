@@ -34,138 +34,106 @@ const mapMaterialRow = (row) => {
   };
 };
 
-const getQuestionAnswers = (questionId) =>
-  new Promise((resolve, reject) => {
-      db.all(
-        `SELECT
-          a.Answer_ID AS answer_id,
-          a.Questions_ID AS question_id,
-          a.Text AS answer_text,
-          a.Time AS answer_time,
-          a.Doctor_ID AS doctor_id,
-          a.User_ID AS user_id,
-          a.Is_AI_Generated AS is_ai_generated,
-          a.Confidence AS confidence,
-          a.AI_Metadata AS ai_metadata,
-          a.Source_Type AS source_type,
-          COALESCE(u.F_Name || ' ' || u.L_Name, '') AS answered_by_name,
-          CASE WHEN a.Doctor_ID IS NOT NULL THEN 'doctor' ELSE 'student' END AS answered_by_role
-         FROM Answer a
-       LEFT JOIN User u ON u.User_ID = COALESCE(a.Doctor_ID, a.User_ID)
-       WHERE a.Questions_ID = ?
+const getQuestionAnswers = async (questionId) => {
+  const result = await db.query(
+      `SELECT
+        a.answer_id,
+        a.questions_id AS question_id,
+        a.text AS answer_text,
+        a.time AS answer_time,
+        a.doctor_id,
+        a.user_id,
+        a.is_ai_generated,
+        a.confidence,
+        a.ai_metadata,
+        a.source_type,
+        COALESCE(u.f_name || ' ' || u.l_name, '') AS answered_by_name,
+        CASE WHEN a.doctor_id IS NOT NULL THEN 'doctor' ELSE 'student' END AS answered_by_role
+       FROM Answer a
+       LEFT JOIN "User" u ON u.user_id = COALESCE(a.doctor_id, a.user_id)
+       WHERE a.questions_id = $1
        ORDER BY
-        CASE WHEN a.Doctor_ID IS NOT NULL THEN 0 ELSE 1 END,
-        datetime(a.Time) DESC,
-        a.Answer_ID DESC`,
-      [questionId],
-      (err, rows) => {
-        if (err) return reject(err);
-        resolve(rows || []);
-      }
-    );
-  });
+        CASE WHEN a.doctor_id IS NOT NULL THEN 0 ELSE 1 END,
+        a.time DESC,
+        a.answer_id DESC`,
+      [questionId]
+  );
+  return result.rows || [];
+};
 
-const getQuestionsForClass = (classId) =>
-  new Promise((resolve, reject) => {
-    db.all(
+const getQuestionsForClass = async (classId) => {
+  const result = await db.query(
       `SELECT
-        q.Questions_ID AS question_id,
-        q.Class_ID AS class_id,
-        q.Text AS question_text,
-        q.User_ID AS user_id,
-        q.Doctor_ID AS doctor_id,
-        COALESCE(u.F_Name || ' ' || u.L_Name, '') AS asked_by_name,
-        CASE WHEN q.Doctor_ID IS NOT NULL THEN 'doctor' ELSE 'student' END AS asked_by_role
+        q.questions_id AS question_id,
+        q.class_id,
+        q.text AS question_text,
+        q.user_id,
+        q.doctor_id,
+        COALESCE(u.f_name || ' ' || u.l_name, '') AS asked_by_name,
+        CASE WHEN q.doctor_id IS NOT NULL THEN 'doctor' ELSE 'student' END AS asked_by_role
        FROM Questions q
-       LEFT JOIN User u ON u.User_ID = COALESCE(q.User_ID, q.Doctor_ID)
-       WHERE q.Class_ID = ?
-       ORDER BY q.Questions_ID ASC`,
-      [classId],
-      (err, rows) => {
-        if (err) return reject(err);
-        resolve(rows || []);
-      }
-    );
-  });
+       LEFT JOIN "User" u ON u.user_id = COALESCE(q.user_id, q.doctor_id)
+       WHERE q.class_id = $1
+       ORDER BY q.questions_id ASC`,
+      [classId]
+  );
+  return result.rows || [];
+};
 
-const getQuestionById = (questionId) =>
-  new Promise((resolve, reject) => {
-    db.get(
+const getQuestionById = async (questionId) => {
+  const result = await db.query(
       `SELECT
-        q.Questions_ID AS question_id,
-        q.Class_ID AS class_id,
-        q.Text AS question_text,
-        q.User_ID AS user_id,
-        q.Doctor_ID AS doctor_id,
-        COALESCE(u.F_Name || ' ' || u.L_Name, '') AS asked_by_name,
-        CASE WHEN q.Doctor_ID IS NOT NULL THEN 'doctor' ELSE 'student' END AS asked_by_role
+        q.questions_id AS question_id,
+        q.class_id,
+        q.text AS question_text,
+        q.user_id,
+        q.doctor_id,
+        COALESCE(u.f_name || ' ' || u.l_name, '') AS asked_by_name,
+        CASE WHEN q.doctor_id IS NOT NULL THEN 'doctor' ELSE 'student' END AS asked_by_role
        FROM Questions q
-       LEFT JOIN User u ON u.User_ID = COALESCE(q.User_ID, q.Doctor_ID)
-       WHERE q.Questions_ID = ?`,
-      [questionId],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row || null);
-      }
-    );
-  });
+       LEFT JOIN "User" u ON u.user_id = COALESCE(q.user_id, q.doctor_id)
+       WHERE q.questions_id = $1`,
+      [questionId]
+  );
+  return result.rows[0] || null;
+};
 
-const getMaterialsForClass = (classId) =>
-  new Promise((resolve, reject) => {
-    const query = `SELECT
-        m.Material_ID AS material_id,
-        l.Class_ID AS class_id,
-        m.Lec_ID AS lecture_id,
-        m.Name AS name,
-        m.URL AS url,
-        m.Document AS document,
-        m.Summarize AS summarize
+const getMaterialsForClass = async (classId) => {
+  const query = `SELECT
+        m.material_id,
+        l.class_id,
+        m.lec_id AS lecture_id,
+        m.name,
+        m.url,
+        m.document,
+        m.summarize
        FROM Material m
-       INNER JOIN Lecture l ON l.Lec_ID = m.Lec_ID
-       WHERE l.Class_ID = ?
-       ORDER BY m.Material_ID ASC`;
-    const params = [classId];
+       INNER JOIN Lecture l ON l.lec_id = m.lec_id
+       WHERE l.class_id = $1
+       ORDER BY m.material_id ASC`;
+  const params = [classId];
 
-    db.all(
-      query,
-      params,
-      (err, rows) => {
-        if (err) {
-          logSqlError("getMaterialsForClass", err, query, params);
-          return reject(err);
-        }
-        resolve(rows || []);
-      }
-    );
-  });
+  const result = await db.query(query, params);
+  return result.rows || [];
+};
 
-const getMaterialById = (materialId) =>
-  new Promise((resolve, reject) => {
-    const query = `SELECT
-        m.Material_ID AS material_id,
-        l.Class_ID AS class_id,
-        m.Lec_ID AS lecture_id,
-        m.Name AS name,
-        m.URL AS url,
-        m.Document AS document,
-        m.Summarize AS summarize
+const getMaterialById = async (materialId) => {
+  const query = `SELECT
+        m.material_id,
+        l.class_id,
+        m.lec_id AS lecture_id,
+        m.name,
+        m.url,
+        m.document,
+        m.summarize
        FROM Material m
-       INNER JOIN Lecture l ON l.Lec_ID = m.Lec_ID
-       WHERE m.Material_ID = ?`;
-    const params = [materialId];
+       INNER JOIN Lecture l ON l.lec_id = m.lec_id
+       WHERE m.material_id = $1`;
+  const params = [materialId];
 
-    db.get(
-      query,
-      params,
-      (err, row) => {
-        if (err) {
-          logSqlError("getMaterialById", err, query, params);
-          return reject(err);
-        }
-        resolve(row || null);
-      }
-    );
-  });
+  const result = await db.query(query, params);
+  return result.rows[0] || null;
+};
 
 const getInternalClassQuestions = asyncWrapper(async (req, res) => {
   const { classId } = req.params;

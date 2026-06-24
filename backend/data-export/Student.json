@@ -1,0 +1,110 @@
+[
+  {
+    "User_ID": 6,
+    "Academic_Level": 2,
+    "Semester": "Spring",
+    "Payment_Status": "Paid",
+    "Paid_Amount": 4200,
+    "NFC_Tag_ID": "0B:D3:1E:15",
+    "SSN": "12345678901234",
+    "Dept_ID": 1,
+    "Total_Hours": 6,
+    "Total_GPA": 1.95
+  },
+  {
+    "User_ID": 7,
+    "Academic_Level": 1,
+    "Semester": "Spring",
+    "Payment_Status": "Paid",
+    "Paid_Amount": 6000,
+    "NFC_Tag_ID": "AA:BB:CC:02",
+    "SSN": "98765432109876",
+    "Dept_ID": 1,
+    "Total_Hours": 30,
+    "Total_GPA": 3.2
+  },
+  {
+    "User_ID": 8,
+    "Academic_Level": 2,
+    "Semester": "Spring",
+    "Payment_Status": "Partial",
+    "Paid_Amount": 5000,
+    "NFC_Tag_ID": "AA:BB:CC:03",
+    "SSN": "11122233344455",
+    "Dept_ID": 2,
+    "Total_Hours": 6,
+    "Total_GPA": 3.3
+  },
+  {
+    "User_ID": 9,
+    "Academic_Level": 1,
+    "Semester": "Spring",
+    "Payment_Status": "Unpaid",
+    "Paid_Amount": 0,
+    "NFC_Tag_ID": "AA:BB:CC:04",
+    "SSN": "22233344455566",
+    "Dept_ID": 2,
+    "Total_Hours": 0,
+    "Total_GPA": 0
+  },
+  {
+    "User_ID": 10,
+    "Academic_Level": 3,
+    "Semester": "Spring",
+    "Payment_Status": "Paid",
+    "Paid_Amount": 10000,
+    "NFC_Tag_ID": "AA:BB:CC:05",
+    "SSN": "33344455566677",
+    "Dept_ID": 3,
+    "Total_Hours": 90,
+    "Total_GPA": 3.7
+  },
+  {
+    "User_ID": 11,
+    "Academic_Level": 2,
+    "Semester": "Spring",
+    "Payment_Status": "Paid",
+    "Paid_Amount": 8000,
+    "NFC_Tag_ID": "AA:BB:CC:06",
+    "SSN": "44455566677788",
+    "Dept_ID": 1,
+    "Total_Hours": 60,
+    "Total_GPA": 3.8
+  },
+  {
+    "User_ID": 12,
+    "Academic_Level": 1,
+    "Semester": "Spring",
+    "Payment_Status": "Unpaid",
+    "Paid_Amount": 0,
+    "NFC_Tag_ID": "04:23:3B:42:8E:6F:80",
+    "SSN": "55566677788899",
+    "Dept_ID": 3,
+    "Total_Hours": 0,
+    "Total_GPA": 0
+  },
+  {
+    "User_ID": 13,
+    "Academic_Level": 2,
+    "Semester": "Spring",
+    "Payment_Status": "Unpaid",
+    "Paid_Amount": 0,
+    "NFC_Tag_ID": null,
+    "SSN": "99988877766655",
+    "Dept_ID": 1,
+    "Total_Hours": 45,
+    "Total_GPA": 1.5
+  },
+  {
+    "User_ID": 14,
+    "Academic_Level": 3,
+    "Semester": "Spring",
+    "Payment_Status": "Paid",
+    "Paid_Amount": 10000,
+    "NFC_Tag_ID": null,
+    "SSN": "11122211122211",
+    "Dept_ID": 1,
+    "Total_Hours": 90,
+    "Total_GPA": 3.9
+  }
+]

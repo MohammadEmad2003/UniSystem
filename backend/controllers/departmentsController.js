@@ -6,18 +6,12 @@ const departmentQueries = genericQueries("Department", {
 });
 
 const getAllDepartments = asyncWrapper(async (req, res) => {
-  const departments = await new Promise((resolve, reject) => {
-    db.all(
-      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name, d.Total_Hours_Required as total_hours_required
+  const departmentsResult = await db.query(
+      `SELECT d.dept_id, d.dept_name, d.doctor_id as head_id, u.f_name || ' ' || u.l_name as head_name, d.total_hours_required
        FROM Department d 
-       LEFT JOIN User u ON d.Doctor_ID = u.User_ID`,
-      [],
-      (err, rows) => {
-        if (err) reject(err);
-        resolve(rows);
-      }
-    );
-  });
+       LEFT JOIN "User" u ON d.doctor_id = u.user_id`
+  );
+  const departments = departmentsResult.rows || [];
   res.status(200).json({
     success: true,
     data: departments,
@@ -33,16 +27,11 @@ const createDepartment = asyncWrapper(async (req, res) => {
       message: "dept_name is required",
     });
   }
-  const exists = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT * FROM Department WHERE Dept_Name = ?`,
-      [dept_name],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row);
-      },
-    );
-  });
+  const existsResult = await db.query(
+      `SELECT * FROM Department WHERE dept_name = $1`,
+      [dept_name]
+  );
+  const exists = existsResult.rows[0];
 
   if (exists) {
     return res.status(409).json({
@@ -51,37 +40,26 @@ const createDepartment = asyncWrapper(async (req, res) => {
     });
   }
   const newDepartmentId = await departmentQueries.create({
-    Dept_Name: dept_name,
-    Doctor_ID: head_id || null,
-    Total_Hours_Required: total_hours_required || 144,
+    dept_name: dept_name,
+    doctor_id: head_id || null,
+    total_hours_required: total_hours_required || 144,
   });
 
   if (head_id) {
-    await new Promise((resolve, reject) => {
-      db.run(
-        `UPDATE Doctor SET Permission = 1 WHERE User_ID = ?`,
-        [head_id],
-        (err) => {
-          if (err) reject(err);
-          else resolve();
-        },
-      );
-    });
+    await db.query(
+      `UPDATE Doctor SET permission = 1 WHERE user_id = $1`,
+      [head_id]
+    );
   }
 
-  const newDepartment = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name, d.Total_Hours_Required as total_hours_required
+  const newDepartmentResult = await db.query(
+      `SELECT d.dept_id, d.dept_name, d.doctor_id as head_id, u.f_name || ' ' || u.l_name as head_name, d.total_hours_required
        FROM Department d 
-       LEFT JOIN User u ON d.Doctor_ID = u.User_ID
-       WHERE d.Dept_ID = ?`,
-      [newDepartmentId.lastID],
-      (err, row) => {
-        if (err) reject(err);
-        resolve(row);
-      }
-    );
-  });
+       LEFT JOIN "User" u ON d.doctor_id = u.user_id
+       WHERE d.dept_id = $1`,
+      [newDepartmentId.dept_id]
+  );
+  const newDepartment = newDepartmentResult.rows[0];
 
   res.status(201).json({
     success: true,
@@ -92,19 +70,14 @@ const createDepartment = asyncWrapper(async (req, res) => {
 
 const getSingleDepartment = asyncWrapper(async (req, res) => {
   const { departmentId } = req.params;
-  const department = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name, d.Total_Hours_Required as total_hours_required
+  const departmentResult = await db.query(
+      `SELECT d.dept_id, d.dept_name, d.doctor_id as head_id, u.f_name || ' ' || u.l_name as head_name, d.total_hours_required
        FROM Department d 
-       LEFT JOIN User u ON d.Doctor_ID = u.User_ID
-       WHERE d.Dept_ID = ?`,
-      [departmentId],
-      (err, row) => {
-        if (err) reject(err);
-        resolve(row);
-      }
-    );
-  });
+       LEFT JOIN "User" u ON d.doctor_id = u.user_id
+       WHERE d.dept_id = $1`,
+      [departmentId]
+  );
+  const department = departmentResult.rows[0];
   if (!department) {
     return res.status(404).json({
       success: false,
@@ -131,16 +104,11 @@ const updateDepartment = asyncWrapper(async (req, res) => {
   }
 
   if (dept_name) {
-    const duplicate = await new Promise((resolve, reject) => {
-      db.get(
-        `SELECT * FROM Department WHERE Dept_Name = ? AND Dept_ID != ?`,
-        [dept_name, departmentId],
-        (err, row) => {
-          if (err) return reject(err);
-          resolve(row);
-        },
-      );
-    });
+    const duplicateResult = await db.query(
+        `SELECT * FROM Department WHERE dept_name = $1 AND dept_id != $2`,
+        [dept_name, departmentId]
+    );
+    const duplicate = duplicateResult.rows[0];
 
     if (duplicate) {
       return res.status(409).json({
@@ -151,35 +119,30 @@ const updateDepartment = asyncWrapper(async (req, res) => {
   }
 
   const updateData = {};
-  if (dept_name) updateData.Dept_Name = dept_name;
-  if (head_id !== undefined) updateData.Doctor_ID = head_id;
-  if (total_hours_required !== undefined) updateData.Total_Hours_Required = total_hours_required;
+  if (dept_name) updateData.dept_name = dept_name;
+  if (head_id !== undefined) updateData.doctor_id = head_id;
+  if (total_hours_required !== undefined) updateData.total_hours_required = total_hours_required;
 
   await departmentQueries.update(departmentId, updateData);
 
   // Update permissions if head changed
-  if (head_id !== undefined && existing.Doctor_ID !== head_id) {
-    if (existing.Doctor_ID) {
-      await db.run(`UPDATE Doctor SET Permission = NULL WHERE User_ID = ?`, [existing.Doctor_ID]);
+  if (head_id !== undefined && existing.doctor_id !== head_id) {
+    if (existing.doctor_id) {
+      await db.query(`UPDATE Doctor SET permission = NULL WHERE user_id = $1`, [existing.doctor_id]);
     }
     if (head_id) {
-      await db.run(`UPDATE Doctor SET Permission = 1 WHERE User_ID = ?`, [head_id]);
+      await db.query(`UPDATE Doctor SET permission = 1 WHERE user_id = $1`, [head_id]);
     }
   }
 
-  const updatedDepartment = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name, d.Total_Hours_Required as total_hours_required
+  const updatedDepartmentResult = await db.query(
+      `SELECT d.dept_id, d.dept_name, d.doctor_id as head_id, u.f_name || ' ' || u.l_name as head_name, d.total_hours_required
        FROM Department d 
-       LEFT JOIN User u ON d.Doctor_ID = u.User_ID
-       WHERE d.Dept_ID = ?`,
-      [departmentId],
-      (err, row) => {
-        if (err) reject(err);
-        resolve(row);
-      }
-    );
-  });
+       LEFT JOIN "User" u ON d.doctor_id = u.user_id
+       WHERE d.dept_id = $1`,
+      [departmentId]
+  );
+  const updatedDepartment = updatedDepartmentResult.rows[0];
 
   res.status(200).json({
     success: true,
@@ -210,12 +173,8 @@ const assignDoctor = asyncWrapper(async (req, res) => {
   }
 
   if (head_id) {
-    const doctor = await new Promise((resolve, reject) => {
-      db.get(`SELECT * FROM Doctor WHERE User_ID = ?`, [head_id], (err, row) => {
-        if (err) return reject(err);
-        resolve(row);
-      });
-    });
+    const doctorResult = await db.query(`SELECT * FROM Doctor WHERE user_id = $1`, [head_id]);
+    const doctor = doctorResult.rows[0];
     if (!doctor) {
       return res.status(404).json({
         success: false,
@@ -224,28 +183,23 @@ const assignDoctor = asyncWrapper(async (req, res) => {
     }
   }
 
-  if (department.Doctor_ID && department.Doctor_ID !== head_id) {
-    await db.run(`UPDATE Doctor SET Permission = NULL WHERE User_ID = ?`, [department.Doctor_ID]);
+  if (department.doctor_id && department.doctor_id !== head_id) {
+    await db.query(`UPDATE Doctor SET permission = NULL WHERE user_id = $1`, [department.doctor_id]);
   }
   if (head_id) {
-    await db.run(`UPDATE Doctor SET Permission = 1 WHERE User_ID = ?`, [head_id]);
+    await db.query(`UPDATE Doctor SET permission = 1 WHERE user_id = $1`, [head_id]);
   }
 
-  await departmentQueries.update(departmentId, { Doctor_ID: head_id || null });
+  await departmentQueries.update(departmentId, { doctor_id: head_id || null });
 
-  const updatedDepartment = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT d.Dept_ID as dept_id, d.Dept_Name as dept_name, d.Doctor_ID as head_id, u.F_Name || ' ' || u.L_Name as head_name, d.Total_Hours_Required as total_hours_required
+  const updatedDepartmentResult = await db.query(
+      `SELECT d.dept_id, d.dept_name, d.doctor_id as head_id, u.f_name || ' ' || u.l_name as head_name, d.total_hours_required
        FROM Department d 
-       LEFT JOIN User u ON d.Doctor_ID = u.User_ID
-       WHERE d.Dept_ID = ?`,
-      [departmentId],
-      (err, row) => {
-        if (err) reject(err);
-        resolve(row);
-      }
-    );
-  });
+       LEFT JOIN "User" u ON d.doctor_id = u.user_id
+       WHERE d.dept_id = $1`,
+      [departmentId]
+  );
+  const updatedDepartment = updatedDepartmentResult.rows[0];
 
   res.status(200).json({
     success: true,
@@ -259,14 +213,14 @@ const setPermission = asyncWrapper(async (req, res) => {
   const { permission } = req.body;
 
   const department = await departmentQueries.getById(departmentId);
-  if (!department || !department.Doctor_ID) {
+  if (!department || !department.doctor_id) {
     return res.status(400).json({
       success: false,
       message: "Department not found or no doctor assigned",
     });
   }
 
-  await db.run(`UPDATE Doctor SET Permission = ? WHERE User_ID = ?`, [permission, department.Doctor_ID]);
+  await db.query(`UPDATE Doctor SET permission = $1 WHERE user_id = $2`, [permission, department.doctor_id]);
 
   res.status(200).json({
     success: true,

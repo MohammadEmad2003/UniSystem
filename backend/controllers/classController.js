@@ -8,27 +8,21 @@ const classQueries = genericQueries('Class', { primaryKey: 'Class_ID' });
 
 // GET /classes — Admin only
 const getAllClasses = asyncWrapper(async (req, res) => {
-  const classes = await new Promise((resolve, reject) => {
-    db.all(
+  const classesResult = await db.query(
       `SELECT 
-        c.Class_ID, c.Course_Code, co.Name AS Course_Name, co.Credit_Hours,
-        c.Doctor_ID, u.F_Name || ' ' || u.L_Name AS Doctor_Name,
-        c.Semester, c.Level, c.Capacity,
-        COUNT(e.User_ID) AS Enrolled_Count,
-        d.Dept_ID AS Department_ID
+        c.class_id, c.course_code, co.name AS course_name, co.credit_hours,
+        c.doctor_id, u.f_name || ' ' || u.l_name AS doctor_name,
+        c.semester, c.level, c.capacity,
+        COUNT(e.user_id) AS enrolled_count,
+        d.dept_id AS department_id
        FROM Class c
-       LEFT JOIN Courses co ON c.Course_Code = co.Course_Code
-       LEFT JOIN User u ON c.Doctor_ID = u.User_ID
-       LEFT JOIN Enrollment e ON c.Class_ID = e.Class_ID
-       LEFT JOIN Offers d ON c.Course_Code = d.Course_Code
-       GROUP BY c.Class_ID`,
-      [],
-      (err, rows) => {
-        if (err) return reject(err);
-        resolve(rows || []);
-      }
-    );
-  });
+       LEFT JOIN Courses co ON c.course_code = co.course_code
+       LEFT JOIN "User" u ON c.doctor_id = u.user_id
+       LEFT JOIN Enrollment e ON c.class_id = e.class_id
+       LEFT JOIN Offers d ON c.course_code = d.course_code
+       GROUP BY c.class_id`
+  );
+  const classes = classesResult.rows || [];
 
   res.json({ success: httpstatustext.success, data: classes });
 });
@@ -37,28 +31,23 @@ const getAllClasses = asyncWrapper(async (req, res) => {
 const getClassById = asyncWrapper(async (req, res) => {
   const { classId } = req.params;
 
-  const cls = await new Promise((resolve, reject) => {
-    db.get(
+  const clsResult = await db.query(
       `SELECT 
-        c.Class_ID, c.Course_Code, co.Name AS Course_Name,
-        c.Doctor_ID, u.F_Name || ' ' || u.L_Name AS Doctor_Name,
-        c.Semester, c.Level, c.Capacity,
-        COUNT(e.User_ID) AS Enrolled_Count,
-        d.Dept_ID AS Department_ID
+        c.class_id, c.course_code, co.name AS course_name,
+        c.doctor_id, u.f_name || ' ' || u.l_name AS doctor_name,
+        c.semester, c.level, c.capacity,
+        COUNT(e.user_id) AS enrolled_count,
+        d.dept_id AS department_id
        FROM Class c
-       LEFT JOIN Courses co ON c.Course_Code = co.Course_Code
-       LEFT JOIN User u ON c.Doctor_ID = u.User_ID
-       LEFT JOIN Enrollment e ON c.Class_ID = e.Class_ID
-       LEFT JOIN Offers d ON c.Course_Code = d.Course_Code
-       WHERE c.Class_ID = ?
-       GROUP BY c.Class_ID`,
-      [classId],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row);
-      }
-    );
-  });
+       LEFT JOIN Courses co ON c.course_code = co.course_code
+       LEFT JOIN "User" u ON c.doctor_id = u.user_id
+       LEFT JOIN Enrollment e ON c.class_id = e.class_id
+       LEFT JOIN Offers d ON c.course_code = d.course_code
+       WHERE c.class_id = $1
+       GROUP BY c.class_id`,
+      [classId]
+  );
+  const cls = clsResult.rows[0];
 
   if (!cls) {
     return res.status(404).json({ success: httpstatustext.error, message: { msg: 'Class not found' } });
@@ -71,26 +60,21 @@ const getClassById = asyncWrapper(async (req, res) => {
 const getClassesByDoctor = asyncWrapper(async (req, res) => {
   const { doctorId } = req.params;
 
-  const classes = await new Promise((resolve, reject) => {
-    db.all(
+  const classesResult = await db.query(
       `SELECT 
-        c.Class_ID, c.Course_Code, co.Name AS Course_Name,
-        c.Doctor_ID, u.F_Name || ' ' || u.L_Name AS Doctor_Name,
-        c.Semester, c.Level, c.Capacity,
-        COUNT(e.User_ID) AS Enrolled_Count
+        c.class_id, c.course_code, co.name AS course_name,
+        c.doctor_id, u.f_name || ' ' || u.l_name AS doctor_name,
+        c.semester, c.level, c.capacity,
+        COUNT(e.user_id) AS enrolled_count
        FROM Class c
-       LEFT JOIN Courses co ON c.Course_Code = co.Course_Code
-       LEFT JOIN User u ON c.Doctor_ID = u.User_ID
-       LEFT JOIN Enrollment e ON c.Class_ID = e.Class_ID
-       WHERE c.Doctor_ID = ?
-       GROUP BY c.Class_ID`,
-      [doctorId],
-      (err, rows) => {
-        if (err) return reject(err);
-        resolve(rows || []);
-      }
-    );
-  });
+       LEFT JOIN Courses co ON c.course_code = co.course_code
+       LEFT JOIN "User" u ON c.doctor_id = u.user_id
+       LEFT JOIN Enrollment e ON c.class_id = e.class_id
+       WHERE c.doctor_id = $1
+       GROUP BY c.class_id`,
+      [doctorId]
+  );
+  const classes = classesResult.rows || [];
 
   res.json({ success: httpstatustext.success, data: classes });
 });
@@ -99,24 +83,19 @@ const getClassesByDoctor = asyncWrapper(async (req, res) => {
 const getClassesByStudent = asyncWrapper(async (req, res) => {
   const { studentId } = req.params;
 
-  const classes = await new Promise((resolve, reject) => {
-    db.all(
+  const classesResult = await db.query(
       `SELECT 
-        c.Class_ID, c.Course_Code, co.Name AS Course_Name, co.Credit_Hours,
-        c.Doctor_ID, u.F_Name || ' ' || u.L_Name AS Doctor_Name,
-        c.Semester, c.Level, c.Capacity
+        c.class_id, c.course_code, co.name AS course_name, co.credit_hours,
+        c.doctor_id, u.f_name || ' ' || u.l_name AS doctor_name,
+        c.semester, c.level, c.capacity
        FROM Class c
-       LEFT JOIN Courses co ON c.Course_Code = co.Course_Code
-       LEFT JOIN User u ON c.Doctor_ID = u.User_ID
-       INNER JOIN Enrollment e ON c.Class_ID = e.Class_ID
-       WHERE e.User_ID = ?`,
-      [studentId],
-      (err, rows) => {
-        if (err) return reject(err);
-        resolve(rows || []);
-      }
-    );
-  });
+       LEFT JOIN Courses co ON c.course_code = co.course_code
+       LEFT JOIN "User" u ON c.doctor_id = u.user_id
+       INNER JOIN Enrollment e ON c.class_id = e.class_id
+       WHERE e.user_id = $1`,
+      [studentId]
+  );
+  const classes = classesResult.rows || [];
 
   res.json({ success: httpstatustext.success, data: classes });
 });
@@ -130,14 +109,14 @@ const createClass = asyncWrapper(async (req, res) => {
   }
 
   const result = await classQueries.create({
-    Course_Code: course_code,
-    Doctor_ID: doctor_id,
-    Semester: semester,
-    Level: level,
-    Capacity: capacity
+    course_code: course_code,
+    doctor_id: doctor_id,
+    semester: semester,
+    level: level,
+    capacity: capacity
   });
 
-  res.status(201).json({ success: httpstatustext.success, data: { class_id: result.lastID } });
+  res.status(201).json({ success: httpstatustext.success, data: { class_id: result.class_id } });
 });
 
 // DELETE /classes/:classId — Admin only
@@ -157,22 +136,17 @@ const deleteClass = asyncWrapper(async (req, res) => {
 const getClassStudents = asyncWrapper(async (req, res) => {
   const { classId } = req.params;
 
-  const students = await new Promise((resolve, reject) => {
-    db.all(
+  const studentsResult = await db.query(
       `SELECT 
-        u.User_ID, u.F_Name, u.L_Name, u.Email,
-        s.Academic_Level, s.Payment_Status, s.NFC_Tag_ID
+        u.user_id, u.f_name, u.l_name, u.email,
+        s.academic_level, s.payment_status, s.nfc_tag_id
        FROM Enrollment e
-       INNER JOIN User u ON e.User_ID = u.User_ID
-       INNER JOIN Student s ON e.User_ID = s.User_ID
-       WHERE e.Class_ID = ?`,
-      [classId],
-      (err, rows) => {
-        if (err) return reject(err);
-        resolve(rows || []);
-      }
-    );
-  });
+       INNER JOIN "User" u ON e.user_id = u.user_id
+       INNER JOIN Student s ON e.user_id = s.user_id
+       WHERE e.class_id = $1`,
+      [classId]
+  );
+  const students = studentsResult.rows || [];
 
   res.json({ success: httpstatustext.success, data: students });
 });
@@ -205,47 +179,31 @@ const enrollStudent = asyncWrapper(async (req, res) => {
   }
 
   // تأكد إن الـ student مش enrolled بالفعل
-  const existing = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT * FROM Enrollment WHERE Class_ID = ? AND User_ID = ?`,
-      [classId, student_id],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row);
-      }
-    );
-  });
+  const existingResult = await db.query(
+      `SELECT * FROM Enrollment WHERE class_id = $1 AND user_id = $2`,
+      [classId, student_id]
+  );
+  const existing = existingResult.rows[0];
 
   if (existing) {
     return res.status(400).json({ success: httpstatustext.error, message: { msg: 'Student already enrolled' } });
   }
 
   // تأكد إن في capacity
-  const enrolledCount = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT COUNT(*) AS count FROM Enrollment WHERE Class_ID = ?`,
-      [classId],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row.count);
-      }
-    );
-  });
+  const enrolledCountResult = await db.query(
+      `SELECT COUNT(*) AS count FROM Enrollment WHERE class_id = $1`,
+      [classId]
+  );
+  const enrolledCount = enrolledCountResult.rows[0].count;
 
-  if (enrolledCount >= cls.Capacity) {
+  if (enrolledCount >= cls.capacity) {
     return res.status(400).json({ success: httpstatustext.error, message: { msg: 'Class is full' } });
   }
 
-  await new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO Enrollment (Class_ID, User_ID) VALUES (?, ?)`,
-      [classId, student_id],
-      function (err) {
-        if (err) return reject(err);
-        resolve();
-      }
-    );
-  });
+  await db.query(
+      `INSERT INTO Enrollment (class_id, user_id) VALUES ($1, $2)`,
+      [classId, student_id]
+  );
 
   res.status(201).json({ success: httpstatustext.success, message: { msg: 'Student enrolled successfully' } });
 });
@@ -254,31 +212,20 @@ const enrollStudent = asyncWrapper(async (req, res) => {
 const dropStudent = asyncWrapper(async (req, res) => {
   const { classId, studentId } = req.params;
 
-  const existing = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT * FROM Enrollment WHERE Class_ID = ? AND User_ID = ?`,
-      [classId, studentId],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row);
-      }
-    );
-  });
+  const existingResult = await db.query(
+      `SELECT * FROM Enrollment WHERE class_id = $1 AND user_id = $2`,
+      [classId, studentId]
+  );
+  const existing = existingResult.rows[0];
 
   if (!existing) {
     return res.status(404).json({ success: httpstatustext.error, message: { msg: 'Enrollment not found' } });
   }
 
-  await new Promise((resolve, reject) => {
-    db.run(
-      `DELETE FROM Enrollment WHERE Class_ID = ? AND User_ID = ?`,
-      [classId, studentId],
-      function (err) {
-        if (err) return reject(err);
-        resolve();
-      }
-    );
-  });
+  await db.query(
+      `DELETE FROM Enrollment WHERE class_id = $1 AND user_id = $2`,
+      [classId, studentId]
+  );
 
   res.json({ success: httpstatustext.success, message: { msg: 'Dropped from class successfully' } });
 });
@@ -287,25 +234,20 @@ const dropStudent = asyncWrapper(async (req, res) => {
 const getClassGrades = asyncWrapper(async (req, res) => {
   const { classId } = req.params;
 
-  const grades = await new Promise((resolve, reject) => {
-    db.all(
+  const gradesResult = await db.query(
       `SELECT 
-        g.User_ID AS Student_ID,
-        u.F_Name || ' ' || u.L_Name AS Student_Name,
-        g.Class_ID,
-        g.Midterm, g.Project, g.Practical,
-        g.Attendance, g.Final, g.GPA,
-        (g.Midterm + g.Project + g.Practical + g.Attendance + COALESCE(g.Final, 0)) AS Total
+        g.user_id AS student_id,
+        u.f_name || ' ' || u.l_name AS student_name,
+        g.class_id,
+        g.midterm, g.project, g.practical,
+        g.attendance, g.final, g.gpa,
+        (g.midterm + g.project + g.practical + g.attendance + COALESCE(g.final, 0)) AS total
        FROM Grades g
-       INNER JOIN User u ON g.User_ID = u.User_ID
-       WHERE g.Class_ID = ?`,
-      [classId],
-      (err, rows) => {
-        if (err) return reject(err);
-        resolve(rows || []);
-      }
-    );
-  });
+       INNER JOIN "User" u ON g.user_id = u.user_id
+       WHERE g.class_id = $1`,
+      [classId]
+  );
+  const grades = gradesResult.rows || [];
 
   res.json({ success: httpstatustext.success, data: grades });
 });
@@ -314,21 +256,16 @@ const getClassGrades = asyncWrapper(async (req, res) => {
 const getStudentGrades = asyncWrapper(async (req, res) => {
   const { classId, studentId } = req.params;
 
-  const grades = await new Promise((resolve, reject) => {
-    db.all(
+  const gradesResult = await db.query(
       `SELECT 
-        Grade_ID, Class_ID, User_ID AS Student_ID,
-        Generate_At,
-        Attendance, Practical, Project, Midterm, Final, GPA
+        grade_id, class_id, user_id AS student_id,
+        generate_at,
+        attendance, practical, project, midterm, final, gpa
        FROM Grades
-       WHERE Class_ID = ? AND User_ID = ?`,
-      [classId, studentId],
-      (err, rows) => {
-        if (err) return reject(err);
-        resolve(rows || []);
-      }
-    );
-  });
+       WHERE class_id = $1 AND user_id = $2`,
+      [classId, studentId]
+  );
+  const grades = gradesResult.rows || [];
 
   res.json({ success: httpstatustext.success, data: grades });
 });
@@ -349,81 +286,53 @@ const addGrade = asyncWrapper(async (req, res) => {
     return res.status(400).json({ success: httpstatustext.error, message: { msg: 'Invalid type' } });
   }
 
-  const existing = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT * FROM Grades WHERE User_ID = ? AND Class_ID = ?`,
-      [student_id, classId],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row);
-      }
-    );
-  });
+  const existingResult = await db.query(
+      `SELECT * FROM Grades WHERE user_id = $1 AND class_id = $2`,
+      [student_id, classId]
+  );
+  const existing = existingResult.rows[0];
 
   const columnMap = {
-    midterm: 'Midterm',
-    final: 'Final',
-    project: 'Project',
-    attendance: 'Attendance',
-    practical: 'Practical'
+    midterm: 'midterm',
+    final: 'final',
+    project: 'project',
+    attendance: 'attendance',
+    practical: 'practical'
   };
 
   const column = columnMap[type];
 
   // Perform Update or Insert
   if (existing) {
-    await new Promise((resolve, reject) => {
-      db.run(
-        `UPDATE Grades SET ${column} = ?, Generate_At = CURRENT_TIMESTAMP WHERE User_ID = ? AND Class_ID = ?`,
-        [grade, student_id, classId],
-        function (err) {
-          if (err) return reject(err);
-          resolve();
-        }
-      );
-    });
+    await db.query(
+      `UPDATE Grades SET ${column} = $1, generate_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND class_id = $3`,
+      [grade, student_id, classId]
+    );
   } else {
-    await new Promise((resolve, reject) => {
-      db.run(
-        `INSERT INTO Grades (User_ID, Class_ID, Doctor_ID, ${column}) VALUES (?, ?, ?, ?)`,
-        [student_id, classId, doctorId, grade],
-        function (err) {
-          if (err) return reject(err);
-          resolve();
-        }
-      );
-    });
+    await db.query(
+      `INSERT INTO Grades (user_id, class_id, doctor_id, ${column}) VALUES ($1, $2, $3, $4)`,
+      [student_id, classId, doctorId, grade]
+    );
   }
 
   // RECALCULATE GPA
-  const updatedGrade = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT * FROM Grades WHERE User_ID = ? AND Class_ID = ?`,
-      [student_id, classId],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row);
-      }
-    );
-  });
+  const updatedGradeResult = await db.query(
+      `SELECT * FROM Grades WHERE user_id = $1 AND class_id = $2`,
+      [student_id, classId]
+  );
+  const updatedGrade = updatedGradeResult.rows[0];
 
   if (updatedGrade) {
-    const totalMarks = (updatedGrade.Midterm || 0) + (updatedGrade.Project || 0) +
-      (updatedGrade.Practical || 0) + (updatedGrade.Attendance || 0) +
-      (updatedGrade.Final || 0);
+    const totalMarks = (updatedGrade.midterm || 0) + (updatedGrade.project || 0) +
+      (updatedGrade.practical || 0) + (updatedGrade.attendance || 0) +
+      (updatedGrade.final || 0);
 
     const courseGPA = gpaService.calculateCourseGPA(totalMarks);
 
-    await new Promise((resolve, reject) => {
-      db.run(
-        `UPDATE Grades SET GPA = ? WHERE User_ID = ? AND Class_ID = ?`,
-        [courseGPA, student_id, classId],
-        (err) => {
-          if (err) return reject(err);
-          resolve();
-        }
-      );
-    });
+    await db.query(
+      `UPDATE Grades SET gpa = $1 WHERE user_id = $2 AND class_id = $3`,
+      [courseGPA, student_id, classId]
+    );
 
     // Recalculate Student Cumulative GPA and Total Hours
     await gpaService.recalculateStudentGPA(student_id);

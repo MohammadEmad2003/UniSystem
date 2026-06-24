@@ -9,57 +9,45 @@ const departmentQueries = genericQueries("Department", {
 });
 const workInQueries = genericQueries("Work_In", { primaryKey: "Doctor_ID" }); // assuming composite key, but let's see
 const adminQueries = genericQueries("Admin", { primaryKey: "User_ID" });
-const getCount = (table, where = "") => {
-  return new Promise((resolve, reject) => {
-    db.get(`SELECT COUNT(*) as count FROM ${table} ${where}`, (err, row) => {
-      if (err) reject(err);
-      resolve(row ? row.count : 0);
-    });
-  });
+const getCount = async (table, where = "") => {
+  const result = await db.query(`SELECT COUNT(*) as count FROM ${table} ${where}`);
+  return result.rows[0] ? result.rows[0].count : 0;
 };
 
-const getUserWithRoleData = (userId, role) => {
-  return new Promise((resolve, reject) => {
-    const roleTable = role === "Doctor" ? "Doctor d" : "Admin a";
-    const joinCondition = role === "Doctor" ? "d.User_ID" : "a.User_ID";
-    const selectField =
-      role === "Doctor"
-        ? "d.Specialization as specialization"
-        : "a.Permissions_Level as permissions_level";
+const getUserWithRoleData = async (userId, role) => {
+  const roleTable = role === "Doctor" ? "Doctor d" : "Admin a";
+  const joinCondition = role === "Doctor" ? "d.user_id" : "a.user_id";
+  const selectField =
+    role === "Doctor"
+      ? "d.specialization as specialization"
+      : "a.permissions_level as permissions_level";
 
-    db.get(
-      `SELECT u.User_ID as user_id, u.F_Name as f_name, u.L_Name as l_name, u.Email as email, u.Account_Status as account_status, u.Role as role,
-              ${selectField}
-       FROM User u
-       JOIN ${roleTable} ON u.User_ID = ${joinCondition}
-       WHERE u.User_ID = ?`,
-      [userId],
-      (err, row) => {
-        if (err) reject(err);
-        resolve(row);
-      },
-    );
-  });
+  const result = await db.query(
+    `SELECT u.user_id, u.f_name, u.l_name, u.email, u.account_status, u.role,
+            ${selectField}
+     FROM "User" u
+     JOIN ${roleTable} ON u.user_id = ${joinCondition}
+     WHERE u.user_id = $1`,
+    [userId]
+  );
+  return result.rows[0];
 };
 
 const getStats = asyncWrapper(async (req, res) => {
   const { dept_id } = req.query;
   
   let total_students, total_doctors, total_classes, total_courses, total_departments;
-  const pending_approvals = dept_id ? 0 : await getCount("User", "WHERE Account_Status = 'pending'");
+  const pending_approvals = dept_id ? 0 : await getCount("\"User\"", "WHERE account_status = 'pending'");
 
   if (dept_id) {
     const dId = Number(dept_id);
-    total_students = await getCount("Student", `WHERE Dept_ID = ${dId}`);
-    total_doctors = await new Promise((resolve) => {
-      db.get(`SELECT COUNT(DISTINCT Doctor_ID) as count FROM Work_In WHERE Dept_ID = ?`, [dId], (err, row) => resolve(row?.count || 0));
-    });
-    total_classes = await new Promise((resolve) => {
-      db.get(`SELECT COUNT(*) as count FROM Class cl JOIN Offers o ON cl.Course_Code = o.Course_Code WHERE o.Dept_ID = ?`, [dId], (err, row) => resolve(row?.count || 0));
-    });
-    total_courses = await new Promise((resolve) => {
-      db.get(`SELECT COUNT(*) as count FROM Offers WHERE Dept_ID = ?`, [dId], (err, row) => resolve(row?.count || 0));
-    });
+    total_students = await getCount("Student", `WHERE dept_id = ${dId}`);
+    const doctorsResult = await db.query(`SELECT COUNT(DISTINCT doctor_id) as count FROM Work_In WHERE dept_id = $1`, [dId]);
+    total_doctors = doctorsResult.rows[0]?.count || 0;
+    const classesResult = await db.query(`SELECT COUNT(*) as count FROM Class cl JOIN Offers o ON cl.course_code = o.course_code WHERE o.dept_id = $1`, [dId]);
+    total_classes = classesResult.rows[0]?.count || 0;
+    const coursesResult = await db.query(`SELECT COUNT(*) as count FROM Offers WHERE dept_id = $1`, [dId]);
+    total_courses = coursesResult.rows[0]?.count || 0;
     total_departments = 1;
   } else {
     total_students = await getCount("Student");
@@ -70,19 +58,15 @@ const getStats = asyncWrapper(async (req, res) => {
   }
 
   // Get department stats for the chart
-  const dept_stats = await new Promise((resolve, reject) => {
-    db.all(`
+  const deptStatsResult = await db.query(`
       SELECT 
-        d.Dept_ID as id, 
-        d.Dept_Name as name,
-        (SELECT COUNT(*) FROM Student s WHERE s.Dept_ID = d.Dept_ID) as students,
-        (SELECT COUNT(DISTINCT Doctor_ID) FROM Work_In w WHERE w.Dept_ID = d.Dept_ID) as doctors
+        d.dept_id as id, 
+        d.dept_name as name,
+        (SELECT COUNT(*) FROM Student s WHERE s.dept_id = d.dept_id) as students,
+        (SELECT COUNT(DISTINCT doctor_id) FROM Work_In w WHERE w.dept_id = d.dept_id) as doctors
       FROM Department d
-    `, (err, rows) => {
-      if (err) return reject(err);
-      resolve(rows || []);
-    });
-  });
+    `);
+  const dept_stats = deptStatsResult.rows || [];
 
   res.status(200).json({
     success: true,
@@ -100,26 +84,21 @@ const getStats = asyncWrapper(async (req, res) => {
 
 const getAllStudents = asyncWrapper(async (req, res) => {
     const { dept_id } = req.query;
-    const whereClause = dept_id ? `WHERE s.Dept_ID = ?` : "";
+    const whereClause = dept_id ? `WHERE s.dept_id = $1` : "";
     const params = dept_id ? [dept_id] : [];
 
-  const students = await new Promise((resolve, reject) => {
-    db.all(
-      `SELECT u.User_ID as user_id, u.F_Name as f_name, u.L_Name as l_name, u.Email as email, u.Account_Status as account_status, u.Role as role,
-              u.Document as document, u.Image_Url as image_url, s.Academic_Level as academic_level, s.Payment_Status as payment_status, s.Paid_Amount as paid_amount,
-              s.NFC_Tag_ID as nfc_tag_id, s.SSN as ssn, s.Dept_ID as dept_id, s.Total_Hours as total_hours, s.Total_GPA as total_gpa,
-              COALESCE(alf.Total_Fees, 0) as total_fees
-       FROM User u
-       JOIN Student s ON u.User_ID = s.User_ID
-       LEFT JOIN Academic_Level_Fees alf ON s.Academic_Level = alf.Academic_Level AND alf.Semester = 'Fall'
+  const studentsResult = await db.query(
+      `SELECT u.user_id, u.f_name, u.l_name, u.email, u.account_status, u.role,
+              u.document, u.image_url, s.academic_level, s.payment_status, s.paid_amount,
+              s.nfc_tag_id, s.ssn, s.dept_id, s.total_hours, s.total_gpa,
+              COALESCE(alf.total_fees, 0) as total_fees
+       FROM "User" u
+       JOIN Student s ON u.user_id = s.user_id
+       LEFT JOIN Academic_Level_Fees alf ON s.academic_level = alf.academic_level AND alf.semester = 'Fall'
        ${whereClause}`,
-      params,
-      (err, rows) => {
-        if (err) reject(err);
-        resolve(rows || []);
-      },
-    );
-  });
+      params
+  );
+  const students = studentsResult.rows || [];
 
   res.status(200).json({
     success: true,
@@ -128,20 +107,15 @@ const getAllStudents = asyncWrapper(async (req, res) => {
 });
 
 const getPendingStudents = asyncWrapper(async (req, res) => {
-  const pendingStudents = await new Promise((resolve, reject) => {
-    db.all(
-      `SELECT u.User_ID as user_id, u.F_Name as f_name, u.L_Name as l_name, u.Email as email, u.Account_Status as account_status, u.Document as document,
-              s.SSN as ssn, s.Academic_Level as academic_level
-       FROM User u
-       JOIN Student s ON u.User_ID = s.User_ID
-       WHERE u.Role = 'Student'
-       AND u.Account_Status = 'pending'`,
-      (err, rows) => {
-        if (err) reject(err);
-        resolve(rows || []);
-      },
-    );
-  });
+  const pendingStudentsResult = await db.query(
+      `SELECT u.user_id, u.f_name, u.l_name, u.email, u.account_status, u.document,
+              s.ssn, s.academic_level
+       FROM "User" u
+       JOIN Student s ON u.user_id = s.user_id
+       WHERE u.role = 'Student'
+       AND u.account_status = 'pending'`
+  );
+  const pendingStudents = pendingStudentsResult.rows || [];
 
   res.status(200).json({
     success: true,
@@ -169,7 +143,7 @@ const changeStudentStatus = asyncWrapper(async (req, res) => {
     });
   }
 
-  if (student.Account_Status !== "pending") {
+  if (student.account_status !== "pending") {
     return res.status(400).json({
       success: false,
       message: "Student account is not pending",
@@ -177,7 +151,7 @@ const changeStudentStatus = asyncWrapper(async (req, res) => {
   }
 
   await userQueries.update(studentId, {
-    Account_Status: status,
+    account_status: status,
   });
 
   res.status(200).json({
@@ -188,23 +162,18 @@ const changeStudentStatus = asyncWrapper(async (req, res) => {
 
 const getAllDoctors = asyncWrapper(async (req, res) => {
     const { dept_id } = req.query;
-    const whereClause = dept_id ? `WHERE d.User_ID IN (SELECT Doctor_ID FROM Work_In WHERE Dept_ID = ?)` : "";
+    const whereClause = dept_id ? `WHERE d.user_id IN (SELECT doctor_id FROM Work_In WHERE dept_id = $1)` : "";
     const params = dept_id ? [dept_id] : [];
 
-  const doctors = await new Promise((resolve, reject) => {
-    db.all(
-      `SELECT u.User_ID as user_id, u.F_Name as f_name, u.L_Name as l_name, u.Email as email, u.Account_Status as account_status, u.Role as role,
-              u.Image_Url as image_url, d.Specialization as specialization
-       FROM User u
-       JOIN Doctor d ON u.User_ID = d.User_ID
+  const doctorsResult = await db.query(
+      `SELECT u.user_id, u.f_name, u.l_name, u.email, u.account_status, u.role,
+              u.image_url, d.specialization as specialization
+       FROM "User" u
+       JOIN Doctor d ON u.user_id = d.user_id
        ${whereClause}`,
-      params,
-      (err, rows) => {
-        if (err) reject(err);
-        resolve(rows || []);
-      },
-    );
-  });
+      params
+  );
+  const doctors = doctorsResult.rows || [];
 
   res.status(200).json({
     success: true,
@@ -234,18 +203,18 @@ const createDoctor = asyncWrapper(async (req, res) => {
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const userResult = await userQueries.create({
-    Password: hashedPassword,
-    F_Name: f_name,
-    L_Name: l_name,
-    Email: email,
-    Account_Status: "approved",
-    Role: "Doctor",
+    password: hashedPassword,
+    f_name: f_name,
+    l_name: l_name,
+    email: email,
+    account_status: "approved",
+    role: "Doctor",
   });
-  const userId = userResult.lastID;
+  const userId = userResult.user_id;
 
   await doctorQueries.create({
-    User_ID: userId,
-    Specialization: specialization || null,
+    user_id: userId,
+    specialization: specialization || null,
   });
 
   if (department_ids && Array.isArray(department_ids)) {
@@ -253,8 +222,8 @@ const createDoctor = asyncWrapper(async (req, res) => {
       const dept = await departmentQueries.getById(dId);
       if (dept) {
         await workInQueries.create({
-          Doctor_ID: userId,
-          Dept_ID: dId,
+          doctor_id: userId,
+          dept_id: dId,
         });
       }
     }
@@ -291,11 +260,8 @@ const createAdmin = asyncWrapper(async (req, res) => {
     ? Number(req.body.permissions_level)
     : 2;
   if (level === 1) {
-    const deanExists = await new Promise((resolve) => {
-      db.get(`SELECT * FROM Admin WHERE Permissions_Level = 1`, (err, row) =>
-        resolve(!!row),
-      );
-    });
+    const deanResult = await db.query(`SELECT * FROM Admin WHERE permissions_level = 1`);
+    const deanExists = !!(deanResult.rows && deanResult.rows.length > 0);
     if (deanExists) {
       return res
         .status(400)
@@ -307,18 +273,18 @@ const createAdmin = asyncWrapper(async (req, res) => {
   }
 
   const userResult = await userQueries.create({
-    Password: hashedPassword,
-    F_Name: f_name,
-    L_Name: l_name,
-    Email: email,
-    Account_Status: "approved",
-    Role: "Admin",
+    password: hashedPassword,
+    f_name: f_name,
+    l_name: l_name,
+    email: email,
+    account_status: "approved",
+    role: "Admin",
   });
-  const userId = userResult.lastID;
+  const userId = userResult.user_id;
 
   await adminQueries.create({
-    User_ID: userId,
-    Permissions_Level: level,
+    user_id: userId,
+    permissions_level: level,
   });
 
   const admin = await getUserWithRoleData(userId, "Admin");
@@ -330,18 +296,13 @@ const createAdmin = asyncWrapper(async (req, res) => {
 });
 
 const getAllAdmins = asyncWrapper(async (req, res) => {
-  const admins = await new Promise((resolve, reject) => {
-    db.all(
-      `SELECT u.User_ID as user_id, u.F_Name as f_name, u.L_Name as l_name, u.Email as email, u.Account_Status as account_status, u.Role as role,
-              a.Permissions_Level as permissions_level
-       FROM User u
-       JOIN Admin a ON u.User_ID = a.User_ID`,
-      (err, rows) => {
-        if (err) reject(err);
-        resolve(rows || []);
-      },
-    );
-  });
+  const adminsResult = await db.query(
+      `SELECT u.user_id, u.f_name, u.l_name, u.email, u.account_status, u.role,
+              a.permissions_level as permissions_level
+       FROM "User" u
+       JOIN Admin a ON u.user_id = a.user_id`
+  );
+  const admins = adminsResult.rows || [];
 
   res.status(200).json({
     success: true,
@@ -350,12 +311,8 @@ const getAllAdmins = asyncWrapper(async (req, res) => {
 });
 
 const getAcademicLevelFees = asyncWrapper(async (req, res) => {
-  const fees = await new Promise((resolve, reject) => {
-    db.all(`SELECT * FROM Academic_Level_Fees`, (err, rows) => {
-      if (err) reject(err);
-      resolve(rows || []);
-    });
-  });
+  const feesResult = await db.query(`SELECT * FROM Academic_Level_Fees`);
+  const fees = feesResult.rows || [];
   res.status(200).json({ success: true, data: fees });
 });
 
@@ -369,25 +326,19 @@ const setAcademicLevelFees = asyncWrapper(async (req, res) => {
   }
 
   const query = `
-    INSERT INTO Academic_Level_Fees (Academic_Level, Semester, Total_Fees, Max_Hours, Min_Hours, Hour_Price) 
-    VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(Academic_Level, Semester) DO UPDATE SET
-      Total_Fees = COALESCE(excluded.Total_Fees, Total_Fees),
-      Max_Hours = COALESCE(excluded.Max_Hours, Max_Hours),
-      Min_Hours = COALESCE(excluded.Min_Hours, Min_Hours),
-      Hour_Price = COALESCE(excluded.Hour_Price, Hour_Price)
+    INSERT INTO Academic_Level_Fees (academic_level, semester, total_fees, max_hours, min_hours, hour_price) 
+    VALUES ($1, $2, $3, $4, $5, $6)
+    ON CONFLICT(academic_level, semester) DO UPDATE SET
+      total_fees = COALESCE(excluded.total_fees, Academic_Level_Fees.total_fees),
+      max_hours = COALESCE(excluded.max_hours, Academic_Level_Fees.max_hours),
+      min_hours = COALESCE(excluded.min_hours, Academic_Level_Fees.min_hours),
+      hour_price = COALESCE(excluded.hour_price, Academic_Level_Fees.hour_price)
   `;
 
-  await new Promise((resolve, reject) => {
-    db.run(
-      query,
-      [academic_level, semester, total_fees ?? null, max_hours ?? null, min_hours ?? null, hour_price ?? null],
-      (err) => {
-        if (err) reject(err);
-        resolve();
-      },
-    );
-  });
+  await db.query(
+    query,
+    [academic_level, semester, total_fees ?? null, max_hours ?? null, min_hours ?? null, hour_price ?? null]
+  );
 
   res.status(200).json({ success: true, message: "Academic level settings updated successfully" });
 });
@@ -407,28 +358,17 @@ const createStudent = asyncWrapper(async (req, res) => {
   const hashedPassword = await bcrypt.hash(password, 10);
 
   // Create User
-  const userId = await new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO User (F_Name, L_Name, Email, Password, Role, Account_Status) VALUES (?, ?, ?, ?, 'Student', 'approved')`,
-      [f_name, l_name, email, hashedPassword],
-      function (err) {
-        if (err) reject(err);
-        resolve(this.lastID);
-      },
-    );
-  });
+  const userResult = await db.query(
+      `INSERT INTO "User" (f_name, l_name, email, password, role, account_status) VALUES ($1, $2, $3, $4, 'Student', 'approved') RETURNING user_id`,
+      [f_name, l_name, email, hashedPassword]
+  );
+  const userId = userResult.rows[0].user_id;
 
   // Create Student
-  await new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO Student (User_ID, SSN, Academic_Level, Dept_ID, Payment_Status, Paid_Amount) VALUES (?, ?, ?, ?, 'Unpaid', 0)`,
-      [userId, ssn, academic_level, department_id || null],
-      (err) => {
-        if (err) reject(err);
-        resolve();
-      },
-    );
-  });
+  await db.query(
+      `INSERT INTO Student (user_id, ssn, academic_level, dept_id, payment_status, paid_amount) VALUES ($1, $2, $3, $4, 'Unpaid', 0)`,
+      [userId, ssn, academic_level, department_id || null]
+  );
 
   res.status(201).json({
     success: true,
@@ -438,37 +378,32 @@ const createStudent = asyncWrapper(async (req, res) => {
 });
 
 const getFinancialStats = asyncWrapper(async (req, res) => {
-  const stats = await new Promise((resolve, reject) => {
-    db.all(
+  const statsResult = await db.query(
       `
       SELECT 
         COUNT(*) as total_students,
-        SUM(CASE WHEN u.Account_Status = 'pending' THEN 1 ELSE 0 END) as pending_students,
-        SUM(CASE WHEN u.Account_Status = 'approved' THEN 1 ELSE 0 END) as approved_students,
-        SUM(s.Paid_Amount) as total_paid,
+        SUM(CASE WHEN u.account_status = 'pending' THEN 1 ELSE 0 END) as pending_students,
+        SUM(CASE WHEN u.account_status = 'approved' THEN 1 ELSE 0 END) as approved_students,
+        SUM(s.paid_amount) as total_paid,
         SUM(
           CASE 
-            WHEN f.Hour_Price > 0 THEN (
-              SELECT COALESCE(SUM(co.Credit_Hours), 0) * f.Hour_Price
+            WHEN f.hour_price > 0 THEN (
+              SELECT COALESCE(SUM(co.credit_hours), 0) * f.hour_price
               FROM Enrollment e 
-              JOIN Class cl ON e.Class_ID = cl.Class_ID 
-              JOIN Courses co ON cl.Course_Code = co.Course_Code 
-              WHERE e.User_ID = s.User_ID
+              JOIN Class cl ON e.class_id = cl.class_id 
+              JOIN Courses co ON cl.course_code = co.course_code 
+              WHERE e.user_id = s.user_id
             )
-            ELSE COALESCE(f.Total_Fees, 0)
+            ELSE COALESCE(f.total_fees, 0)
           END
         ) as total_expected
-      FROM User u
-      JOIN Student s ON u.User_ID = s.User_ID
-      LEFT JOIN Academic_Level_Fees f ON s.Academic_Level = f.Academic_Level AND f.Semester = 'Fall'
-      WHERE u.Role = 'Student'
-    `,
-      (err, rows) => {
-        if (err) reject(err);
-        resolve(rows[0]);
-      },
-    );
-  });
+      FROM "User" u
+      JOIN Student s ON u.user_id = s.user_id
+      LEFT JOIN Academic_Level_Fees f ON s.academic_level = f.academic_level AND f.semester = 'Fall'
+      WHERE u.role = 'Student'
+    `
+  );
+  const stats = statsResult.rows[0];
 
   const total_expected = stats.total_expected || 0;
   const total_paid = stats.total_paid || 0;
@@ -485,16 +420,12 @@ const getFinancialStats = asyncWrapper(async (req, res) => {
 const getAllCourses = asyncWrapper(async (req, res) => {
   const { dept_id } = req.query;
   const query = dept_id 
-    ? `SELECT c.* FROM Courses c JOIN Offers o ON c.Course_Code = o.Course_Code WHERE o.Dept_ID = ?`
+    ? `SELECT c.* FROM Courses c JOIN Offers o ON c.course_code = o.course_code WHERE o.dept_id = $1`
     : `SELECT * FROM Courses`;
   const params = dept_id ? [dept_id] : [];
 
-  const courses = await new Promise((resolve, reject) => {
-    db.all(query, params, (err, rows) => {
-      if (err) reject(err);
-      resolve(rows || []);
-    });
-  });
+  const coursesResult = await db.query(query, params);
+  const courses = coursesResult.rows || [];
 
   res.status(200).json({
     success: true,
@@ -512,12 +443,8 @@ const linkCard = asyncWrapper(async (req, res) => {
     });
   }
 
-  const student = await new Promise((resolve, reject) => {
-    db.get(`SELECT User_ID FROM Student WHERE User_ID = ?`, [userId], (err, row) => {
-      if (err) return reject(err);
-      resolve(row || null);
-    });
-  });
+  const studentResult = await db.query(`SELECT user_id FROM Student WHERE user_id = $1`, [userId]);
+  const student = studentResult.rows[0] || null;
 
   if (!student) {
     return res.status(404).json({
@@ -526,16 +453,11 @@ const linkCard = asyncWrapper(async (req, res) => {
     });
   }
 
-  const existingTag = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT User_ID FROM Student WHERE NFC_Tag_ID = ? AND User_ID != ?`,
-      [nfcTagId, userId],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row || null);
-      },
-    );
-  });
+  const existingTagResult = await db.query(
+      `SELECT user_id FROM Student WHERE nfc_tag_id = $1 AND user_id != $2`,
+      [nfcTagId, userId]
+  );
+  const existingTag = existingTagResult.rows[0] || null;
 
   if (existingTag) {
     return res.status(409).json({
@@ -544,16 +466,10 @@ const linkCard = asyncWrapper(async (req, res) => {
     });
   }
 
-  await new Promise((resolve, reject) => {
-    db.run(
-      `UPDATE Student SET NFC_Tag_ID = ? WHERE User_ID = ?`,
-      [nfcTagId, userId],
-      function (err) {
-        if (err) return reject(err);
-        resolve(this.changes);
-      },
-    );
-  });
+  await db.query(
+      `UPDATE Student SET nfc_tag_id = $1 WHERE user_id = $2`,
+      [nfcTagId, userId]
+  );
 
   return res.status(200).json({
     success: true,

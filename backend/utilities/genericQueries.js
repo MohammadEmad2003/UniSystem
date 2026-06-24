@@ -1,211 +1,184 @@
-const db = require('./database');
+const { query } = require('./database');
 
 const genericQueries = (tableName, options = {}) => {
   const primaryKey = options.primaryKey || 'id';
   const emailField = options.emailField || 'Email';
 
-  const getAll = () => {
-    return new Promise((resolve, reject) => {
-      db.all(`SELECT * FROM ${tableName}`, (err, rows) => {
-        if (err) reject(err);
-        resolve(rows || []);
-      });
-    });
+  const getAll = async () => {
+    try {
+      const result = await query(`SELECT * FROM ${tableName}`);
+      return result.rows;
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const getById = (id) => {
-    return new Promise((resolve, reject) => {
-      db.get(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ?`, [id], (err, row) => {
-        if (err) reject(err);
-        resolve(row);
-      });
-    });
+  const getById = async (id) => {
+    try {
+      const result = await query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = $1`, [id]);
+      return result.rows[0];
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const getByEmail = (email) => {
-    return new Promise((resolve, reject) => {
-      db.get(`SELECT * FROM ${tableName} WHERE ${emailField} = ?`, [email], (err, row) => {
-        if (err) reject(err);
-        resolve(row);
-      });
-    });
+  const getByEmail = async (email) => {
+    try {
+      const result = await query(`SELECT * FROM ${tableName} WHERE ${emailField} = $1`, [email]);
+      return result.rows[0];
+    } catch (err) {
+      throw err;
+    }
   };
 
-
-  const findByField = (fieldName, value) => {
-    return new Promise((resolve, reject) => {
-      db.get(`SELECT * FROM ${tableName} WHERE ${fieldName} = ?`, [value], (err, row) => {
-        if (err) reject(err);
-        resolve(row);
-      });
-    });
+  const findByField = async (fieldName, value) => {
+    try {
+      const result = await query(`SELECT * FROM ${tableName} WHERE ${fieldName} = $1`, [value]);
+      return result.rows[0];
+    } catch (err) {
+      throw err;
+    }
   };
 
-
-  const create = (data) => {
-    return new Promise((resolve, reject) => {
-      const keys = Object.keys(data).join(', ');
-      const placeholders = Object.keys(data).map(() => '?').join(', ');
+  const create = async (data) => {
+    try {
+      const keys = Object.keys(data);
+      const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
       const values = Object.values(data);
-
-      db.run(
-        `INSERT INTO ${tableName} (${keys}) VALUES (${placeholders})`,
-        values,
-        function(err) {
-          if (err) reject(err);
-          resolve({ lastID: this.lastID, changes: this.changes });
-        }
+      
+      const result = await query(
+        `INSERT INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`,
+        values
       );
-    });
+      return result.rows[0];
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const update = (id, data) => {
-    return new Promise((resolve, reject) => {
-      const sets = Object.keys(data).map(k => `${k} = ?`).join(', ');
+  const update = async (id, data) => {
+    try {
+      const keys = Object.keys(data);
+      const sets = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
       const values = [...Object.values(data), id];
-
-      db.run(
-        `UPDATE ${tableName} SET ${sets} WHERE ${primaryKey} = ?`,
-        values,
-        function(err) {
-          if (err) reject(err);
-          resolve({ changes: this.changes });
-        }
+      
+      const result = await query(
+        `UPDATE ${tableName} SET ${sets} WHERE ${primaryKey} = $${values.length} RETURNING *`,
+        values
       );
-    });
+      return result.rows[0];
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const deleteRow = (id) => {
-    return new Promise((resolve, reject) => {
-      db.run(
-        `DELETE FROM ${tableName} WHERE ${primaryKey} = ?`,
-        [id],
-        function(err) {
-          if (err) reject(err);
-          resolve({ changes: this.changes });
-        }
-      );
-    });
-
+  const deleteRow = async (id) => {
+    try {
+      const result = await query(`DELETE FROM ${tableName} WHERE ${primaryKey} = $1 RETURNING *`, [id]);
+      return result.rows[0];
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const getAllByField = (fieldName, value) => {
-    return new Promise((resolve, reject) => {
-    
-      db.all(`SELECT * FROM ${tableName} WHERE ${fieldName} = ?`, [value], (err, rows) => {
-        if (err) reject(err);
-        resolve(rows || []);
-      });
-    });
-  };
-  
-
-  const count = () => {
-    return new Promise((resolve, reject) => {
-      db.get(`SELECT COUNT(*) as count FROM ${tableName}`, (err, row) => {
-        if (err) reject(err);
-        resolve(row?.count || 0);
-      });
-    });
+  const getAllByField = async (fieldName, value) => {
+    try {
+      const result = await query(`SELECT * FROM ${tableName} WHERE ${fieldName} = $1`, [value]);
+      return result.rows;
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const countByField = (fieldName, value) => {
-    return new Promise((resolve, reject) => {
-      db.get(
-        `SELECT COUNT(*) as count FROM ${tableName} WHERE ${fieldName} = ?`,
-        [value],
-        (err, row) => {
-          if (err) reject(err);
-          resolve(row?.count || 0);
-        }
-      );
-    });
+  const count = async () => {
+    try {
+      const result = await query(`SELECT COUNT(*) as count FROM ${tableName}`);
+      return parseInt(result.rows[0].count);
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const countByFields = (conditions) => {
-    return new Promise((resolve, reject) => {
+  const countByField = async (fieldName, value) => {
+    try {
+      const result = await query(`SELECT COUNT(*) as count FROM ${tableName} WHERE ${fieldName} = $1`, [value]);
+      return parseInt(result.rows[0].count);
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const countByFields = async (conditions) => {
+    try {
       const fields = Object.keys(conditions);
-      const whereClause = fields.map(f => `${f} = ?`).join(' AND ');
+      const whereClause = fields.map((f, i) => `${f} = $${i + 1}`).join(' AND ');
       const values = Object.values(conditions);
 
-      db.get(
-        `SELECT COUNT(*) as count FROM ${tableName} WHERE ${whereClause}`,
-        values,
-        (err, row) => {
-          if (err) reject(err);
-          resolve(row?.count || 0);
-        }
-      );
-    });
+      const result = await query(`SELECT COUNT(*) as count FROM ${tableName} WHERE ${whereClause}`, values);
+      return parseInt(result.rows[0].count);
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const countDistinct = (fieldName, conditions = {}) => {
-    return new Promise((resolve, reject) => {
-      let query = `SELECT COUNT(DISTINCT ${fieldName}) as count FROM ${tableName}`;
+  const countDistinct = async (fieldName, conditions = {}) => {
+    try {
+      let sql = `SELECT COUNT(DISTINCT ${fieldName}) as count FROM ${tableName}`;
       let values = [];
 
       if (Object.keys(conditions).length > 0) {
-        const whereClause = Object.keys(conditions).map(f => `${f} = ?`).join(' AND ');
-        query += ` WHERE ${whereClause}`;
+        const fields = Object.keys(conditions);
+        const whereClause = fields.map((f, i) => `${f} = $${i + 1}`).join(' AND ');
+        sql += ` WHERE ${whereClause}`;
         values = Object.values(conditions);
       }
 
-      db.get(query, values, (err, row) => {
-        if (err) reject(err);
-        resolve(row?.count || 0);
-      });
-    });
+      const result = await query(sql, values);
+      return parseInt(result.rows[0].count);
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const countWithWhereClause = (whereClause, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.get(
-        `SELECT COUNT(*) as count FROM ${tableName} WHERE ${whereClause}`,
-        params,
-        (err, row) => {
-          if (err) reject(err);
-          resolve(row?.count || 0);
-        }
-      );
-    });
+  const countWithWhereClause = async (whereClause, params = []) => {
+    try {
+      const result = await query(`SELECT COUNT(*) as count FROM ${tableName} WHERE ${whereClause}`, params);
+      return parseInt(result.rows[0].count);
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const countDistinctWithWhereClause = (fieldName, whereClause, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.get(
-        `SELECT COUNT(DISTINCT ${fieldName}) as count FROM ${tableName} WHERE ${whereClause}`,
-        params,
-        (err, row) => {
-          if (err) reject(err);
-          resolve(row?.count || 0);
-        }
-      );
-    });
+  const countDistinctWithWhereClause = async (fieldName, whereClause, params = []) => {
+    try {
+      const result = await query(`SELECT COUNT(DISTINCT ${fieldName}) as count FROM ${tableName} WHERE ${whereClause}`, params);
+      return parseInt(result.rows[0].count);
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const getAllWithWhereClause = (whereClause, params = [], orderBy = null) => {
-    return new Promise((resolve, reject) => {
-      let query = `SELECT * FROM ${tableName} WHERE ${whereClause}`;
+  const getAllWithWhereClause = async (whereClause, params = [], orderBy = null) => {
+    try {
+      let sql = `SELECT * FROM ${tableName} WHERE ${whereClause}`;
       if (orderBy) {
-        query += ` ORDER BY ${orderBy}`;
+        sql += ` ORDER BY ${orderBy}`;
       }
-      db.all(query, params, (err, rows) => {
-        if (err) reject(err);
-        resolve(rows || []);
-      });
-    });
+      const result = await query(sql, params);
+      return result.rows;
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const customQuery = (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        resolve(rows || []);
-      });
-    });
+  const customQuery = async (sql, params = []) => {
+    try {
+      const result = await query(sql, params);
+      return result.rows;
+    } catch (err) {
+      throw err;
+    }
   };
-
- 
 
   return {
     getAll,

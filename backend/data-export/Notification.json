@@ -1,0 +1,119 @@
+[
+  {
+    "Notification_ID": 1,
+    "Type": "new_material",
+    "Title": "New Material Added",
+    "Message": "Slides for \"Arrays & Linked Lists\" are now available in Data Structures.",
+    "Reference_ID": 2,
+    "Answer_ID": null,
+    "Created_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Notification_ID": 2,
+    "Type": "new_material",
+    "Title": "New Material Added",
+    "Message": "The Big-O Cheatsheet has been posted in Data Structures.",
+    "Reference_ID": 1,
+    "Answer_ID": null,
+    "Created_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Notification_ID": 3,
+    "Type": "new_grade",
+    "Title": "Grade Recorded",
+    "Message": "Your midterm grade has been recorded for Data Structures.",
+    "Reference_ID": null,
+    "Answer_ID": null,
+    "Created_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Notification_ID": 4,
+    "Type": "new_grade",
+    "Title": "Grade Recorded",
+    "Message": "Your midterm grade has been recorded for Database Fundamentals.",
+    "Reference_ID": null,
+    "Answer_ID": null,
+    "Created_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Notification_ID": 5,
+    "Type": "new_grade",
+    "Title": "Grade Recorded",
+    "Message": "Your midterm grade has been recorded for Intro Programming.",
+    "Reference_ID": null,
+    "Answer_ID": null,
+    "Created_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Notification_ID": 6,
+    "Type": "new_question",
+    "Title": "New Question in Data Structures",
+    "Message": "A student asked: \"What is the difference between a stack and a queue?\"",
+    "Reference_ID": 1,
+    "Answer_ID": null,
+    "Created_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Notification_ID": 7,
+    "Type": "new_question",
+    "Title": "New Question in DB Fundamentals",
+    "Message": "A student asked: \"Can a table have multiple primary keys?\"",
+    "Reference_ID": 3,
+    "Answer_ID": null,
+    "Created_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Notification_ID": 8,
+    "Type": "doctor_question_pending",
+    "Title": "Question Awaiting Answer",
+    "Message": "A student asked: \"What is the difference between INNER JOIN and LEFT JOIN?\"",
+    "Reference_ID": 4,
+    "Answer_ID": null,
+    "Created_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Notification_ID": 9,
+    "Type": "enrollment",
+    "Title": "Enrolled in Advanced Databases",
+    "Message": "You have been successfully enrolled in Advanced Database Systems.",
+    "Reference_ID": null,
+    "Answer_ID": null,
+    "Created_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Notification_ID": 10,
+    "Type": "enrollment",
+    "Title": "Enrolled in Computer Networks",
+    "Message": "You have been successfully enrolled in Computer Networks.",
+    "Reference_ID": null,
+    "Answer_ID": null,
+    "Created_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Notification_ID": 11,
+    "Type": "approval",
+    "Title": "Registration Pending",
+    "Message": "Your registration is under review. You will be notified once approved.",
+    "Reference_ID": null,
+    "Answer_ID": null,
+    "Created_At": "2026-05-10 22:07:50"
+  },
+  {
+    "Notification_ID": 12,
+    "Type": "new_lecture",
+    "Title": "New Lecture Scheduled",
+    "Message": "A new lecture \"last_lecture in db\" has been scheduled for 2026-05-11 at 01:43.",
+    "Reference_ID": 21,
+    "Answer_ID": null,
+    "Created_At": "2026-05-10 22:42:45"
+  },
+  {
+    "Notification_ID": 13,
+    "Type": "lecture_started",
+    "Title": "Lecture Started",
+    "Message": "The lecture \"last_lecture in db\" has started. You can now record your attendance.",
+    "Reference_ID": 21,
+    "Answer_ID": null,
+    "Created_At": "2026-05-10 22:43:16"
+  }
+]

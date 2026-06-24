@@ -1,0 +1,20 @@
+[
+  {
+    "Dept_ID": 1,
+    "Dept_Name": "Computer Science",
+    "Doctor_ID": 3,
+    "Total_Hours_Required": 144
+  },
+  {
+    "Dept_ID": 2,
+    "Dept_Name": "Information Systems",
+    "Doctor_ID": 4,
+    "Total_Hours_Required": 132
+  },
+  {
+    "Dept_ID": 3,
+    "Dept_Name": "Information Technology",
+    "Doctor_ID": 5,
+    "Total_Hours_Required": 138
+  }
+]

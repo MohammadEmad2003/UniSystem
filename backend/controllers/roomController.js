@@ -9,21 +9,17 @@ const createRoom = asyncWrapper(async (req, res) => {
         return res.status(400).json({ success: httpstatustext.error, message: "room_id and room_name are required" });
     }
 
-    await new Promise((resolve, reject) => {
-        db.run(
-            `INSERT INTO Room (Room_ID, Room_Name, Capacity, Type, Location) VALUES (?, ?, ?, ?, ?)`,
-            [room_id, room_name, capacity, type, location],
-            function (err) {
-                if (err) {
-                    if (err.message.includes('UNIQUE constraint failed')) {
-                        return reject(new Error("Room_ID already exists"));
-                    }
-                    return reject(err);
-                }
-                resolve();
-            }
+    try {
+        await db.query(
+            `INSERT INTO Room (room_id, room_name, capacity, type, location) VALUES ($1, $2, $3, $4, $5)`,
+            [room_id, room_name, capacity, type, location]
         );
-    });
+    } catch (err) {
+        if (err.message.includes('duplicate key')) {
+            return res.status(400).json({ success: httpstatustext.error, message: "Room_ID already exists" });
+        }
+        throw err;
+    }
 
     res.status(201).json({
         success: httpstatustext.success,
@@ -33,36 +29,25 @@ const createRoom = asyncWrapper(async (req, res) => {
 });
 
 const getAllRooms = asyncWrapper(async (req, res) => {
-    const rooms = await new Promise((resolve, reject) => {
-        db.all(`SELECT * FROM Room`, [], (err, rows) => {
-            if (err) return reject(err);
-            resolve(rows);
-        });
-    });
-
+    const result = await db.query(`SELECT * FROM Room`);
     res.status(200).json({
         success: httpstatustext.success,
-        data: rooms
+        data: result.rows
     });
 });
 
 const getRoomById = asyncWrapper(async (req, res) => {
     const { id } = req.params;
 
-    const room = await new Promise((resolve, reject) => {
-        db.get(`SELECT * FROM Room WHERE Room_ID = ?`, [id], (err, row) => {
-            if (err) return reject(err);
-            resolve(row);
-        });
-    });
+    const result = await db.query(`SELECT * FROM Room WHERE room_id = $1`, [id]);
 
-    if (!room) {
+    if (!result.rows || result.rows.length === 0) {
         return res.status(404).json({ success: httpstatustext.error, message: "Room not found" });
     }
 
     res.status(200).json({
         success: httpstatustext.success,
-        data: room
+        data: result.rows[0]
     });
 });
 
@@ -70,18 +55,12 @@ const updateRoom = asyncWrapper(async (req, res) => {
     const { id } = req.params;
     const { room_name, capacity, type, location } = req.body;
 
-    const result = await new Promise((resolve, reject) => {
-        db.run(
-            `UPDATE Room SET Room_Name = COALESCE(?, Room_Name), Capacity = COALESCE(?, Capacity), Type = COALESCE(?, Type), Location = COALESCE(?, Location) WHERE Room_ID = ?`,
-            [room_name, capacity, type, location, id],
-            function (err) {
-                if (err) return reject(err);
-                resolve(this);
-            }
-        );
-    });
+    const result = await db.query(
+        `UPDATE Room SET room_name = COALESCE($1, room_name), capacity = COALESCE($2, capacity), type = COALESCE($3, type), location = COALESCE($4, location) WHERE room_id = $5`,
+        [room_name, capacity, type, location, id]
+    );
 
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
         return res.status(404).json({ success: httpstatustext.error, message: "Room not found" });
     }
 
@@ -94,14 +73,9 @@ const updateRoom = asyncWrapper(async (req, res) => {
 const deleteRoom = asyncWrapper(async (req, res) => {
     const { id } = req.params;
 
-    const result = await new Promise((resolve, reject) => {
-        db.run(`DELETE FROM Room WHERE Room_ID = ?`, [id], function (err) {
-            if (err) return reject(err);
-            resolve(this);
-        });
-    });
+    const result = await db.query(`DELETE FROM Room WHERE room_id = $1`, [id]);
 
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
         return res.status(404).json({ success: httpstatustext.error, message: "Room not found" });
     }
 
@@ -112,48 +86,39 @@ const deleteRoom = asyncWrapper(async (req, res) => {
 });
 
 const getOccupiedRoomIds = async (date, time) => {
-    return new Promise((resolve, reject) => {
-        if (date && time) {
-            // Check scheduled lectures for a specific date and time
-            const query = `SELECT Room_ID FROM Lecture WHERE Date = ? AND Time = ? AND Type IN ('Lecture', 'Section', 'Lab')`;
-            db.all(query, [date, time], (err, rows) => {
-                if (err) return reject(err);
-                const occupiedIds = rows.map(r => r.Room_ID).filter(id => id != null);
-                resolve([...new Set(occupiedIds)]);
-            });
-        } else if (date) {
-            // Check scheduled lectures for a specific date (occupied at ANY time that day)
-            const query = `SELECT Room_ID FROM Lecture WHERE Date = ? AND Type IN ('Lecture', 'Section', 'Lab')`;
-            db.all(query, [date], (err, rows) => {
-                if (err) return reject(err);
-                const occupiedIds = rows.map(r => r.Room_ID).filter(id => id != null);
-                resolve([...new Set(occupiedIds)]);
-            });
-        } else {
-            // Real-time check for currently running lectures
-            db.all(`SELECT Room_ID, End_Time FROM Lecture WHERE Status = 'open' AND Type IN ('Lecture', 'Section', 'Lab')`, [], (err, rows) => {
-                if (err) return reject(err);
-                
-                const occupiedIds = [];
-                const now = new Date();
-                
-                for (let row of rows) {
-                    if (!row.Room_ID) continue;
-                    
-                    if (!row.End_Time) {
-                        occupiedIds.push(row.Room_ID);
-                    } else {
-                        const endTime = new Date(row.End_Time);
-                        const diffMins = (now - endTime) / 60000;
-                        if (diffMins < 15) {
-                            occupiedIds.push(row.Room_ID);
-                        }
-                    }
+    if (date && time) {
+        // Check scheduled lectures for a specific date and time
+        const query = `SELECT room_id FROM Lecture WHERE date = $1 AND time = $2 AND type IN ('Lecture', 'Section', 'Lab')`;
+        const result = await db.query(query, [date, time]);
+        const occupiedIds = result.rows.map(r => r.room_id).filter(id => id != null);
+        return [...new Set(occupiedIds)];
+    } else if (date) {
+        // Check scheduled lectures for a specific date (occupied at ANY time that day)
+        const query = `SELECT room_id FROM Lecture WHERE date = $1 AND type IN ('Lecture', 'Section', 'Lab')`;
+        const result = await db.query(query, [date]);
+        const occupiedIds = result.rows.map(r => r.room_id).filter(id => id != null);
+        return [...new Set(occupiedIds)];
+    } else {
+        // Real-time check for currently running lectures
+        const result = await db.query(`SELECT room_id, end_time FROM Lecture WHERE status = 'open' AND type IN ('Lecture', 'Section', 'Lab')`);
+        const occupiedIds = [];
+        const now = new Date();
+        
+        for (let row of result.rows) {
+            if (!row.room_id) continue;
+            
+            if (!row.end_time) {
+                occupiedIds.push(row.room_id);
+            } else {
+                const endTime = new Date(row.end_time);
+                const diffMins = (now - endTime) / 60000;
+                if (diffMins < 15) {
+                    occupiedIds.push(row.room_id);
                 }
-                resolve([...new Set(occupiedIds)]);
-            });
+            }
         }
-    });
+        return [...new Set(occupiedIds)];
+    }
 };
 
 const getEmptyRooms = asyncWrapper(async (req, res) => {
@@ -164,21 +129,16 @@ const getEmptyRooms = asyncWrapper(async (req, res) => {
     let params = [];
     
     if (occupiedRoomIds.length > 0) {
-        const placeholders = occupiedRoomIds.map(() => '?').join(',');
-        query += ` WHERE Room_ID NOT IN (${placeholders})`;
+        const placeholders = occupiedRoomIds.map((_, i) => `$${i + 1}`).join(',');
+        query += ` WHERE room_id NOT IN (${placeholders})`;
         params = occupiedRoomIds;
     }
     
-    const emptyRooms = await new Promise((resolve, reject) => {
-        db.all(query, params, (err, rows) => {
-            if (err) return reject(err);
-            resolve(rows);
-        });
-    });
+    const emptyRooms = await db.query(query, params);
     
     res.status(200).json({
         success: httpstatustext.success,
-        data: emptyRooms
+        data: emptyRooms.rows
     });
 });
 
@@ -193,19 +153,14 @@ const getOccupiedRooms = asyncWrapper(async (req, res) => {
         });
     }
     
-    const placeholders = occupiedRoomIds.map(() => '?').join(',');
-    const query = `SELECT * FROM Room WHERE Room_ID IN (${placeholders})`;
+    const placeholders = occupiedRoomIds.map((_, i) => `$${i + 1}`).join(',');
+    const query = `SELECT * FROM Room WHERE room_id IN (${placeholders})`;
     
-    const occupiedRooms = await new Promise((resolve, reject) => {
-        db.all(query, occupiedRoomIds, (err, rows) => {
-            if (err) return reject(err);
-            resolve(rows);
-        });
-    });
+    const occupiedRooms = await db.query(query, occupiedRoomIds);
     
     res.status(200).json({
         success: httpstatustext.success,
-        data: occupiedRooms
+        data: occupiedRooms.rows
     });
 });
 

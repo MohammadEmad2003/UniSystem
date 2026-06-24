@@ -1,17 +1,6 @@
 const db = require('../utilities/database');
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS Questions (
-    Questions_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-    Text TEXT NOT NULL,
-    User_ID INTEGER ,
-    Class_ID INTEGER NOT NULL,
-    Doctor_ID INTEGER,
-    Time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (User_ID) REFERENCES Student(User_ID) ON DELETE CASCADE,
-    FOREIGN KEY (Class_ID) REFERENCES Class(Class_ID) ON DELETE CASCADE,
-    FOREIGN KEY (Doctor_ID) REFERENCES Doctor(User_ID) ON DELETE SET NULL
-  )
-`);
+// Tables are now managed by PostgreSQL via create-tables-postgres.js script
+// This file only exports the database connection
 
 module.exports = db;

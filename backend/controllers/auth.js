@@ -229,16 +229,11 @@ const login = asyncWrapper(async (req, res, next) => {
     const doctor = await doctorQueries.getById(user.User_ID);
     if (doctor) {
       // Find departments this doctor manages
-      const managedDepts = await new Promise((resolve, reject) => {
-        db.all(`SELECT Dept_ID FROM Department WHERE Doctor_ID = ?`, [user.User_ID], (err, rows) => {
-          if (err) reject(err);
-          resolve(rows || []);
-        });
-      });
+      const managedDepts = await db.query(`SELECT dept_id FROM Department WHERE doctor_id = $1`, [user.User_ID]);
       additionalData = {
         specialization: doctor.Specialization,
         permissions_level: doctor.Permission,
-        managed_departments: managedDepts.map(d => d.Dept_ID)
+        managed_departments: managedDepts.rows.map(d => d.dept_id)
       };
     }
   } else if (user.Role === "Admin") {

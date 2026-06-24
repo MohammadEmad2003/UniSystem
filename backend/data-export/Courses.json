@@ -1,0 +1,42 @@
+[
+  {
+    "Course_Code": "CS101",
+    "Name": "Introduction to Programming",
+    "Credit_Hours": 3
+  },
+  {
+    "Course_Code": "CS201",
+    "Name": "Data Structures",
+    "Credit_Hours": 3
+  },
+  {
+    "Course_Code": "CS301",
+    "Name": "Analysis of Algorithms",
+    "Credit_Hours": 3
+  },
+  {
+    "Course_Code": "CS401",
+    "Name": "Operating Systems",
+    "Credit_Hours": 3
+  },
+  {
+    "Course_Code": "IS101",
+    "Name": "Database Fundamentals",
+    "Credit_Hours": 3
+  },
+  {
+    "Course_Code": "IS201",
+    "Name": "Advanced Database Systems",
+    "Credit_Hours": 3
+  },
+  {
+    "Course_Code": "IT101",
+    "Name": "Computer Networks",
+    "Credit_Hours": 3
+  },
+  {
+    "Course_Code": "IT201",
+    "Name": "Network Security",
+    "Credit_Hours": 3
+  }
+]

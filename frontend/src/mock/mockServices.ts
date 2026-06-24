@@ -346,11 +346,7 @@ export const mockAdminService = {
   },
 
   async setAcademicLevelFees(
-    level: number,
-    total_fees?: number,
-    max_hours?: number,
-    min_hours?: number,
-    hour_price?: number,
+level: number, selectedSemester: string, total_fees?: number, max_hours?: number, min_hours?: number, hour_price?: number,
   ): Promise<ApiResponse<any>> {
     await delay();
     return { success: true, data: null, message: "Settings updated successfully" };
@@ -876,6 +872,10 @@ export const mockStudentService = {
   async getPayment(studentId: string): Promise<ApiResponse<any>> {
     await delay();
     return { success: true, data: {} };
+  },
+  async makePayment(studentId: string, amount: number): Promise<ApiResponse<any>> {
+    await delay();
+    return { success: true, data: {}, message: "Payment successful (mock)" };
   },
 };
 

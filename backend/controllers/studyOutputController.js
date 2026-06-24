@@ -1,6 +1,6 @@
 const asyncWrapper = require('../middleware/asyncWrapper');
 const httpstatustext = require('../utilities/httpstatustext');
-const db = require('../models/studyOutputModel');
+const db = require('../utilities/database');
 
 /**
  * Build a deterministic cache key from tool options.
@@ -27,19 +27,18 @@ const getStudyOutput = asyncWrapper(async (req, res) => {
     });
   }
 
-  const row = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT * FROM StudyOutput
-       WHERE Class_ID = ? AND Material_ID = ? AND User_ID = ?
-         AND Tool_Type = ? AND Options_Key = ?`,
-      [classId, material_id, userId, tool_type, options_key],
-      (err, r) => { if (err) return reject(err); resolve(r || null); }
-    );
-  });
+  const result = await db.query(
+    `SELECT * FROM StudyOutput
+     WHERE class_id = $1 AND material_id = $2 AND user_id = $3
+       AND tool_type = $4 AND options_key = $5`,
+    [classId, material_id, userId, tool_type, options_key]
+  );
 
-  if (!row) {
+  if (!result.rows || result.rows.length === 0) {
     return res.status(404).json({ success: httpstatustext.error, message: { msg: 'No saved output found' } });
   }
+
+  const row = result.rows[0];
 
   console.log(
     `[STUDY_CACHE] hit classId=${classId} materialId=${material_id} userId=${userId} toolType=${tool_type}`
@@ -48,13 +47,13 @@ const getStudyOutput = asyncWrapper(async (req, res) => {
   return res.json({
     success: httpstatustext.success,
     data: {
-      output_id:    row.Output_ID,
-      tool_type:    row.Tool_Type,
-      options_key:  row.Options_Key,
-      options:      JSON.parse(row.Options_JSON),
-      content:      JSON.parse(row.Content_JSON),
-      created_at:   row.Created_At,
-      updated_at:   row.Updated_At,
+      output_id:    row.output_id,
+      tool_type:    row.tool_type,
+      options_key:  row.options_key,
+      options:      JSON.parse(row.options_json),
+      content:      JSON.parse(row.content_json),
+      created_at:   row.created_at,
+      updated_at:   row.updated_at,
     },
   });
 });
@@ -80,44 +79,35 @@ const saveStudyOutput = asyncWrapper(async (req, res) => {
 
   // Upsert: INSERT OR REPLACE preserves Output_ID on conflict via the UNIQUE index.
   // We use a manual check-then-update/insert to also update Updated_At correctly.
-  const existing = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT Output_ID FROM StudyOutput
-       WHERE Class_ID = ? AND Material_ID = ? AND User_ID = ? AND Tool_Type = ? AND Options_Key = ?`,
-      [classId, material_id, userId, tool_type, optionsKey],
-      (err, r) => { if (err) return reject(err); resolve(r || null); }
-    );
-  });
+  const existing = await db.query(
+    `SELECT output_id FROM StudyOutput
+     WHERE class_id = $1 AND material_id = $2 AND user_id = $3 AND tool_type = $4 AND options_key = $5`,
+    [classId, material_id, userId, tool_type, optionsKey]
+  );
 
-  if (existing) {
-    await new Promise((resolve, reject) => {
-      db.run(
-        `UPDATE StudyOutput
-         SET Options_JSON = ?, Content_JSON = ?, Updated_At = ?
-         WHERE Output_ID = ?`,
-        [optionsJson, contentJson, now, existing.Output_ID],
-        (err) => { if (err) return reject(err); resolve(); }
-      );
-    });
+  if (existing.rows && existing.rows.length > 0) {
+    await db.query(
+      `UPDATE StudyOutput
+       SET options_json = $1, content_json = $2, updated_at = $3
+       WHERE output_id = $4`,
+      [optionsJson, contentJson, now, existing.rows[0].output_id]
+    );
     return res.json({
       success: httpstatustext.success,
-      data: { output_id: existing.Output_ID, updated_at: now, created: false },
+      data: { output_id: existing.rows[0].output_id, updated_at: now, created: false },
     });
   }
 
-  const outputId = await new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO StudyOutput
-         (Class_ID, Material_ID, User_ID, Tool_Type, Options_Key, Options_JSON, Content_JSON, Created_At, Updated_At)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [classId, material_id, userId, tool_type, optionsKey, optionsJson, contentJson, now, now],
-      function (err) { if (err) return reject(err); resolve(this.lastID); }
-    );
-  });
+  const result = await db.query(
+    `INSERT INTO StudyOutput
+       (class_id, material_id, user_id, tool_type, options_key, options_json, content_json, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING output_id`,
+    [classId, material_id, userId, tool_type, optionsKey, optionsJson, contentJson, now, now]
+  );
 
   return res.status(201).json({
     success: httpstatustext.success,
-    data: { output_id: outputId, updated_at: now, created: true },
+    data: { output_id: result.rows[0].output_id, updated_at: now, created: true },
   });
 });
 
@@ -127,14 +117,11 @@ const deleteStudyOutput = asyncWrapper(async (req, res) => {
   const { material_id, tool_type, options_key } = req.query;
   const userId = req.currentUser.user_id;
 
-  await new Promise((resolve, reject) => {
-    db.run(
-      `DELETE FROM StudyOutput
-       WHERE Class_ID = ? AND Material_ID = ? AND User_ID = ? AND Tool_Type = ? AND Options_Key = ?`,
-      [classId, material_id, userId, tool_type, options_key],
-      (err) => { if (err) return reject(err); resolve(); }
-    );
-  });
+  await db.query(
+    `DELETE FROM StudyOutput
+     WHERE class_id = $1 AND material_id = $2 AND user_id = $3 AND tool_type = $4 AND options_key = $5`,
+    [classId, material_id, userId, tool_type, options_key]
+  );
 
   return res.json({ success: httpstatustext.success, data: null });
 });

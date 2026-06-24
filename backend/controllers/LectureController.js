@@ -15,53 +15,41 @@ const normalizeRoomId = (room_id) => {
     return s || null;
 };
 
-const roomExists = (room_id) =>
-    new Promise((resolve, reject) => {
-        const id = normalizeRoomId(room_id);
-        if (!id) return resolve(false);
-        db.get(`SELECT Room_ID FROM Room WHERE Room_ID = ?`, [id], (err, row) => {
-            if (err) return reject(err);
-            resolve(!!row);
-        });
-    });
+const roomExists = async (room_id) => {
+    const id = normalizeRoomId(room_id);
+    if (!id) return false;
+    const result = await db.query(`SELECT room_id FROM Room WHERE room_id = $1`, [id]);
+    return !!(result.rows && result.rows.length > 0);
+};
 
 const checkRoomOccupiedNow = async (room_id, exclude_lec_id = null) => {
-    return new Promise((resolve, reject) => {
-        let query = `SELECT * FROM Lecture WHERE Room_ID = ? AND Status = 'open' AND Type IN ('Lecture', 'Section', 'Lab')`;
-        let params = [room_id];
-        if (exclude_lec_id) {
-            query += ` AND Lec_ID != ?`;
-            params.push(exclude_lec_id);
+    let query = `SELECT * FROM Lecture WHERE room_id = $1 AND status = 'open' AND type IN ('Lecture', 'Section', 'Lab')`;
+    let params = [room_id];
+    if (exclude_lec_id) {
+        query += ` AND lec_id != $2`;
+        params.push(exclude_lec_id);
+    }
+    
+    const result = await db.query(query, params);
+    const now = new Date();
+    for (let lec of result.rows) {
+        if (!lec.end_time) {
+            return { available: false, reason: "Room is currently occupied by an active lecture." };
         }
-        
-        db.all(query, params, (err, rows) => {
-            if (err) return reject(err);
-            
-            const now = new Date();
-            for (let lec of rows) {
-                if (!lec.End_Time) {
-                    return resolve({ available: false, reason: "Room is currently occupied by an active lecture." });
-                }
-                const endTime = new Date(lec.End_Time);
-                const diffMins = (now - endTime) / 60000;
-                if (diffMins < 15) {
-                    return resolve({ available: false, reason: "Room is currently occupied. You must wait 15 minutes after the previous lecture ended." });
-                }
-            }
-            resolve({ available: true });
-        });
-    });
+        const endTime = new Date(lec.end_time);
+        const diffMins = (now - endTime) / 60000;
+        if (diffMins < 15) {
+            return { available: false, reason: "Room is currently occupied. You must wait 15 minutes after the previous lecture ended." };
+        }
+    }
+    return { available: true };
 };
 
 const checkRoomScheduledConflict = async (room_id, date, time) => {
-    return new Promise((resolve, reject) => {
-        const query = `SELECT * FROM Lecture WHERE Room_ID = ? AND Date = ? AND Time = ? AND Type IN ('Lecture', 'Section', 'Lab')`;
-        db.get(query, [room_id, date, time], (err, row) => {
-            if (err) return reject(err);
-            if (row) return resolve({ available: false, reason: "Room is already booked for another lecture at the same date and time." });
-            resolve({ available: true });
-        });
-    });
+    const query = `SELECT * FROM Lecture WHERE room_id = $1 AND date = $2 AND time = $3 AND type IN ('Lecture', 'Section', 'Lab')`;
+    const result = await db.query(query, [room_id, date, time]);
+    if (result.rows && result.rows.length > 0) return { available: false, reason: "Room is already booked for another lecture at the same date and time." };
+    return { available: true };
 };
 
 const getLecturesByClassID = asyncWrapper(async (req, res) => {
@@ -80,12 +68,8 @@ const getLecturesByClassID = asyncWrapper(async (req, res) => {
 const getLectureById = asyncWrapper(async (req, res) => {
     const { lecId } = req.params;
 
-    const lecture = await new Promise((resolve, reject) => {
-        db.get(`SELECT * FROM Lecture WHERE Lec_ID = ?`, [lecId], (err, row) => {
-            if (err) return reject(err);
-            resolve(row || null);
-        });
-    });
+    const result = await db.query(`SELECT * FROM Lecture WHERE lec_id = $1`, [lecId]);
+    const lecture = result.rows[0] || null;
 
     if (!lecture) {
         return res.status(404).json({ success: false, message: "Lecture not found" });
@@ -99,66 +83,53 @@ const updateLecture = asyncWrapper(async (req, res) => {
     const { lecId } = req.params;
     const { day, time, type, room_id, title, date, meeting_link } = req.body || {};
 
-    const lecture = await new Promise((resolve, reject) => {
-        db.get(`SELECT * FROM Lecture WHERE Lec_ID = ?`, [lecId], (err, row) => {
-            if (err) return reject(err);
-            resolve(row || null);
-        });
-    });
+    const result = await db.query(`SELECT * FROM Lecture WHERE lec_id = $1`, [lecId]);
+    const lecture = result.rows[0] || null;
 
     if (!lecture) {
         return res.status(404).json({ success: false, message: "Lecture not found" });
     }
 
-    if (lecture.Status === 'open') {
+    if (lecture.status === 'open') {
         return res.status(400).json({ success: false, message: "Can't update an open lecture" });
     }
 
     const nextRoom =
-        room_id !== undefined ? normalizeRoomId(room_id) : lecture.Room_ID;
+        room_id !== undefined ? normalizeRoomId(room_id) : lecture.room_id;
 
     const nextData = {
-        Title: title ?? lecture.Title,
-        Date: date ?? lecture.Date,
-        Day: day ?? lecture.Day,
-        Time: time ?? lecture.Time,
-        Type: type ?? lecture.Type,
-        Room_ID: nextRoom,
-        Meeting_Link: (meeting_link !== undefined) ? (meeting_link || null) : lecture.Meeting_Link
+        title: title ?? lecture.title,
+        date: date ?? lecture.date,
+        day: day ?? lecture.day,
+        time: time ?? lecture.time,
+        type: type ?? lecture.type,
+        room_id: nextRoom,
+        meeting_link: (meeting_link !== undefined) ? (meeting_link || null) : lecture.meeting_link
     };
 
     // Validate room constraints for offline types
-    if (['Lecture', 'Section', 'Lab'].includes(nextData.Type) && nextData.Room_ID) {
-        const exists = await roomExists(nextData.Room_ID);
+    if (['Lecture', 'Section', 'Lab'].includes(nextData.type) && nextData.room_id) {
+        const exists = await roomExists(nextData.room_id);
         if (!exists) {
             return res.status(400).json({ success: false, message: "Room not found" });
         }
 
-        const scheduleCheck = await checkRoomScheduledConflict(nextData.Room_ID, nextData.Date, nextData.Time);
+        const scheduleCheck = await checkRoomScheduledConflict(nextData.room_id, nextData.date, nextData.time);
         if (!scheduleCheck.available) {
             // If conflict is with itself, allow (same lecture)
-            const conflict = await new Promise((resolve, reject) => {
-                db.get(
-                    `SELECT Lec_ID FROM Lecture WHERE Room_ID = ? AND Date = ? AND Time = ? AND Type IN ('Lecture','Section','Lab')`,
-                    [nextData.Room_ID, nextData.Date, nextData.Time],
-                    (err, row) => {
-                        if (err) return reject(err);
-                        resolve(row || null);
-                    }
-                );
-            });
-            if (conflict && String(conflict.Lec_ID) !== String(lecId)) {
+            const conflictResult = await db.query(
+                `SELECT lec_id FROM Lecture WHERE room_id = $1 AND date = $2 AND time = $3 AND type IN ('Lecture','Section','Lab')`,
+                [nextData.room_id, nextData.date, nextData.time]
+            );
+            const conflict = conflictResult.rows[0] || null;
+            if (conflict && String(conflict.lec_id) !== String(lecId)) {
                 return res.status(400).json({ success: false, message: scheduleCheck.reason });
             }
         }
     }
 
-    const result = await lectureModel.update(lecId, nextData);
-    if (result.changes === 0) {
-        return res.status(404).json({ success: false, message: "Lecture not found" });
-    }
-
-    res.status(200).json({ success: true, message: "Lecture updated successfully", data: { Lec_ID: Number(lecId), ...nextData } });
+    await lectureModel.update(lecId, nextData);
+    res.status(200).json({ success: true, message: "Lecture updated successfully", data: { lec_id: Number(lecId), ...nextData } });
 });
 
 const createLecture = asyncWrapper(async (req, res) => {
@@ -191,51 +162,45 @@ const createLecture = asyncWrapper(async (req, res) => {
     }
 
     const newData = {
-        Title: title,
-        Date: date,
-        Day: day,
-        Time: time,
-        Type: type,
-        Room_ID: rid,
-        Meeting_Link: meeting_link || null,
-        Class_ID: classId
+        title: title,
+        date: date,
+        day: day,
+        time: time,
+        type: type,
+        room_id: rid,
+        meeting_link: meeting_link || null,
+        class_id: classId
     };
 
     const result = await lectureModel.create(newData);
 
-    const students = await new Promise((resolve, reject) => {
-        db.all(
-            `SELECT User_ID FROM Enrollment WHERE Class_ID = ?`,
-            [classId],
-            (err, rows) => (err ? reject(err) : resolve(rows || []))
-        );
-    });
+    const studentsResult = await db.query(
+        `SELECT user_id FROM Enrollment WHERE class_id = $1`,
+        [classId]
+    );
+    const students = studentsResult.rows || [];
     if (students.length) {
         createBroadcastNotification({
-            userIds: students.map((s) => s.User_ID),
+            userIds: students.map((s) => s.user_id),
             classId: Number(classId),
             type: 'new_lecture',
             title: 'New Lecture Scheduled',
             message: `A new lecture "${title}" has been scheduled for ${date} at ${time}.`,
-            referenceId: result.lastID,
+            referenceId: result.lec_id,
         }).catch((e) => console.error('[notify] new_lecture broadcast failed:', e.message));
     }
 
     res.status(201).json({
         success: true,
         message: "Lecture created successfully",
-        data: { Lec_ID: result.lastID, ...newData }
+        data: { lec_id: result.lec_id, ...newData }
     });
 });
 
 const deleteLecture = asyncWrapper(async (req, res) => {
     const { lecId } = req.params;
 
-    const result = await lectureModel.delete(lecId);
-
-    if (result.changes === 0) {
-        return res.status(404).json({ success: false, message: "Lecture not found" });
-    }
+    await lectureModel.delete(lecId);
 
     res.status(200).json({
         success: true,
@@ -249,12 +214,8 @@ const startLecture = asyncWrapper(async (req, res) => {
     const now = nowDate.toISOString();
 
     // Verify if room is actually free before starting
-    const lecture = await new Promise((resolve, reject) => {
-        db.get(`SELECT * FROM Lecture WHERE Lec_ID = ?`, [lecId], (err, row) => {
-            if (err) return reject(err);
-            resolve(row);
-        });
-    });
+    const result = await db.query(`SELECT * FROM Lecture WHERE lec_id = $1`, [lecId]);
+    const lecture = result.rows[0];
 
     if (!lecture) {
         return res.status(404).json({ success: false, message: "Lecture not found" });
@@ -262,9 +223,9 @@ const startLecture = asyncWrapper(async (req, res) => {
 
     // Offline (Lecture/Section/Lab): doctor can only start within [scheduled_time, scheduled_time + 60min]
     // Online: can start anytime
-    if (['Lecture', 'Section', 'Lab'].includes(lecture.Type)) {
-        const dateStr = lecture.Date;
-        const timeStr = lecture.Time;
+    if (['Lecture', 'Section', 'Lab'].includes(lecture.type)) {
+        const dateStr = lecture.date;
+        const timeStr = lecture.time;
 
         if (!dateStr || !timeStr) {
             return res.status(400).json({ success: false, message: "Lecture schedule (date/time) is missing" });
@@ -291,15 +252,15 @@ const startLecture = asyncWrapper(async (req, res) => {
         }
     }
 
-    if (['Lecture', 'Section', 'Lab'].includes(lecture.Type) && lecture.Room_ID) {
-        const rid = normalizeRoomId(lecture.Room_ID);
+    if (['Lecture', 'Section', 'Lab'].includes(lecture.type) && lecture.room_id) {
+        const rid = normalizeRoomId(lecture.room_id);
         if (rid) {
             const exists = await roomExists(rid);
             if (!exists) {
                 return res.status(400).json({ success: false, message: "Lecture room no longer exists" });
             }
         }
-        const occupiedCheck = await checkRoomOccupiedNow(lecture.Room_ID, lecId);
+        const occupiedCheck = await checkRoomOccupiedNow(lecture.room_id, lecId);
         if (!occupiedCheck.available) {
             return res.status(400).json({ success: false, message: occupiedCheck.reason });
         }
@@ -308,38 +269,32 @@ const startLecture = asyncWrapper(async (req, res) => {
     const { attendanceCode } = req.body || {};
     let finalCode = undefined;
 
-    if (lecture.Type === 'Online') {
-        finalCode = attendanceCode || lecture.Attendance_Code;
+    if (lecture.type === 'Online') {
+        finalCode = attendanceCode || lecture.attendance_code;
         if (!finalCode) {
             // Generate a random 6-character alphanumeric code
             finalCode = Math.random().toString(36).substring(2, 8).toUpperCase();
         }
     }
 
-    const result = await lectureModel.update(lecId, {
-        Status: 'open',
-        Start_Time: now,
-        Attendance_Code: lecture.Type === 'Online' ? finalCode : lecture.Attendance_Code
+    await lectureModel.update(lecId, {
+        status: 'open',
+        start_time: now,
+        attendance_code: lecture.type === 'Online' ? finalCode : lecture.attendance_code
     });
 
-    if (result.changes === 0) {
-        return res.status(404).json({ success: false, message: "Lecture not found" });
-    }
-
-    const students = await new Promise((resolve, reject) => {
-        db.all(
-            `SELECT User_ID FROM Enrollment WHERE Class_ID = ?`,
-            [lecture.Class_ID],
-            (err, rows) => (err ? reject(err) : resolve(rows || []))
-        );
-    });
+    const studentsResult = await db.query(
+        `SELECT user_id FROM Enrollment WHERE class_id = $1`,
+        [lecture.class_id]
+    );
+    const students = studentsResult.rows || [];
     if (students.length) {
         createBroadcastNotification({
-            userIds: students.map((s) => s.User_ID),
-            classId: Number(lecture.Class_ID),
+            userIds: students.map((s) => s.user_id),
+            classId: Number(lecture.class_id),
             type: 'lecture_started',
             title: 'Lecture Started',
-            message: `The lecture "${lecture.Title}" has started. You can now record your attendance.`,
+            message: `The lecture "${lecture.title}" has started. You can now record your attendance.`,
             referenceId: Number(lecId),
         }).catch((e) => console.error('[notify] lecture_started broadcast failed:', e.message));
     }
@@ -347,9 +302,9 @@ const startLecture = asyncWrapper(async (req, res) => {
     res.status(200).json({
         success: true,
         message: "Lecture started successfully",
-        data: lecture.Type === 'Online'
-            ? { Start_Time: now, Attendance_Code: finalCode }
-            : { Start_Time: now }
+        data: lecture.type === 'Online'
+            ? { start_time: now, attendance_code: finalCode }
+            : { start_time: now }
     });
 });
 
@@ -359,19 +314,15 @@ const endLecture = asyncWrapper(async (req, res) => {
 
     // Do NOT set Status to 'closed' yet. Keep it open so students can scan out.
     // The attendance controller will automatically close it after 15 minutes.
-    const result = await lectureModel.update(lecId, {
-        Status: 'open',
-        End_Time: now
+    await lectureModel.update(lecId, {
+        status: 'open',
+        end_time: now
     });
-
-    if (result.changes === 0) {
-        return res.status(404).json({ success: false, message: "Lecture not found" });
-    }
 
     res.status(200).json({
         success: true,
         message: "Lecture ended. Students have 15 minutes to record departure attendance.",
-        data: { End_Time: now }
+        data: { end_time: now }
     });
 });
 

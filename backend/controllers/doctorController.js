@@ -21,49 +21,37 @@ const getDoctorStats = asyncWrapper(async (req, res, next) => {
   }
 
   // Get basic counts
-  const stats = await new Promise((resolve, reject) => {
-    db.get(`
+  const statsResult = await db.query(`
       SELECT 
-        (SELECT COUNT(*) FROM Class WHERE Doctor_ID = ?) as total_classes,
-        (SELECT COUNT(DISTINCT User_ID) FROM Enrollment WHERE Class_ID IN (SELECT Class_ID FROM Class WHERE Doctor_ID = ?)) as total_students,
-        (SELECT COUNT(*) FROM Lecture WHERE Class_ID IN (SELECT Class_ID FROM Class WHERE Doctor_ID = ?)) as total_lectures,
-        (SELECT COUNT(*) FROM Material WHERE Lec_ID IN (SELECT Lec_ID FROM Lecture WHERE Class_ID IN (SELECT Class_ID FROM Class WHERE Doctor_ID = ?))) as total_materials,
-        (SELECT COUNT(*) FROM Questions WHERE Class_ID IN (SELECT Class_ID FROM Class WHERE Doctor_ID = ?)) as recent_questions
-    `, [doctorId, doctorId, doctorId, doctorId, doctorId], (err, row) => {
-      if (err) reject(err);
-      resolve(row);
-    });
-  });
+        (SELECT COUNT(*) FROM Class WHERE doctor_id = $1) as total_classes,
+        (SELECT COUNT(DISTINCT user_id) FROM Enrollment WHERE class_id IN (SELECT class_id FROM Class WHERE doctor_id = $2)) as total_students,
+        (SELECT COUNT(*) FROM Lecture WHERE class_id IN (SELECT class_id FROM Class WHERE doctor_id = $3)) as total_lectures,
+        (SELECT COUNT(*) FROM Material WHERE lec_id IN (SELECT lec_id FROM Lecture WHERE class_id IN (SELECT class_id FROM Class WHERE doctor_id = $4))) as total_materials,
+        (SELECT COUNT(*) FROM Questions WHERE class_id IN (SELECT class_id FROM Class WHERE doctor_id = $5)) as recent_questions
+    `, [doctorId, doctorId, doctorId, doctorId, doctorId]);
+  const stats = statsResult.rows[0];
 
   // Get students per class for chart
-  const classEnrollmentData = await new Promise((resolve, reject) => {
-    db.all(`
-      SELECT c.Class_ID as id, co.Name as name, COUNT(e.User_ID) as students
+  const classEnrollmentResult = await db.query(`
+      SELECT c.class_id as id, co.name as name, COUNT(e.user_id) as students
       FROM Class c
-      JOIN Courses co ON c.Course_Code = co.Course_Code
-      LEFT JOIN Enrollment e ON c.Class_ID = e.Class_ID
-      WHERE c.Doctor_ID = ?
-      GROUP BY c.Class_ID
-    `, [doctorId], (err, rows) => {
-      if (err) reject(err);
-      resolve(rows || []);
-    });
-  });
+      JOIN Courses co ON c.course_code = co.course_code
+      LEFT JOIN Enrollment e ON c.class_id = e.class_id
+      WHERE c.doctor_id = $1
+      GROUP BY c.class_id
+    `, [doctorId]);
+  const classEnrollmentData = classEnrollmentResult.rows || [];
 
   // Get upcoming lectures
-  const upcomingLectures = await new Promise((resolve, reject) => {
-    db.all(`
-      SELECT l.Lec_ID as id, l.Title as title, l.Date as date, cl.Course_Code as course
+  const upcomingLecturesResult = await db.query(`
+      SELECT l.lec_id as id, l.title as title, l.date as date, cl.course_code as course
       FROM Lecture l
-      JOIN Class cl ON l.Class_ID = cl.Class_ID
-      WHERE cl.Doctor_ID = ? AND l.Date >= date('now')
-      ORDER BY l.Date ASC
+      JOIN Class cl ON l.class_id = cl.class_id
+      WHERE cl.doctor_id = $1 AND l.date >= CURRENT_DATE
+      ORDER BY l.date ASC
       LIMIT 5
-    `, [doctorId], (err, rows) => {
-      if (err) reject(err);
-      resolve(rows || []);
-    });
-  });
+    `, [doctorId]);
+  const upcomingLectures = upcomingLecturesResult.rows || [];
 
   res.status(200).json({
     success: true,

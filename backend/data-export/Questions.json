@@ -1,0 +1,42 @@
+[
+  {
+    "Questions_ID": 1,
+    "Text": "What is the difference between a stack and a queue?",
+    "User_ID": 6,
+    "Class_ID": 1,
+    "Doctor_ID": null,
+    "Time": "2026-05-10 22:07:49"
+  },
+  {
+    "Questions_ID": 2,
+    "Text": "How does quicksort achieve O(n log n) on average?",
+    "User_ID": 11,
+    "Class_ID": 1,
+    "Doctor_ID": null,
+    "Time": "2026-05-10 22:07:49"
+  },
+  {
+    "Questions_ID": 3,
+    "Text": "Can a table have multiple primary keys?",
+    "User_ID": 7,
+    "Class_ID": 3,
+    "Doctor_ID": null,
+    "Time": "2026-05-10 22:07:49"
+  },
+  {
+    "Questions_ID": 4,
+    "Text": "What is the difference between INNER JOIN and LEFT JOIN?",
+    "User_ID": 9,
+    "Class_ID": 3,
+    "Doctor_ID": null,
+    "Time": "2026-05-10 22:07:49"
+  },
+  {
+    "Questions_ID": 5,
+    "Text": "How do I implement a linked list in Python?",
+    "User_ID": 7,
+    "Class_ID": 6,
+    "Doctor_ID": null,
+    "Time": "2026-05-10 22:07:49"
+  }
+]

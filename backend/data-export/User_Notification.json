@@ -1,0 +1,87 @@
+[
+  {
+    "User_ID": 6,
+    "Notification_ID": 1,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 11,
+    "Notification_ID": 2,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 6,
+    "Notification_ID": 3,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 7,
+    "Notification_ID": 4,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 9,
+    "Notification_ID": 5,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 3,
+    "Notification_ID": 6,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 4,
+    "Notification_ID": 7,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 4,
+    "Notification_ID": 8,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 6,
+    "Notification_ID": 9,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 7,
+    "Notification_ID": 10,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 12,
+    "Notification_ID": 11,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 6,
+    "Notification_ID": 12,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 8,
+    "Notification_ID": 12,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 11,
+    "Notification_ID": 12,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 6,
+    "Notification_ID": 13,
+    "Is_Read": 1
+  },
+  {
+    "User_ID": 8,
+    "Notification_ID": 13,
+    "Is_Read": 0
+  },
+  {
+    "User_ID": 11,
+    "Notification_ID": 13,
+    "Is_Read": 0
+  }
+]

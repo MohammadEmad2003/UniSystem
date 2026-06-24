@@ -8,80 +8,60 @@ const getAllCourses = asyncWrapper(async (req, res) => {
 
   let query = `
     SELECT 
-      c.Course_Code AS course_code,
-      c.Name AS name,
-      c.Credit_Hours AS credit_hours,
-      o.Dept_ID AS department_id
+      c.course_code,
+      c.name,
+      c.credit_hours,
+      o.dept_id AS department_id
     FROM Courses c
     LEFT JOIN Offers o
-    ON c.Course_Code = o.Course_Code
+    ON c.course_code = o.course_code
   `;
 
   const params = [];
 
   if (department_id) {
-    query += ` WHERE o.Dept_ID = ?`;
+    query += ` WHERE o.dept_id = $1`;
     params.push(department_id);
   }
 
-  db.all(query, params, (err, rows) => {
-    if (err) throw err;
-
-    res.status(200).json({
-      success: true,
-      data: rows,
-      message: "Courses fetched successfully",
-    });
+  const result = await db.query(query, params);
+  res.status(200).json({
+    success: true,
+    data: result.rows,
+    message: "Courses fetched successfully",
   });
 });
 
 const createCourse = asyncWrapper(async (req, res) => {
   const { course_code, name, credit_hours, department_id } = req.body;
 
-  await new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO Courses (Course_Code, Name, Credit_Hours)
-       VALUES (?, ?, ?)`,
-      [course_code, name, credit_hours],
-      (err) => {
-        if (err) reject(err);
-        resolve();
-      },
-    );
-  });
+  await db.query(
+      `INSERT INTO Courses (course_code, name, credit_hours)
+       VALUES ($1, $2, $3)`,
+      [course_code, name, credit_hours]
+  );
 
-  await new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO Offers (Course_Code, Dept_ID)
-       VALUES (?, ?)`,
-      [course_code, department_id],
-      (err) => {
-        if (err) reject(err);
-        resolve();
-      },
-    );
-  });
+  await db.query(
+      `INSERT INTO Offers (course_code, dept_id)
+       VALUES ($1, $2)`,
+      [course_code, department_id]
+  );
 
-  const newCourse = await new Promise((resolve, reject) => {
-    db.get(
+  const newCourseResult = await db.query(
       `
       SELECT 
-        c.Course_Code AS course_code,
-        c.Name AS name,
-        c.Credit_Hours AS credit_hours,
-        o.Dept_ID AS department_id
+        c.course_code,
+        c.name,
+        c.credit_hours,
+        o.dept_id AS department_id
       FROM Courses c
       JOIN Offers o
-      ON c.Course_Code = o.Course_Code
-      WHERE c.Course_Code = ?
+      ON c.course_code = o.course_code
+      WHERE c.course_code = $1
       `,
-      [course_code],
-      (err, row) => {
-        if (err) reject(err);
-        resolve(row);
-      },
-    );
-  });
+      [course_code]
+  );
+  const newCourse = newCourseResult.rows[0];
 
   res.status(201).json({
     success: true,
@@ -93,26 +73,21 @@ const createCourse = asyncWrapper(async (req, res) => {
 const getSingleCourse = asyncWrapper(async (req, res) => {
   const { courseCode } = req.params;
 
-  const course = await new Promise((resolve, reject) => {
-    db.get(
+  const courseResult = await db.query(
       `
       SELECT 
-        c.Course_Code AS course_code,
-        c.Name AS name,
-        c.Credit_Hours AS credit_hours,
-        o.Dept_ID AS department_id
+        c.course_code,
+        c.name,
+        c.credit_hours,
+        o.dept_id AS department_id
       FROM Courses c
       LEFT JOIN Offers o
-      ON c.Course_Code = o.Course_Code
-      WHERE c.Course_Code = ?
+      ON c.course_code = o.course_code
+      WHERE c.course_code = $1
       `,
-      [courseCode],
-      (err, row) => {
-        if (err) reject(err);
-        resolve(row);
-      },
-    );
-  });
+      [courseCode]
+  );
+  const course = courseResult.rows[0];
 
   if (!course) {
     return res.status(404).json({
@@ -148,17 +123,14 @@ const deleteCourse = asyncWrapper(async (req, res) => {
 
 const getPrerequisites = asyncWrapper(async (req, res) => {
   const { courseCode } = req.params;
-  db.all(
-    `SELECT p.Prereq_Course_Code, c.Name 
+  const result = await db.query(
+    `SELECT p.prereq_course_code, c.name 
      FROM Course_Prerequisites p
-     JOIN Courses c ON p.Prereq_Course_Code = c.Course_Code
-     WHERE p.Course_Code = ?`,
-    [courseCode],
-    (err, rows) => {
-      if (err) throw err;
-      res.status(200).json({ success: true, data: rows });
-    }
+     JOIN Courses c ON p.prereq_course_code = c.course_code
+     WHERE p.course_code = $1`,
+    [courseCode]
   );
+  res.status(200).json({ success: true, data: result.rows });
 });
 
 const addPrerequisite = asyncWrapper(async (req, res) => {
@@ -167,31 +139,19 @@ const addPrerequisite = asyncWrapper(async (req, res) => {
   if (courseCode === prereqCode) {
     return res.status(400).json({ success: false, message: "A course cannot be a prerequisite of itself" });
   }
-  await new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO Course_Prerequisites (Course_Code, Prereq_Course_Code) VALUES (?, ?)`,
-      [courseCode, prereqCode],
-      (err) => {
-        if (err) reject(err);
-        resolve();
-      }
-    );
-  });
+  await db.query(
+      `INSERT INTO Course_Prerequisites (course_code, prereq_course_code) VALUES ($1, $2)`,
+      [courseCode, prereqCode]
+  );
   res.status(201).json({ success: true, message: "Prerequisite added successfully" });
 });
 
 const removePrerequisite = asyncWrapper(async (req, res) => {
   const { courseCode, prereqCode } = req.params;
-  await new Promise((resolve, reject) => {
-    db.run(
-      `DELETE FROM Course_Prerequisites WHERE Course_Code = ? AND Prereq_Course_Code = ?`,
-      [courseCode, prereqCode],
-      (err) => {
-        if (err) reject(err);
-        resolve();
-      }
-    );
-  });
+  await db.query(
+      `DELETE FROM Course_Prerequisites WHERE course_code = $1 AND prereq_course_code = $2`,
+      [courseCode, prereqCode]
+  );
   res.status(200).json({ success: true, message: "Prerequisite removed successfully" });
 });
 

@@ -1,12 +1,6 @@
 const db = require('../utilities/database');
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS Doctor (
-    User_ID INTEGER PRIMARY KEY,
-    Specialization VARCHAR(100),
-    Permission INT DEFAULT NULL,
-    FOREIGN KEY (User_ID) REFERENCES User(User_ID) ON DELETE CASCADE
-  )
-`);
+// Tables are now managed by PostgreSQL via create-tables-postgres.js script
+// This file only exports the database connection
 
 module.exports = db;

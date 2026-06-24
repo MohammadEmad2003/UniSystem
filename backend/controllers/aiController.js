@@ -5,55 +5,38 @@ const userRoles = require("../utilities/userRoles");
 const createNotification = require("../utilities/createNotification");
 const aiServiceClient = require("../services/aiServiceClient");
 
-const getClassById = (classId) =>
-  new Promise((resolve, reject) => {
-    db.get(
-      `SELECT Class_ID, Doctor_ID FROM Class WHERE Class_ID = ?`,
-      [classId],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row || null);
-      }
+const getClassById = async (classId) => {
+  const result = await db.query(
+      `SELECT class_id, doctor_id FROM Class WHERE class_id = $1`,
+      [classId]
+  );
+  return result.rows[0] || null;
+};
+
+const userHasClassAccess = async (classId, userId, role) => {
+  if (role === userRoles.DOCTOR) {
+    const result = await db.query(
+      `SELECT class_id FROM Class WHERE class_id = $1 AND doctor_id = $2`,
+      [classId, userId]
     );
-  });
+    return !!(result.rows && result.rows.length > 0);
+  }
 
-const userHasClassAccess = (classId, userId, role) =>
-  new Promise((resolve, reject) => {
-    if (role === userRoles.DOCTOR) {
-      db.get(
-        `SELECT Class_ID FROM Class WHERE Class_ID = ? AND Doctor_ID = ?`,
-        [classId, userId],
-        (err, row) => {
-          if (err) return reject(err);
-          resolve(Boolean(row));
-        }
-      );
-      return;
-    }
+  const result = await db.query(
+    `SELECT class_id FROM Enrollment WHERE class_id = $1 AND user_id = $2`,
+    [classId, userId]
+  );
+  return !!(result.rows && result.rows.length > 0);
+};
 
-    db.get(
-      `SELECT Class_ID FROM Enrollment WHERE Class_ID = ? AND User_ID = ?`,
-      [classId, userId],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(Boolean(row));
-      }
-    );
-  });
+const insertEscalatedQuestion = async ({ classId, userId, role, questionText }) => {
+  const isDoctor = role === userRoles.DOCTOR;
 
-const insertEscalatedQuestion = ({ classId, userId, role, questionText }) =>
-  new Promise((resolve, reject) => {
-    const isDoctor = role === userRoles.DOCTOR;
-
-    db.run(
-      `INSERT INTO Questions (Text, Class_ID, User_ID, Doctor_ID) VALUES (?, ?, ?, ?)`,
-      [questionText, classId, isDoctor ? null : userId, isDoctor ? userId : null],
-      function onInsert(err) {
-        if (err) return reject(err);
-        resolve(this.lastID);
-      }
-    );
-  });
+  await db.query(
+      `INSERT INTO Questions (text, class_id, user_id, doctor_id) VALUES ($1, $2, $3, $4)`,
+      [questionText, classId, isDoctor ? null : userId, isDoctor ? userId : null]
+  );
+};
 
 const askClassQuestion = asyncWrapper(async (req, res, next) => {
   const { classId } = req.params;
@@ -114,21 +97,21 @@ const askClassQuestion = asyncWrapper(async (req, res, next) => {
     questionText: normalizedQuestion,
   });
 
-  if (classInfo.Doctor_ID && classInfo.Doctor_ID !== currentUser.user_id) {
+  if (classInfo.doctor_id && classInfo.doctor_id !== currentUser.user_id) {
     console.log(
-      `[NOTIFICATION] doctor_question_pending classId=${classId} questionId=${questionId} doctorId=${classInfo.Doctor_ID}`
+      `[NOTIFICATION] doctor_question_pending classId=${classId} questionId=${questionId} doctorId=${classInfo.doctor_id}`
     );
     await createNotification({
-      userId: classInfo.Doctor_ID,
+      userId: classInfo.doctor_id,
       type: "doctor_question_pending",
       title: "Student question needs your review",
       message: "A student asked a question the AI could not answer. Tap to reply.",
       classId: Number(classId),
       referenceId: questionId,
     });
-  } else if (classInfo.Doctor_ID === currentUser.user_id) {
+  } else if (classInfo.doctor_id === currentUser.user_id) {
     console.log(
-      `[NOTIFICATION] skipped self-notification for doctor_question_pending classId=${classId} questionId=${questionId} doctorId=${classInfo.Doctor_ID}`
+      `[NOTIFICATION] skipped self-notification for doctor_question_pending classId=${classId} questionId=${questionId} doctorId=${classInfo.doctor_id}`
     );
   }
 

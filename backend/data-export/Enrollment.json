@@ -1,0 +1,50 @@
+[
+  {
+    "Class_ID": 1,
+    "User_ID": 6
+  },
+  {
+    "Class_ID": 1,
+    "User_ID": 8
+  },
+  {
+    "Class_ID": 1,
+    "User_ID": 11
+  },
+  {
+    "Class_ID": 2,
+    "User_ID": 10
+  },
+  {
+    "Class_ID": 3,
+    "User_ID": 7
+  },
+  {
+    "Class_ID": 3,
+    "User_ID": 9
+  },
+  {
+    "Class_ID": 4,
+    "User_ID": 6
+  },
+  {
+    "Class_ID": 4,
+    "User_ID": 8
+  },
+  {
+    "Class_ID": 5,
+    "User_ID": 7
+  },
+  {
+    "Class_ID": 5,
+    "User_ID": 10
+  },
+  {
+    "Class_ID": 6,
+    "User_ID": 7
+  },
+  {
+    "Class_ID": 6,
+    "User_ID": 9
+  }
+]

@@ -1,0 +1,37 @@
+[
+  {
+    "Room_ID": "H1-101",
+    "Room_Name": "Hall A — 101",
+    "Capacity": 60,
+    "Type": "Lecture",
+    "Location": "Building H1, Floor 1"
+  },
+  {
+    "Room_ID": "H1-102",
+    "Room_Name": "Hall A — 102",
+    "Capacity": 60,
+    "Type": "Lecture",
+    "Location": "Building H1, Floor 1"
+  },
+  {
+    "Room_ID": "H2-201",
+    "Room_Name": "Hall B — 201",
+    "Capacity": 40,
+    "Type": "Section",
+    "Location": "Building H2, Floor 2"
+  },
+  {
+    "Room_ID": "LAB-1",
+    "Room_Name": "Computer Lab 1",
+    "Capacity": 30,
+    "Type": "Lab",
+    "Location": "Building H3, Floor 1"
+  },
+  {
+    "Room_ID": "2",
+    "Room_Name": "mar3shly",
+    "Capacity": 40,
+    "Type": "lab",
+    "Location": null
+  }
+]

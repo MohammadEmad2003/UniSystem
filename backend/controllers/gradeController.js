@@ -16,14 +16,14 @@ const getStudentGrades = asyncWrapper(async (req, res, next) => {
 
   const grades = await gradeQueries.customQuery(
     `SELECT 
-      g.Grade_ID, g.User_ID, g.Class_ID, g.Generate_At,
-      g.Attendance, g.Practical, g.Project, g.Midterm, g.Final, g.GPA,
-      g.Doctor_ID, c.Course_Code, c.Level, c.Semester, co.Name as Course_Name
+      g.grade_id, g.user_id, g.class_id, g.generate_at,
+      g.attendance, g.practical, g.project, g.midterm, g.final, g.gpa,
+      g.doctor_id, c.course_code, c.level, c.semester, co.name as course_name
     FROM Grades g
-    LEFT JOIN Class c ON g.Class_ID = c.Class_ID
-    LEFT JOIN Courses co ON c.Course_Code = co.Course_Code
-    WHERE g.User_ID = ?
-    ORDER BY c.Level DESC, c.Semester DESC`,
+    LEFT JOIN Class c ON g.class_id = c.class_id
+    LEFT JOIN Courses co ON c.course_code = co.course_code
+    WHERE g.user_id = $1
+    ORDER BY c.level DESC, c.semester DESC`,
     [studentId]
   );
 
@@ -37,21 +37,21 @@ const getStudentGrades = asyncWrapper(async (req, res, next) => {
 
   // Format response
   const formattedGrades = grades.map(grade => ({
-    grade_id: grade.Grade_ID,
-    student_id: grade.User_ID,
-    class_id: grade.Class_ID,
-    course_code: grade.Course_Code,
-    course_name: grade.Course_Name,
-    level: grade.Level,
-    semester: grade.Semester,
-    attendance: grade.Attendance,
-    practical: grade.Practical,
-    project: grade.Project,
-    midterm: grade.Midterm,
-    final: grade.Final,
-    gpa: grade.GPA,
-    doctor_id: grade.Doctor_ID,
-    generated_at: grade.Generate_At
+    grade_id: grade.grade_id,
+    student_id: grade.user_id,
+    class_id: grade.class_id,
+    course_code: grade.course_code,
+    course_name: grade.course_name,
+    level: grade.level,
+    semester: grade.semester,
+    attendance: grade.attendance,
+    practical: grade.practical,
+    project: grade.project,
+    midterm: grade.midterm,
+    final: grade.final,
+    gpa: grade.gpa,
+    doctor_id: grade.doctor_id,
+    generated_at: grade.generate_at
   }));
 
   res.status(200).json({

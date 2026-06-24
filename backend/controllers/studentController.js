@@ -15,34 +15,34 @@ const getStudentStats = asyncWrapper(async (req, res) => {
 
     const query = `
         SELECT
-            Total_GPA AS gpa,
-            Total_Hours AS total_hours,
-            (SELECT COUNT(*) FROM Enrollment WHERE User_ID = ?) AS enrolled_classes,
-            (SELECT COUNT(*) FROM Lecture WHERE Class_ID IN (SELECT Class_ID FROM Enrollment WHERE User_ID = ?)) AS upcoming_lectures
+            total_gpa AS gpa,
+            total_hours AS total_hours,
+            (SELECT COUNT(*) FROM Enrollment WHERE user_id = $1) AS enrolled_classes,
+            (SELECT COUNT(*) FROM Lecture WHERE class_id IN (SELECT class_id FROM Enrollment WHERE user_id = $2)) AS upcoming_lectures
         FROM Student
-        WHERE User_ID = ?
+        WHERE user_id = $3
     `;
 
-    db.get(query, [studentId, studentId, studentId], (err, stats) => {
-        if (err) {
-            return res.status(500).json({ success: false, message: err.message });
-        }
-
-        if (!stats) {
+    try {
+        const stats = await db.query(query, [studentId, studentId, studentId]);
+        if (!stats.rows || stats.rows.length === 0) {
             return res.status(404).json({ success: false, message: 'Student not found' });
         }
 
+        const statsData = stats.rows[0];
         res.status(200).json({
             success: true,
             data: {
-                gpa: stats.gpa || 0,
-                total_hours: stats.total_hours || 0,
-                enrolled_classes: stats.enrolled_classes || 0,
-                upcoming_lectures: stats.upcoming_lectures || 0,
+                gpa: statsData.gpa || 0,
+                total_hours: statsData.total_hours || 0,
+                enrolled_classes: statsData.enrolled_classes || 0,
+                upcoming_lectures: statsData.upcoming_lectures || 0,
                 unread_notifications: 0
             }
         });
-    });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 
@@ -82,74 +82,59 @@ const getAllStudents = asyncWrapper(async (req, res) => {
 const getPaymentDetails = asyncWrapper(async (req, res) => {
     const { studentId } = req.params;
 
-    const student = await new Promise((resolve, reject) => {
-        db.get(
-            `SELECT Academic_Level, Semester, Payment_Status, Paid_Amount
-             FROM Student
-             WHERE User_ID = ?`,
-            [studentId],
-            (err, row) => {
-                if (err) return reject(err);
-                resolve(row);
-            }
-        );
-    });
+    const studentResult = await db.query(
+        `SELECT academic_level, semester, payment_status, paid_amount
+         FROM Student
+         WHERE user_id = $1`,
+        [studentId]
+    );
+    const student = studentResult.rows[0];
 
     if (!student) {
         return res.status(404).json({ success: false, message: 'Student not found' });
     }
-    const courses = await new Promise((resolve, reject) => {
-        db.all(
-            `SELECT co.Course_Code, co.Name, co.Credit_Hours, cl.Semester,
-                    alf.Hour_Price, alf.Total_Fees as Fixed_Fees
-             FROM Enrollment e
-             JOIN Class cl ON e.Class_ID = cl.Class_ID
-             JOIN Courses co ON cl.Course_Code = co.Course_Code
-             JOIN Student s ON e.User_ID = s.User_ID
-             LEFT JOIN Academic_Level_Fees alf ON s.Academic_Level = alf.Academic_Level AND cl.Semester = alf.Semester
-             WHERE e.User_ID = ?`,
-            [studentId],
-            (err, rows) => {
-                if (err) return reject(err);
-                resolve(rows || []);
-            }
-        );
-    });
+    const coursesResult = await db.query(
+        `SELECT co.course_code, co.name, co.credit_hours, cl.semester,
+                alf.hour_price, alf.total_fees as fixed_fees
+         FROM Enrollment e
+         JOIN Class cl ON e.class_id = cl.class_id
+         JOIN Courses co ON cl.course_code = co.course_code
+         JOIN Student s ON e.user_id = s.user_id
+         LEFT JOIN Academic_Level_Fees alf ON s.academic_level = alf.academic_level AND cl.semester = alf.semester
+         WHERE e.user_id = $1`,
+        [studentId]
+    );
+    const courses = coursesResult.rows || [];
 
-    const feeInfo = await new Promise((resolve, reject) => {
-        db.get(
-            `SELECT Hour_Price, Total_Fees 
-             FROM Academic_Level_Fees 
-             WHERE Academic_Level = ? AND Semester = ?`,
-            [student.Academic_Level, student.Semester],
-            (err, row) => {
-                if (err) return reject(err);
-                resolve(row);
-            }
-        );
-    });
+    const feeInfoResult = await db.query(
+        `SELECT hour_price, total_fees 
+         FROM Academic_Level_Fees 
+         WHERE academic_level = $1 AND semester = $2`,
+        [student.academic_level, student.semester]
+    );
+    const feeInfo = feeInfoResult.rows[0];
 
     let totalHours = 0;
-    courses.forEach(c => totalHours += (c.Credit_Hours || 0));
+    courses.forEach(c => totalHours += (c.credit_hours || 0));
 
     let totalFees = 0;
     if (feeInfo) {
         // If they have hours, multiply. Otherwise use fixed Total_Fees
-        totalFees = totalHours > 0 ? (totalHours * (feeInfo.Hour_Price || 0)) : (feeInfo.Total_Fees || 0);
+        totalFees = totalHours > 0 ? (totalHours * (feeInfo.hour_price || 0)) : (feeInfo.total_fees || 0);
     }
 
-    const remaining = Math.max(0, totalFees - (student.Paid_Amount || 0));
+    const remaining = Math.max(0, totalFees - (student.paid_amount || 0));
 
     res.status(200).json({
         success: true,
         data: {
-            academic_level: student.Academic_Level,
-            payment_status: student.Payment_Status,
-            paid_amount: student.Paid_Amount,
+            academic_level: student.academic_level,
+            payment_status: student.payment_status,
+            paid_amount: student.paid_amount,
             total_fees: totalFees,
             remaining_amount: remaining,
             total_hours: totalHours,
-            hour_price: feeInfo?.Hour_Price || 0,
+            hour_price: feeInfo?.hour_price || 0,
             courses: courses
         }
     });
@@ -163,56 +148,42 @@ const makePayment = asyncWrapper(async (req, res) => {
         return res.status(400).json({ success: false, message: 'Invalid payment amount' });
     }
 
-    const student = await new Promise((resolve, reject) => {
-        db.get(`SELECT Paid_Amount, Academic_Level, Semester FROM Student WHERE User_ID = ?`, [studentId], (err, row) => {
-            if (err) return reject(err);
-            resolve(row);
-        });
-    });
+    const studentResult = await db.query(`SELECT paid_amount, academic_level, semester FROM Student WHERE user_id = $1`, [studentId]);
+    const student = studentResult.rows[0];
 
     if (!student) {
         return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    const courses = await new Promise((resolve, reject) => {
-        db.all(
-            `SELECT co.Credit_Hours, alf.Hour_Price, alf.Total_Fees as Fixed_Fees
-             FROM Enrollment e
-             JOIN Class cl ON e.Class_ID = cl.Class_ID
-             JOIN Courses co ON cl.Course_Code = co.Course_Code
-             JOIN Student s ON e.User_ID = s.User_ID
-             LEFT JOIN Academic_Level_Fees alf ON s.Academic_Level = alf.Academic_Level AND cl.Semester = alf.Semester
-             WHERE e.User_ID = ?`,
-            [studentId],
-            (err, rows) => {
-                if (err) return reject(err);
-                resolve(rows || []);
-            }
-        );
-    });
+    const coursesResult = await db.query(
+        `SELECT co.credit_hours, alf.hour_price, alf.total_fees as fixed_fees
+         FROM Enrollment e
+         JOIN Class cl ON e.class_id = cl.class_id
+         JOIN Courses co ON cl.course_code = co.course_code
+         JOIN Student s ON e.user_id = s.user_id
+         LEFT JOIN Academic_Level_Fees alf ON s.academic_level = alf.academic_level AND cl.semester = alf.semester
+         WHERE e.user_id = $1`,
+        [studentId]
+    );
+    const courses = coursesResult.rows || [];
 
-    const feeInfo = await new Promise((resolve, reject) => {
-        db.get(
-            `SELECT Hour_Price, Total_Fees 
-             FROM Academic_Level_Fees 
-             WHERE Academic_Level = ? AND Semester = ?`,
-            [student.Academic_Level, student.Semester],
-            (err, row) => {
-                if (err) return reject(err);
-                resolve(row);
-            }
-        );
-    });
+    const feeInfoResult = await db.query(
+        `SELECT hour_price, total_fees 
+         FROM Academic_Level_Fees 
+         WHERE academic_level = $1 AND semester = $2`,
+        [student.academic_level, student.semester]
+    );
+    const feeInfo = feeInfoResult.rows[0];
 
     let totalHours = 0;
-    courses.forEach(c => totalHours += (c.Credit_Hours || 0));
+    courses.forEach(c => totalHours += (c.credit_hours || 0));
 
     let totalFees = 0;
     if (feeInfo) {
-        totalFees = totalHours > 0 ? (totalHours * (feeInfo.Hour_Price || 0)) : (feeInfo.Total_Fees || 0);
+        totalFees = totalHours > 0 ? (totalHours * (feeInfo.hour_price || 0)) : (feeInfo.total_fees || 0);
     }
 
-    const newPaidAmount = (student.Paid_Amount || 0) + Number(amount);
+    const newPaidAmount = (student.paid_amount || 0) + Number(amount);
     let newStatus = 'Unpaid';
     if (newPaidAmount >= totalFees && totalFees > 0) {
         newStatus = 'Paid';
@@ -220,16 +191,10 @@ const makePayment = asyncWrapper(async (req, res) => {
         newStatus = 'Partial';
     }
 
-    await new Promise((resolve, reject) => {
-        db.run(
-            `UPDATE Student SET Paid_Amount = ?, Payment_Status = ? WHERE User_ID = ?`,
-            [newPaidAmount, newStatus, studentId],
-            (err) => {
-                if (err) return reject(err);
-                resolve();
-            }
-        );
-    });
+    await db.query(
+        `UPDATE Student SET paid_amount = $1, payment_status = $2 WHERE user_id = $3`,
+        [newPaidAmount, newStatus, studentId]
+    );
 
     res.status(200).json({
         success: true,

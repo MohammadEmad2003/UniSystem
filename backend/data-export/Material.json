@@ -1,0 +1,122 @@
+[
+  {
+    "Material_ID": 1,
+    "Lec_ID": 1,
+    "Name": "Intro & Complexity Slides",
+    "URL": "https://files.example.com/ds-lec1.pdf",
+    "Document": null,
+    "Summarize": null,
+    "Type": "pdf",
+    "Uploaded_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Material_ID": 2,
+    "Lec_ID": 1,
+    "Name": "Big-O Cheatsheet",
+    "URL": "https://files.example.com/bigo.pdf",
+    "Document": null,
+    "Summarize": null,
+    "Type": "pdf",
+    "Uploaded_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Material_ID": 3,
+    "Lec_ID": 2,
+    "Name": "Arrays & Linked Lists Notes",
+    "URL": "https://files.example.com/ds-lec2.pdf",
+    "Document": null,
+    "Summarize": null,
+    "Type": "pdf",
+    "Uploaded_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Material_ID": 4,
+    "Lec_ID": 3,
+    "Name": "Stacks & Queues Slides",
+    "URL": "https://files.example.com/ds-lec3.pdf",
+    "Document": null,
+    "Summarize": null,
+    "Type": "pdf",
+    "Uploaded_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Material_ID": 5,
+    "Lec_ID": 5,
+    "Name": "Online Review Recording",
+    "URL": "https://files.example.com/ds-review.mp4",
+    "Document": null,
+    "Summarize": null,
+    "Type": "video",
+    "Uploaded_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Material_ID": 6,
+    "Lec_ID": 6,
+    "Name": "Divide & Conquer Slides",
+    "URL": "https://files.example.com/algo-lec1.pdf",
+    "Document": null,
+    "Summarize": null,
+    "Type": "pdf",
+    "Uploaded_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Material_ID": 7,
+    "Lec_ID": 7,
+    "Name": "Dynamic Programming Guide",
+    "URL": "https://files.example.com/dp-guide.pdf",
+    "Document": null,
+    "Summarize": null,
+    "Type": "pdf",
+    "Uploaded_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Material_ID": 8,
+    "Lec_ID": 9,
+    "Name": "Relational Model Reference",
+    "URL": "https://files.example.com/db-lec1.pdf",
+    "Document": null,
+    "Summarize": null,
+    "Type": "pdf",
+    "Uploaded_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Material_ID": 9,
+    "Lec_ID": 10,
+    "Name": "SQL Cheatsheet",
+    "URL": "https://files.example.com/sql-sheet.pdf",
+    "Document": null,
+    "Summarize": null,
+    "Type": "pdf",
+    "Uploaded_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Material_ID": 10,
+    "Lec_ID": 15,
+    "Name": "OSI Model Poster",
+    "URL": "https://files.example.com/osi.pdf",
+    "Document": null,
+    "Summarize": null,
+    "Type": "pdf",
+    "Uploaded_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Material_ID": 11,
+    "Lec_ID": 18,
+    "Name": "Python Basics Reference",
+    "URL": "https://files.example.com/py-basics.pdf",
+    "Document": null,
+    "Summarize": null,
+    "Type": "pdf",
+    "Uploaded_At": "2026-05-10 22:07:49"
+  },
+  {
+    "Material_ID": 13,
+    "Lec_ID": 5,
+    "Name": "mazen_cv (5).pdf",
+    "URL": null,
+    "Document": "D:\\second_year_2_term\\UniSystem\\backend\\uploads\\1778454359927_741948562.pdf",
+    "Summarize": "زو",
+    "Type": "pdf",
+    "Uploaded_At": "2026-05-10 23:05:59"
+  }
+]

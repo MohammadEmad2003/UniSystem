@@ -8,26 +8,22 @@ const notifQueries = genericQueries('Notification', { primaryKey: 'Notification_
 const getNotifications = asyncWrapper(async (req, res) => {
   const userId = req.currentUser.user_id;
 
-  const notifications = await new Promise((resolve, reject) => {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = 10;
-    const offset = (page - 1) * limit;
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = 10;
+  const offset = (page - 1) * limit;
 
-    db.all(
-      `SELECT n.*, un.Is_Read,
-        (SELECT cn.Class_ID FROM Class_Notification cn WHERE cn.Notification_ID = n.Notification_ID LIMIT 1) AS Class_ID
-       FROM Notification n
-       INNER JOIN User_Notification un ON un.Notification_ID = n.Notification_ID
-       WHERE un.User_ID = ?
-       ORDER BY n.Created_At DESC
-       LIMIT ? OFFSET ?`,
-      [userId, limit, offset],
-      (err, rows) => {
-        if (err) return reject(err);
-        resolve(rows || []);
-      }
-    );
-  });
+  const result = await db.query(
+    `SELECT n.*, un.is_read,
+      (SELECT cn.class_id FROM Class_Notification cn WHERE cn.notification_id = n.notification_id LIMIT 1) AS class_id
+     FROM Notification n
+     INNER JOIN User_Notification un ON un.notification_id = n.notification_id
+     WHERE un.user_id = $1
+     ORDER BY n.created_at DESC
+     LIMIT $2 OFFSET $3`,
+    [userId, limit, offset]
+  );
+
+  const notifications = result.rows || [];
 
   res.json({ success: httpstatustext.success, data: notifications });
 });
@@ -37,18 +33,12 @@ const markAsRead = asyncWrapper(async (req, res) => {
   const { notificationId } = req.params;
   const userId = req.currentUser.user_id;
 
-  const link = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT 1 AS ok FROM User_Notification WHERE User_ID = ? AND Notification_ID = ?`,
-      [userId, notificationId],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row);
-      }
-    );
-  });
+  const link = await db.query(
+    `SELECT 1 AS ok FROM User_Notification WHERE user_id = $1 AND notification_id = $2`,
+    [userId, notificationId]
+  );
 
-  if (!link) {
+  if (!link.rows || link.rows.length === 0) {
     const notif = await notifQueries.getById(notificationId);
     if (!notif) {
       return res.status(404).json({ success: httpstatustext.error, message: { msg: 'Notification not found' } });
@@ -56,16 +46,10 @@ const markAsRead = asyncWrapper(async (req, res) => {
     return res.status(403).json({ success: httpstatustext.error, message: { msg: 'Not authorized' } });
   }
 
-  await new Promise((resolve, reject) => {
-    db.run(
-      `UPDATE User_Notification SET Is_Read = 1 WHERE User_ID = ? AND Notification_ID = ?`,
-      [userId, notificationId],
-      (err) => {
-        if (err) return reject(err);
-        resolve();
-      }
-    );
-  });
+  await db.query(
+    `UPDATE User_Notification SET is_read = 1 WHERE user_id = $1 AND notification_id = $2`,
+    [userId, notificationId]
+  );
 
   res.json({ success: httpstatustext.success, message: { msg: 'Marked as read' } });
 });
@@ -74,16 +58,11 @@ const markAsRead = asyncWrapper(async (req, res) => {
 const getUnreadCount = asyncWrapper(async (req, res) => {
   const userId = req.currentUser.user_id;
 
-  const count = await new Promise((resolve, reject) => {
-    db.get(
-      `SELECT COUNT(*) as count FROM User_Notification WHERE User_ID = ? AND Is_Read = 0`,
-      [userId],
-      (err, row) => {
-        if (err) return reject(err);
-        resolve(row.count);
-      }
-    );
-  });
+  const result = await db.query(
+    `SELECT COUNT(*) as count FROM User_Notification WHERE user_id = $1 AND is_read = 0`,
+    [userId]
+  );
+  const count = result.rows[0].count;
 
   res.json({ success: httpstatustext.success, data: count });
 });
@@ -92,16 +71,10 @@ const getUnreadCount = asyncWrapper(async (req, res) => {
 const markAllAsRead = asyncWrapper(async (req, res) => {
   const userId = req.currentUser.user_id;
 
-  await new Promise((resolve, reject) => {
-    db.run(
-      `UPDATE User_Notification SET Is_Read = 1 WHERE User_ID = ? AND Is_Read = 0`,
-      [userId],
-      function (err) {
-        if (err) return reject(err);
-        resolve();
-      }
-    );
-  });
+  await db.query(
+    `UPDATE User_Notification SET is_read = 1 WHERE user_id = $1 AND is_read = 0`,
+    [userId]
+  );
 
   res.json({ success: httpstatustext.success, message: { msg: 'All notifications marked as read' } });
 });

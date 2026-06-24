@@ -115,3 +115,9 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # ── Local utility / scratch scripts ──────────────────────────────────────────
 seed.js
 backend/seed.js
+
+
+
+
+*.md
+md/

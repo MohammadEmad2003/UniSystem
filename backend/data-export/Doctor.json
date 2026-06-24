@@ -1,0 +1,17 @@
+[
+  {
+    "User_ID": 3,
+    "Specialization": "Algorithms & Data Structures",
+    "Permission": null
+  },
+  {
+    "User_ID": 4,
+    "Specialization": "Database Systems",
+    "Permission": null
+  },
+  {
+    "User_ID": 5,
+    "Specialization": "Networks & Security",
+    "Permission": null
+  }
+]

@@ -1,0 +1,50 @@
+[
+  {
+    "Class_ID": 1,
+    "Notification_ID": 1
+  },
+  {
+    "Class_ID": 1,
+    "Notification_ID": 2
+  },
+  {
+    "Class_ID": 1,
+    "Notification_ID": 3
+  },
+  {
+    "Class_ID": 3,
+    "Notification_ID": 4
+  },
+  {
+    "Class_ID": 6,
+    "Notification_ID": 5
+  },
+  {
+    "Class_ID": 1,
+    "Notification_ID": 6
+  },
+  {
+    "Class_ID": 3,
+    "Notification_ID": 7
+  },
+  {
+    "Class_ID": 3,
+    "Notification_ID": 8
+  },
+  {
+    "Class_ID": 4,
+    "Notification_ID": 9
+  },
+  {
+    "Class_ID": 5,
+    "Notification_ID": 10
+  },
+  {
+    "Class_ID": 1,
+    "Notification_ID": 12
+  },
+  {
+    "Class_ID": 1,
+    "Notification_ID": 13
+  }
+]

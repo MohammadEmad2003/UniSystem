@@ -16,7 +16,7 @@ const doctorQueries = genericQueries("Doctor", {
 const adminQueries = genericQueries("Admin", {
   primaryKey: "User_ID",
 });
-const asyncWrapper = require("../middleware/asyncWrapper");
+const asyncWrapper = require('./../middleware/asyncWrapper');
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const jwtSecret = process.env.JWT_SECRET || process.env.JWT_SECRET_KEY;

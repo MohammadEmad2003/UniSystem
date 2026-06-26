@@ -26,7 +26,9 @@ const tables = [
   'Notification',
   'User_Notification',
   'Class_Notification',
-  'Prerequisite',
+  'Course_Prerequisites',
+  'Offers',
+  'Work_In',
   'StudyOutput'
 ];
 
@@ -135,6 +137,7 @@ const importTable = async (tableName) => {
       if (col === 'Created_At') return 'created_at';
       if (col === 'Is_Read') return 'is_read';
       if (col === 'Prerequisite_Code') return 'prerequisite_code';
+      if (col === 'Prereq_Course_Code') return 'prereq_course_code';
       if (col === 'Tool_Type') return 'tool_type';
       if (col === 'Options_Key') return 'options_key';
       if (col === 'Options_JSON') return 'options_json';

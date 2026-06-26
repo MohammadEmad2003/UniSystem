@@ -1,0 +1,54 @@
+[
+  {
+    "Answer_ID": 1,
+    "Questions_ID": 1,
+    "Text": "A stack follows LIFO (Last In First Out) — like a stack of plates. A queue follows FIFO (First In First Out) — like a waiting line.",
+    "Time": "2026-05-10 22:07:49",
+    "Doctor_ID": 3,
+    "User_ID": null,
+    "Is_AI_Generated": 0,
+    "Source_Type": null,
+    "Source_ID": null,
+    "Confidence": null,
+    "AI_Metadata": null
+  },
+  {
+    "Answer_ID": 1,
+    "Questions_ID": 2,
+    "Text": "Quicksort picks a pivot and partitions the array around it. On average the pivot splits the array roughly in half each time, giving O(log n) levels of recursion with O(n) work per level.",
+    "Time": "2026-05-10 22:07:49",
+    "Doctor_ID": 3,
+    "User_ID": null,
+    "Is_AI_Generated": 0,
+    "Source_Type": null,
+    "Source_ID": null,
+    "Confidence": null,
+    "AI_Metadata": null
+  },
+  {
+    "Answer_ID": 1,
+    "Questions_ID": 3,
+    "Text": "No, a table can only have one primary key, but a primary key can be a composite key — meaning it consists of multiple columns.",
+    "Time": "2026-05-10 22:07:49",
+    "Doctor_ID": 4,
+    "User_ID": null,
+    "Is_AI_Generated": 0,
+    "Source_Type": null,
+    "Source_ID": null,
+    "Confidence": null,
+    "AI_Metadata": null
+  },
+  {
+    "Answer_ID": 1,
+    "Questions_ID": 5,
+    "Text": "Define a Node class with `data` and `next` attributes, then a LinkedList class that holds a `head` reference. Append by traversing to the last node.",
+    "Time": "2026-05-10 22:07:49",
+    "Doctor_ID": 3,
+    "User_ID": null,
+    "Is_AI_Generated": 0,
+    "Source_Type": null,
+    "Source_ID": null,
+    "Confidence": null,
+    "AI_Metadata": null
+  }
+]

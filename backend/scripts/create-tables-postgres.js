@@ -290,16 +290,38 @@ const createTables = async () => {
     `);
     console.log('✅ Created Class_Notification table');
 
-    // Prerequisite
-    await query(`DROP TABLE IF EXISTS Prerequisite CASCADE`);
+    // Course_Prerequisites
+    await query(`DROP TABLE IF EXISTS Course_Prerequisites CASCADE`);
     await query(`
-      CREATE TABLE Prerequisite (
+      CREATE TABLE Course_Prerequisites (
         course_code VARCHAR(20) REFERENCES Courses(course_code) ON DELETE CASCADE,
-        prerequisite_code VARCHAR(20) REFERENCES Courses(course_code) ON DELETE CASCADE,
-        PRIMARY KEY (course_code, prerequisite_code)
+        prereq_course_code VARCHAR(20) REFERENCES Courses(course_code) ON DELETE CASCADE,
+        PRIMARY KEY (course_code, prereq_course_code)
       )
     `);
-    console.log('✅ Created Prerequisite table');
+    console.log('✅ Created Course_Prerequisites table');
+
+    // Offers
+    await query(`DROP TABLE IF EXISTS Offers CASCADE`);
+    await query(`
+      CREATE TABLE Offers (
+        course_code VARCHAR(20) REFERENCES Courses(course_code) ON DELETE CASCADE,
+        dept_id INTEGER REFERENCES Department(dept_id) ON DELETE CASCADE,
+        PRIMARY KEY (course_code, dept_id)
+      )
+    `);
+    console.log('✅ Created Offers table');
+
+    // Work_In
+    await query(`DROP TABLE IF EXISTS Work_In CASCADE`);
+    await query(`
+      CREATE TABLE Work_In (
+        doctor_id INTEGER REFERENCES Doctor(user_id) ON DELETE CASCADE,
+        dept_id INTEGER REFERENCES Department(dept_id) ON DELETE CASCADE,
+        PRIMARY KEY (doctor_id, dept_id)
+      )
+    `);
+    console.log('✅ Created Work_In table');
 
     // StudyOutput
     await query(`DROP TABLE IF EXISTS StudyOutput CASCADE`);

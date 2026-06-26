@@ -1,0 +1,34 @@
+[
+  {
+    "Course_Code": "CS101",
+    "Dept_ID": 1
+  },
+  {
+    "Course_Code": "CS201",
+    "Dept_ID": 1
+  },
+  {
+    "Course_Code": "CS301",
+    "Dept_ID": 1
+  },
+  {
+    "Course_Code": "CS401",
+    "Dept_ID": 1
+  },
+  {
+    "Course_Code": "IS101",
+    "Dept_ID": 2
+  },
+  {
+    "Course_Code": "IS201",
+    "Dept_ID": 2
+  },
+  {
+    "Course_Code": "IT101",
+    "Dept_ID": 3
+  },
+  {
+    "Course_Code": "IT201",
+    "Dept_ID": 3
+  }
+]

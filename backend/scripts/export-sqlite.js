@@ -34,7 +34,9 @@ const tables = [
   'Notification',
   'User_Notification',
   'Class_Notification',
-  'Prerequisite',
+  'Course_Prerequisites',
+  'Offers',
+  'Work_In',
   'StudyOutput'
 ];
 
@@ -46,7 +48,8 @@ db.serialize(() => {
   console.log('Starting data export from encrypted SQLite...');
 
   tables.forEach((table, index) => {
-    db.all(`SELECT * FROM ${table}`, (err, rows) => {
+    const sqliteTable = table === 'Answers' ? 'Answer' : table;
+    db.all(`SELECT * FROM ${sqliteTable}`, (err, rows) => {
       if (err) {
         console.error(`Error exporting ${table}:`, err.message);
         return;

@@ -1,0 +1,22 @@
+[
+  {
+    "Course_Code": "CS201",
+    "Prereq_Course_Code": "CS101"
+  },
+  {
+    "Course_Code": "CS301",
+    "Prereq_Course_Code": "CS201"
+  },
+  {
+    "Course_Code": "CS401",
+    "Prereq_Course_Code": "CS301"
+  },
+  {
+    "Course_Code": "IS201",
+    "Prereq_Course_Code": "IS101"
+  },
+  {
+    "Course_Code": "IT201",
+    "Prereq_Course_Code": "IT101"
+  }
+]

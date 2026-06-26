@@ -38,7 +38,7 @@ const getDoctorStats = asyncWrapper(async (req, res, next) => {
       JOIN Courses co ON c.course_code = co.course_code
       LEFT JOIN Enrollment e ON c.class_id = e.class_id
       WHERE c.doctor_id = $1
-      GROUP BY c.class_id
+      GROUP BY c.class_id, co.name
     `, [doctorId]);
   const classEnrollmentData = classEnrollmentResult.rows || [];
 

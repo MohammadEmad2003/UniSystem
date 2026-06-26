@@ -20,7 +20,7 @@ const getAllClasses = asyncWrapper(async (req, res) => {
        LEFT JOIN "User" u ON c.doctor_id = u.user_id
        LEFT JOIN Enrollment e ON c.class_id = e.class_id
        LEFT JOIN Offers d ON c.course_code = d.course_code
-       GROUP BY c.class_id`
+       GROUP BY c.class_id, c.course_code, co.name, co.credit_hours, c.doctor_id, u.f_name, u.l_name, c.semester, c.level, c.capacity, d.dept_id`
   );
   const classes = classesResult.rows || [];
 
@@ -44,7 +44,7 @@ const getClassById = asyncWrapper(async (req, res) => {
        LEFT JOIN Enrollment e ON c.class_id = e.class_id
        LEFT JOIN Offers d ON c.course_code = d.course_code
        WHERE c.class_id = $1
-       GROUP BY c.class_id`,
+       GROUP BY c.class_id, c.course_code, co.name, c.doctor_id, u.f_name, u.l_name, c.semester, c.level, c.capacity, d.dept_id`,
       [classId]
   );
   const cls = clsResult.rows[0];
@@ -71,7 +71,7 @@ const getClassesByDoctor = asyncWrapper(async (req, res) => {
        LEFT JOIN "User" u ON c.doctor_id = u.user_id
        LEFT JOIN Enrollment e ON c.class_id = e.class_id
        WHERE c.doctor_id = $1
-       GROUP BY c.class_id`,
+       GROUP BY c.class_id, c.course_code, co.name, c.doctor_id, u.f_name, u.l_name, c.semester, c.level, c.capacity`,
       [doctorId]
   );
   const classes = classesResult.rows || [];

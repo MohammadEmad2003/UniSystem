@@ -8,7 +8,7 @@ requests
 python-dotenv
 pypdf
 python-docx
-pymupdf==1.23.26
+pymupdf
 pytesseract
 pillow
 

@@ -49,7 +49,7 @@ const getClassQuestions = asyncWrapper(async (req, res) => {
        LEFT JOIN "User" u ON u.user_id = COALESCE(q.user_id, q.doctor_id)
        WHERE q.class_id = $1
        ORDER BY q.time ASC, q.questions_id ASC`,
-      [classId]
+      [parseInt(classId, 10)]
   );
   const questions = questionsResult.rows || [];
   console.log("[GET_CLASS_QUESTIONS] rows =", questions.length);
@@ -107,7 +107,7 @@ const postQuestion = asyncWrapper(async (req, res) => {
 
   const result = await db.query(
       `INSERT INTO Questions (text, class_id, user_id, doctor_id, time) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) RETURNING questions_id`,
-      [text, classId, isDoctor ? null : userId, isDoctor ? userId : null]
+      [text, parseInt(classId, 10), isDoctor ? null : userId, isDoctor ? userId : null]
   );
   const questionId = result.rows[0].questions_id;
   console.log(`[QUESTION SAVED] questionId=${questionId} classId=${classId} userId=${userId}`);
@@ -115,7 +115,7 @@ const postQuestion = asyncWrapper(async (req, res) => {
   // بعت notification لكل الـ students في الـ class
   const studentsResult = await db.query(
       `SELECT user_id FROM Enrollment WHERE class_id = $1`,
-      [classId]
+      [parseInt(classId, 10)]
   );
   const students = studentsResult.rows || [];
 
@@ -136,7 +136,7 @@ const postQuestion = asyncWrapper(async (req, res) => {
   if (!isDoctor) {
     const classInfoResult = await db.query(
         `SELECT doctor_id FROM Class WHERE class_id = $1`,
-        [classId]
+        [parseInt(classId, 10)]
     );
     const classInfo = classInfoResult.rows[0];
 
@@ -264,7 +264,7 @@ const askAndSave = asyncWrapper(async (req, res) => {
   // 2. Save the question to DB — always, for every real message.
   const questionResult = await db.query(
       `INSERT INTO Questions (text, class_id, user_id, doctor_id, time) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) RETURNING questions_id`,
-      [questionText, classId, isDoctor ? null : userId, isDoctor ? userId : null]
+      [questionText, parseInt(classId, 10), isDoctor ? null : userId, isDoctor ? userId : null]
   );
   const questionId = questionResult.rows[0].questions_id;
   console.log(`[QUESTION SAVED] questionId=${questionId} classId=${classId} userId=${userId}`);
@@ -363,7 +363,7 @@ const askAndSave = asyncWrapper(async (req, res) => {
 
   // 5. No usable answer (sent_to_doctor, no material match, generation failed, or unknown source).
   //    Question is already saved; notify the doctor to reply.
-  const classInfoResult = await db.query(`SELECT doctor_id FROM Class WHERE class_id = $1`, [classId]);
+  const classInfoResult = await db.query(`SELECT doctor_id FROM Class WHERE class_id = $1`, [parseInt(classId, 10)]);
   const classInfo = classInfoResult.rows[0];
   if (classInfo?.doctor_id && classInfo.doctor_id !== userId) {
     console.log(`[NOTIFICATION] doctor_question_pending classId=${classId} questionId=${questionId} doctorId=${classInfo.doctor_id}`);

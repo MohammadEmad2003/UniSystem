@@ -29,16 +29,19 @@ const createMaterial = asyncWrapper(async (req, res) => {
         name: name,
         url: finalURL,
         document: finalDocument,
+        file_path: finalDocument,
         summarize: summarize,
         type: type 
     });
 
+    const newMaterialId = result?.material_id || result?.lastID;
+
     try {
-        await aiServiceClient.indexMaterial(result.lastID, {
+        await aiServiceClient.indexMaterial(newMaterialId, {
             class_id: Number(classId)
         });
     } catch (error) {
-        console.error(`[AI] Failed to index material ${result.lastID}: ${error.message}`);
+        console.error(`[AI] Failed to index material ${newMaterialId}: ${error.message}`);
     }
 
     // Async class re-index so new material is searchable by RAG
@@ -48,7 +51,7 @@ const createMaterial = asyncWrapper(async (req, res) => {
         success: true,
         message: "Material created successfully",
         data: {
-            material_id: result.lastID, 
+            material_id: newMaterialId, 
             name: name,
             lecture_id: lecture_id,
             type: type,

@@ -12,7 +12,7 @@ const logSqlError = (label, err, query, params) => {
 };
 
 const mapMaterialRow = (row) => {
-  const documentPath = row.document || null;
+  const documentPath = row.document || row.file_path || null;
   let absoluteDocumentPath = null;
 
   if (documentPath) {
@@ -106,6 +106,7 @@ const getMaterialsForClass = async (classId) => {
         m.name,
         m.url,
         m.document,
+        m.file_path,
         m.summarize
        FROM Material m
        INNER JOIN Lecture l ON l.lec_id = m.lec_id
@@ -125,6 +126,7 @@ const getMaterialById = async (materialId) => {
         m.name,
         m.url,
         m.document,
+        m.file_path,
         m.summarize
        FROM Material m
        INNER JOIN Lecture l ON l.lec_id = m.lec_id

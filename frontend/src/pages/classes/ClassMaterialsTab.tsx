@@ -1628,7 +1628,9 @@ export default function ClassMaterialsTab() {
                 )}
                 {mat.type === "link" || mat.type === "video"
                   ? <a href={mat.url} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-surface-100 rounded-lg transition-colors text-slate-600 dark:text-slate-400"><ExternalLink size={16} /></a>
-                  : <button className="p-2 hover:bg-surface-100 rounded-lg transition-colors text-slate-600 dark:text-slate-400"><Download size={16} /></button>
+                  : mat.document
+                    ? <a href={mat.document} download target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-surface-100 rounded-lg transition-colors text-slate-600 dark:text-slate-400"><Download size={16} /></a>
+                    : <button disabled className="p-2 opacity-50 rounded-lg text-slate-400 cursor-not-allowed"><Download size={16} /></button>
                 }
                 {user.role === "doctor" && (
                   <button onClick={() => handleDelete(mat.material_id)} className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-surface-400 hover:text-red-500">

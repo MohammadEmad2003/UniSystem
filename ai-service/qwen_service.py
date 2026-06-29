@@ -5,14 +5,11 @@ import re
 import time
 from typing import Any
 
-import requests
 from dotenv import load_dotenv
 
-load_dotenv()
+from local_llm import LocalLLM
 
-# ── Ollama config ──────────────────────────────────────────────────────────────
-_OLLAMA_URL   = os.getenv("OLLAMA_URL",   "http://localhost:11434").rstrip("/")
-_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", os.getenv("QWEN_MODEL", "qwen2.5:7b-instruct")).strip()
+load_dotenv()
 
 # ── Shared LaTeX rules injected into every prompt ──────────────────────────────
 # Keep in sync with aiMathSanitizer.ts on the frontend.
@@ -104,69 +101,58 @@ GENERAL_SYSTEM_PROMPT = (
 
 class QwenService:
     def __init__(self) -> None:
-        print(f"[qwen_service] Using Ollama LLM")
-        print(f"[qwen_service] Model : {_OLLAMA_MODEL}")
-        print(f"[qwen_service] URL   : {_OLLAMA_URL}")
+        _repo = os.getenv("LOCAL_MODEL_REPO", "Qwen/Qwen2.5-1.5B-Instruct-GGUF")
+        _file = os.getenv("LOCAL_MODEL_FILE", "qwen2.5-1.5b-instruct-q4_k_m.gguf")
+        print(f"[qwen_service] Using local llama-cpp LLM")
+        print(f"[qwen_service] Model repo : {_repo}")
+        print(f"[qwen_service] Model file : {_file}")
 
-    # ── Core Ollama call ───────────────────────────────────────────────────────
+    # ── Core local LLM call ────────────────────────────────────────────────────
 
-    def _call_ollama(
+    def _call_llm(
         self,
         operation: str,
         system: str,
         user_prompt: str,
-        timeout: int = 120,
         num_predict: int = 2048,
         temperature: float | None = None,
         top_p: float | None = None,
         repeat_penalty: float | None = None,
+        **_ignored,  # absorb any legacy kwargs (e.g. timeout) without crashing
     ) -> str | None:
-        """POST to Ollama /api/chat and return the assistant reply text, or None."""
+        """Run inference via the local llama-cpp model. Returns reply text or None."""
         t0 = time.time()
-        options: dict = {"num_predict": num_predict}
+        kwargs: dict = {}
         if temperature is not None:
-            options["temperature"] = temperature
+            kwargs["temperature"] = temperature
         if top_p is not None:
-            options["top_p"] = top_p
+            kwargs["top_p"] = top_p
         if repeat_penalty is not None:
-            options["repeat_penalty"] = repeat_penalty
+            kwargs["repeat_penalty"] = repeat_penalty
         try:
-            resp = requests.post(
-                f"{_OLLAMA_URL}/api/chat",
-                json={
-                    "model": _OLLAMA_MODEL,
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user",   "content": user_prompt},
-                    ],
-                    "stream": False,
-                    "options": options,
-                },
-                timeout=timeout,
+            llm = LocalLLM.get()
+            result = llm._load().create_chat_completion(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user",   "content": user_prompt},
+                ],
+                max_tokens=num_predict,
+                **kwargs,
             )
-            resp.raise_for_status()
-            text = (resp.json().get("message") or {}).get("content", "").strip()
-            print(f"[OLLAMA] {operation} done in {round(time.time()-t0,2)}s")
+            text = (result["choices"][0]["message"].get("content") or "").strip()
+            elapsed = round(time.time() - t0, 2)
+            print(f"[LLM] {operation} done in {elapsed}s ({len(text)} chars)")
             return text or None
-        except requests.ConnectionError:
-            print(f"[OLLAMA] {operation} — cannot connect to {_OLLAMA_URL}. Is Ollama running?")
-            return None
-        except requests.Timeout:
-            print(f"[OLLAMA] {operation} — timed out after {timeout}s")
-            return None
-        except requests.HTTPError as exc:
-            print(f"[OLLAMA] {operation} — HTTP {exc.response.status_code}: {exc.response.text[:200]}")
-            return None
         except Exception as exc:
-            print(f"[OLLAMA] {operation} — unexpected error: {exc}")
+            print(f"[LLM] {operation} — inference error: {exc}")
             return None
 
-    # ── kept for backward-compat callers in rag_service ───────────────────────
+    # ── backward-compat alias kept for any direct callers in rag_service ──────
 
     def _generate_text(
         self, prompt: str, operation_name: str, system: str | None = None
     ) -> str | None:
-        return self._call_ollama(
+        return self._call_llm(
             operation_name,
             system if system is not None else SYSTEM_PROMPT,
             prompt,
@@ -214,9 +200,9 @@ class QwenService:
             "  BAD: introducing a topic (e.g. Fourier) that was NOT in the original input\n\n"
             f"Student question:\n{question}"
         )
-        result = self._call_ollama(
+        result = self._call_llm(
             "query rewrite", SYSTEM_PROMPT, prompt,
-            timeout=30, temperature=0.1, top_p=0.9,
+            num_predict=256, temperature=0.1, top_p=0.9,
         )
 
         if result:
@@ -238,7 +224,7 @@ class QwenService:
             "Use only the provided text. Do not add outside information.\n\n"
             f"PDF chunk:\n{text}"
         )
-        return self._call_ollama("pdf chunk summarization", SYSTEM_PROMPT, prompt)
+        return self._call_llm("pdf chunk summarization", SYSTEM_PROMPT, prompt)
 
     def summarize_material(self, text: str) -> str | None:
         prompt = (
@@ -246,7 +232,7 @@ class QwenService:
             "Use only the provided text. Do not add outside information.\n\n"
             f"PDF material:\n{text}"
         )
-        return self._call_ollama("material summarization", SYSTEM_PROMPT, prompt)
+        return self._call_llm("material summarization", SYSTEM_PROMPT, prompt)
 
     def generate_material_summary(
         self,
@@ -305,7 +291,7 @@ class QwenService:
             "* Use ONLY the provided text\n\n"
             f"Text:\n{context}"
         )
-        return self._call_ollama("material summary generation", SYSTEM_PROMPT, prompt, num_predict=2000)
+        return self._call_llm("material summary generation", SYSTEM_PROMPT, prompt, num_predict=2000)
 
     def summarize_page(
         self,
@@ -344,7 +330,7 @@ class QwenService:
             "* Use ONLY the provided text\n\n"
             f"Page text:\n{page_text}"
         )
-        return self._call_ollama("page summary generation", SYSTEM_PROMPT, prompt, num_predict=1200)
+        return self._call_llm("page summary generation", SYSTEM_PROMPT, prompt, num_predict=1200)
 
     def generate_study_notes(
         self,
@@ -419,7 +405,7 @@ class QwenService:
             "* Do NOT return JSON\n\n"
             f"Material:\n{context}"
         )
-        return self._call_ollama("study notes generation", SYSTEM_PROMPT, prompt, num_predict=2000)
+        return self._call_llm("study notes generation", SYSTEM_PROMPT, prompt, num_predict=2000)
 
     # Strict JSON-only system prompt used for quiz/flashcard generation
     _JSON_SYSTEM_PROMPT = (
@@ -529,7 +515,7 @@ class QwenService:
             f"Material:\n{context}"
         )
         user_prompt = f"{retry_prompt}\n\n{base}" if retry_prompt else base
-        return self._call_ollama(
+        return self._call_llm(
             "quiz generation",
             self._JSON_SYSTEM_PROMPT,
             user_prompt,
@@ -607,7 +593,7 @@ class QwenService:
             f"Material:\n{context}"
         )
         user_prompt = f"{retry_prompt}\n\n{prompt}" if retry_prompt else prompt
-        return self._call_ollama(
+        return self._call_llm(
             "flashcards generation",
             self._JSON_SYSTEM_PROMPT,
             user_prompt,
@@ -632,16 +618,15 @@ class QwenService:
             "- Do NOT return JSON.\n"
             "- If the context does not contain enough information to answer, return exactly: SEND_TO_DOCTOR"
         )
-        answer = self._call_ollama(
+        answer = self._call_llm(
             "answer generation", QA_SYSTEM_PROMPT, prompt,
-            timeout=180,
             num_predict=2048,
             temperature=0.15, top_p=0.8, repeat_penalty=1.1,
         )
         if answer:
-            print(f"[OLLAMA] answer preview: {answer[:160]}{'...' if len(answer)>160 else ''}")
+            print(f"[LLM] answer preview: {answer[:160]}{'...' if len(answer)>160 else ''}")
         else:
-            print(f"[OLLAMA] answer generation returned None (model may have timed out or refused)")
+            print(f"[LLM] answer generation returned None")
         return answer
 
     # ── OCR / math artifact corrections applied to chunk text before LLM ─────
@@ -784,4 +769,4 @@ class QwenService:
             "Do not wrap the output in code fences.\n"
             "Do not return JSON."
         )
-        return self._call_ollama("general answer generation", GENERAL_SYSTEM_PROMPT, prompt)
+        return self._call_llm("general answer generation", GENERAL_SYSTEM_PROMPT, prompt)

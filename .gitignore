@@ -15,7 +15,10 @@ ai-service/models/
 *.ckpt
 *.h5
 *.onnx
-
+# Database
+*.db
+*.db-shm
+*.db-wal
 # ── Qdrant persistent vector storage ──────────────────────────────────────────
 ai-service/qdrant_storage/
 

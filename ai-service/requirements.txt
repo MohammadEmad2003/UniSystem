@@ -1,20 +1,37 @@
 fastapi
 uvicorn
 uvicorn[standard]
-anthropic
-sentence-transformers
-qdrant-client
+pydantic
+
+# HTTP client (used by backend_client.py and PDF download in rag_service.py)
 requests
+httpx
+
+# Environment
 python-dotenv
+
+# Vector store
+qdrant-client
+
+# Embeddings
+sentence-transformers
+
+# PDF processing
+pymupdf
 pypdf
 python-docx
-pymupdf
+
+# OCR
 pytesseract
 pillow
 
-# Local model runtime via HuggingFace transformers
-torch
-transformers
-accelerate
+# ── Local LLM (llama-cpp-python — CPU-only GGUF inference) ───────────────────
+# v0.2.90 = last release with pre-built Windows wheels (cp310-cp310-win_amd64).
+# Newer versions (≥0.3.x) only ship a py3-none wheel compiled with AVX-512,
+# which fails on CPUs without AVX-512 (e.g. AMD Ryzen Zen 3/Zen 3+).
+# On Linux/Docker, any version builds fine from source with CMake.
+# To upgrade: test with your CPU first → https://github.com/abetlen/llama-cpp-python/releases
+llama-cpp-python==0.2.90
+
+# HuggingFace Hub (model download on first boot)
 huggingface_hub
-anthropic

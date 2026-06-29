@@ -22,10 +22,11 @@ from qwen_service import QwenService
 from vector_store import VectorStore
 
 load_dotenv()
+print("RAG LOADED:", __file__)
 
 
 class RagService:
-    MATERIAL_MATCH_THRESHOLD = 0.38
+    MATERIAL_MATCH_THRESHOLD = 0.35
     ANSWER_CONFIDENCE_THRESHOLD = 0.55
     MATERIAL_CONTEXT_LIMIT = 5
 
@@ -67,6 +68,7 @@ class RagService:
     def ask_question(self, class_id: int, user_id: int, question: str) -> dict[str, Any]:
         _ = user_id
         original_question = (question or "").strip()
+        print("🔥 ENTERED ask_question")
         if not original_question:
             raise ValueError("Question is required.")
 
@@ -162,9 +164,26 @@ class RagService:
             f"[RAG] Material best score: {material_results[0].score if material_results else None}"
         )
 
+        # Temporary debug logs requested by the user during retrieval
+        scores = [float(m.score) for m in material_results]
+        preview = ""
+        if material_results:
+            p = material_results[0].payload or {}
+            preview = str(p.get("chunk_text") or "")[:200]
+            
+        print("[RETRIEVE]")
+        print(f"question: {original_question}")
+        print(f"class_id: {class_id}")
+        print(f"number of returned chunks: {len(material_results)}")
+        print(f"similarity scores: {scores}")
+        print(f"retrieved context preview: {preview}")
+
         if not material_results:
-            print("[RAG] No material results — sending to doctor")
-            return {"status": "sent_to_doctor"}
+            print("[RAG] No material results — returning no_context debug response")
+            return {
+                "status": "no_context",
+                "message": "No indexed material found for this class"
+            }
 
         # ── Apply keyword boost re-ranking ────────────────────────────────────
         # For math/engineering questions the embedding similarity alone can be
@@ -197,11 +216,20 @@ class RagService:
 
         top_material_match = material_results[0]
         effective_top_score = boosted[0][0]
+        print(
+    "[DEBUG] effective_top_score:",
+    effective_top_score,
+    "threshold:",
+    self.MATERIAL_MATCH_THRESHOLD
+)
+        print("========== DEBUG SCORE ==========")
+        print("effective_top_score:", effective_top_score)
+        print("threshold:", self.MATERIAL_MATCH_THRESHOLD)
+        print("material count:", len(material_results))
+        print("top chunk:", material_results[0].payload if material_results else None)
+        print("=================================")
         if effective_top_score < self.MATERIAL_MATCH_THRESHOLD:
-            print(
-                f"[RAG] Top score {effective_top_score:.4f} < threshold {self.MATERIAL_MATCH_THRESHOLD} "
-                f"— sending to doctor"
-            )
+            
             return {"status": "sent_to_doctor"}
 
         print(f"[RAG] Top score {effective_top_score:.4f} >= threshold {self.MATERIAL_MATCH_THRESHOLD} — proceeding")
@@ -1048,7 +1076,13 @@ class RagService:
         downloaded = False
 
         if pdf_detected:
-            resolved_file, downloaded = self._resolve_material_file_with_meta(material)
+            try:
+                resolved_file, downloaded = self._resolve_material_file_with_meta(material)
+            except Exception as exc:
+                print(f"[PDF] File resolution/download failed for material {material_id}: {exc}")
+                print(f"[PDF] Falling back to available text/summarize fields.")
+                resolved_file, downloaded = None, False
+
             print(f"[PDF] Resolved file: {resolved_file}")
             print(f"[PDF] File downloaded: {downloaded}")
             print(f"[PDF] OCR enabled: {self.enable_ocr}")
@@ -1154,6 +1188,15 @@ class RagService:
         vectors = self.embedding_service.embed_texts([chunk["text"] for chunk in chunk_records])
         for chunk, vector in zip(chunk_records, vectors):
             chunk["vector"] = vector
+
+        # Temporary debug logs requested by the user during indexing
+        print("[INDEX]")
+        print(f"material_id: {material_id}")
+        print(f"material name: {material_name}")
+        print(f"material type: {material_type}")
+        print(f"text length: {len(selected_text)}")
+        print(f"number of chunks created: {len(chunk_records)}")
+        print(f"embedding dimension: {len(vectors[0]) if vectors else 0}")
 
         return chunk_records
 
@@ -1375,8 +1418,22 @@ class RagService:
         return urljoin(f"{self.pdf_base_url}/files/", encoded_reference)
 
     def _download_remote_file(self, url: str) -> str:
-        response = requests.get(url, timeout=120)
-        response.raise_for_status()
+        try:
+            response = requests.get(url, timeout=120)
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else "unknown"
+            raise RuntimeError(
+                f"[PDF] HTTP {status} downloading {url}"
+            ) from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise RuntimeError(
+                f"[PDF] Connection error downloading {url}: {exc}"
+            ) from exc
+        except requests.exceptions.Timeout:
+            raise RuntimeError(
+                f"[PDF] Timeout (120s) downloading {url}"
+            ) from None
 
         suffix = Path(urlparse(url).path).suffix or ".pdf"
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:

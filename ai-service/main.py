@@ -9,35 +9,40 @@ from fastapi import Body, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from local_llm import LocalLLM
 from rag_service import RagService
 
 load_dotenv()
+print("MAIN LOADED:", __file__)
 
 
-def _preload_model() -> None:
-    """Verify Ollama is reachable at startup."""
-    import requests as _req
-    ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
+def _preload_local_llm() -> None:
+    """Load the GGUF model into memory once at startup."""
     try:
-        r = _req.get(f"{ollama_url}/api/tags", timeout=5)
-        models = [m.get("name", "") for m in (r.json().get("models") or [])]
-        print(f"[startup] Ollama reachable at {ollama_url}. Available models: {models or '(none)'}")
+        print("[LLM] Loading model...")
+        LocalLLM.get()._load()
+        print("[LLM] Model loaded successfully!")
     except Exception as exc:
-        print(f"[startup] WARNING — cannot reach Ollama at {ollama_url}: {exc}")
+        print(f"[LLM] WARNING — model failed to load: {exc}")
+        print("[LLM] Service will start, but LLM inference will fail until the model is available.")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    _preload_model()
+    _preload_local_llm()
     yield
 
 
 app = FastAPI(title="UniSystem AI Service", version="1.0.0", lifespan=lifespan)
 
+frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+backend_url = os.getenv("BACKEND_API_URL", "http://localhost:3000").rstrip("/")
+pdf_base_url = os.getenv("PDF_BASE_URL", "http://localhost:3001").rstrip("/")
+
 # Enable CORS for frontend requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:3001"],
+    allow_origins=[frontend_url, backend_url, pdf_base_url],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -130,17 +135,23 @@ def general_chat(payload: GeneralChatRequest) -> dict[str, Any]:
 
 @app.post("/rag/ask")
 def ask_question(payload: AskRequest) -> dict[str, Any]:
+    print("🔥 ROUTE HIT")
+    print(payload)
+
     try:
-        return rag_service.ask_question(
+        result = rag_service.ask_question(
             class_id=payload.class_id,
             user_id=payload.user_id,
             question=payload.question,
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
+        print("🔥🔥 RAG RETURNED:", result)
+
+        return result
+
+    except Exception as exc:
+        print("❌ ERROR:", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 @app.post("/rag/index/class/{class_id}")
 def index_class(class_id: int) -> dict[str, Any]:

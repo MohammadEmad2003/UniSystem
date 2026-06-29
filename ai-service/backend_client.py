@@ -38,7 +38,15 @@ class BackendClient:
         return self._get(f"/api/internal/ai/materials/{material_id}", allow_404=True)
 
     def _get(self, path: str, allow_404: bool = False):
-        response = self.session.get(f"{self.base_url}{path}", timeout=60)
+        headers = {
+            "x-internal-api-key": os.getenv("INTERNAL_API_KEY", "").strip(),
+            "Accept": "application/json"
+        }
+        response = self.session.get(
+            f"{self.base_url}{path}", 
+            headers=headers,
+            timeout=60
+        )
 
         if allow_404 and response.status_code == 404:
             return None

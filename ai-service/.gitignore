@@ -1,0 +1,17 @@
+# Ignore .env
+.env
+.env.*
+!.env.example
+
+# Ignore models directory *.gguf
+models/
+*.gguf
+
+# Ignore Qdrant local storage folder
+qdrant_storage/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

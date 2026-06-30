@@ -9,13 +9,11 @@ db.serialize(() => {
     db.run("PRAGMA key='123456'");
     db.run("PRAGMA busy_timeout=30000");
 
-    // 1. Rename old table to backup
     db.run("ALTER TABLE Academic_Level_Fees RENAME TO Academic_Level_Fees_Old", (err) => {
         if (err) {
             console.log("Note: Old table might not exist or already renamed:", err.message);
         }
 
-        // 2. Create new table with correct Primary Key
         db.run(`
             CREATE TABLE Academic_Level_Fees (
                 Academic_Level INTEGER,

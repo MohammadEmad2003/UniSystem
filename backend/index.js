@@ -50,7 +50,7 @@ require('./models/studyOutputModel');
 
 // const httpstatustext=require('./utilities/httpstatustext');
 // const createuser = require("./controllers/test");
-// createuser(); // ✅ كده هتشتغل
+// createuser(); 
 
 // allow for cors
 app.use(cors());

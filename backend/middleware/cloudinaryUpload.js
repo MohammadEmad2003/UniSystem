@@ -145,20 +145,16 @@ const profileMixedStorage = new CloudinaryStorage({
       };
     }
     // document
+    // document
+    const ext = path.extname(file.originalname);
+    const extName = ext.substring(1) || 'raw';
+    const baseName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, '_');
+    
     return {
       folder: 'unisystem/documents',
-      resource_type: (req, file) => {
-        return 'auto';
-      },
-      format: (req, file) => {
-        const ext = path.extname(file.originalname).substring(1);
-        return ext || 'raw';
-      },
-      public_id: (req, file) => {
-        const ext = path.extname(file.originalname);
-        const name = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, '_');
-        return `${name}_${Date.now()}`;
-      }
+      resource_type: 'auto',
+      format: extName,
+      public_id: `${baseName}_${Date.now()}`
     };
   },
 });

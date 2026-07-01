@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { adminService, departmentService } from '../../services';
 import { realAdminService } from '../../services/realServices';
 import { getSocket } from '../../services/socketClient';
@@ -137,16 +138,82 @@ export default function StudentManagementPage() {
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white drop-shadow-md">Student Management</h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">Manage approvals, payments, and student records</p>
+    <>
+      {/* Modal - Rendered via Portal to document.body */}
+      {showCreate && createPortal(
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
+           <div className="bg-slate-50 dark:bg-[#0a192f] border border-slate-300 dark:border-slate-700/50 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8)] w-full max-w-md p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                 <h3 className="text-lg font-semibold">Register Student</h3>
+                 <button onClick={() => setShowCreate(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
+                    <X size={20} />
+                 </button>
+              </div>
+
+              <div className="space-y-4">
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                       <label className="text-xs font-bold text-slate-500 uppercase ml-1">First Name</label>
+                       <input value={form.f_name} onChange={e => setForm({...form, f_name: e.target.value})} className="input-field" placeholder="John" />
+                    </div>
+                    <div className="space-y-1.5">
+                       <label className="text-xs font-bold text-slate-500 uppercase ml-1">Last Name</label>
+                       <input value={form.l_name} onChange={e => setForm({...form, l_name: e.target.value})} className="input-field" placeholder="Doe" />
+                    </div>
+                 </div>
+
+                 <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase ml-1">Email Address</label>
+                    <input value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="input-field" placeholder="student@university.edu" />
+                 </div>
+
+                 <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase ml-1">Password</label>
+                    <input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} className="input-field" placeholder="••••••••" />
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                       <label className="text-xs font-bold text-slate-500 uppercase ml-1">SSN / National ID</label>
+                       <input value={form.ssn} onChange={e => setForm({...form, ssn: e.target.value})} className="input-field" placeholder="123456789" />
+                    </div>
+                    <div className="space-y-1.5">
+                       <label className="text-xs font-bold text-slate-500 uppercase ml-1">Academic Level</label>
+                       <select value={form.academic_level} onChange={e => setForm({...form, academic_level: Number(e.target.value) as AcademicLevel})} className="input-field">
+                          {[1,2,3,4].map(l => <option key={l} value={l}>Level {l}</option>)}
+                       </select>
+                    </div>
+                 </div>
+
+                 <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase ml-1">Department</label>
+                    <select value={form.department_id} onChange={e => setForm({...form, department_id: e.target.value})} className="input-field">
+                       <option value="">Select Department</option>
+                       {departments.map(d => <option key={d.dept_id} value={d.dept_id}>{d.dept_name}</option>)}
+                    </select>
+                 </div>
+
+                 {createError && <div className="p-3 rounded-xl bg-rose-500/10 text-rose-500 text-xs font-medium text-center">{createError}</div>}
+
+                 <button onClick={handleCreateStudent} className="btn-primary w-full py-4 text-lg mt-4 shadow-xl shadow-primary-500/20">
+                    Register & Approve Student
+                 </button>
+              </div>
+           </div>
+        </div>,
+        document.body
+      )}
+
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white drop-shadow-md">Student Management</h1>
+            <p className="text-slate-600 dark:text-slate-400 mt-1">Manage approvals, payments, and student records</p>
+          </div>
+          <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2">
+            <UserPlus size={18} /> Add New Student
+          </button>
         </div>
-        <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2">
-          <UserPlus size={18} /> Add New Student
-        </button>
-      </div>
 
       {error && <div className="p-3 rounded-xl bg-red-500/10 text-red-400 text-sm">{error}</div>}
 
@@ -362,75 +429,7 @@ export default function StudentManagementPage() {
           </div>
         </div>
       )}
-
-      {/* Create Modal */}
-      {showCreate && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
-           <div className="bg-white dark:bg-[#0a192f] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-lg p-8 animate-scale-in" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-6">
-                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary-500/10 flex items-center justify-center text-primary-500">
-                       <UserPlus size={24} />
-                    </div>
-                    <h3 className="text-xl font-bold">Register Student</h3>
-                 </div>
-                 <button onClick={() => setShowCreate(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
-                    <X size={20} />
-                 </button>
-              </div>
-
-              <div className="space-y-4">
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                       <label className="text-xs font-bold text-slate-500 uppercase ml-1">First Name</label>
-                       <input value={form.f_name} onChange={e => setForm({...form, f_name: e.target.value})} className="input-field" placeholder="John" />
-                    </div>
-                    <div className="space-y-1.5">
-                       <label className="text-xs font-bold text-slate-500 uppercase ml-1">Last Name</label>
-                       <input value={form.l_name} onChange={e => setForm({...form, l_name: e.target.value})} className="input-field" placeholder="Doe" />
-                    </div>
-                 </div>
-
-                 <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase ml-1">Email Address</label>
-                    <input value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="input-field" placeholder="student@university.edu" />
-                 </div>
-
-                 <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase ml-1">Password</label>
-                    <input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} className="input-field" placeholder="••••••••" />
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                       <label className="text-xs font-bold text-slate-500 uppercase ml-1">SSN / National ID</label>
-                       <input value={form.ssn} onChange={e => setForm({...form, ssn: e.target.value})} className="input-field" placeholder="123456789" />
-                    </div>
-                    <div className="space-y-1.5">
-                       <label className="text-xs font-bold text-slate-500 uppercase ml-1">Academic Level</label>
-                       <select value={form.academic_level} onChange={e => setForm({...form, academic_level: Number(e.target.value) as AcademicLevel})} className="input-field">
-                          {[1,2,3,4].map(l => <option key={l} value={l}>Level {l}</option>)}
-                       </select>
-                    </div>
-                 </div>
-
-                 <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase ml-1">Department</label>
-                    <select value={form.department_id} onChange={e => setForm({...form, department_id: e.target.value})} className="input-field">
-                       <option value="">Select Department</option>
-                       {departments.map(d => <option key={d.dept_id} value={d.dept_id}>{d.dept_name}</option>)}
-                    </select>
-                 </div>
-
-                 {createError && <div className="p-3 rounded-xl bg-rose-500/10 text-rose-500 text-xs font-medium text-center">{createError}</div>}
-
-                 <button onClick={handleCreateStudent} className="btn-primary w-full py-4 text-lg mt-4 shadow-xl shadow-primary-500/20">
-                    Register & Approve Student
-                 </button>
-              </div>
-           </div>
-        </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }

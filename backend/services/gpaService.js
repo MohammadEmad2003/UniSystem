@@ -183,9 +183,15 @@ const getStudentTranscript = async (studentId) => {
             };
         }
         transcript[key].courses.push(row);
-        if (row.final !== null) {
-            transcript[key].totalPoints += (row.gpa * row.credit_hours);
-            transcript[key].totalHours += row.credit_hours;
+        
+        // In PostgreSQL, decimals might be returned as strings. Parse them securely.
+        const finalGrade = row.final !== null && row.final !== undefined ? parseFloat(row.final) : null;
+        const gpaVal = parseFloat(row.gpa) || 0;
+        const creditHours = parseInt(row.credit_hours) || 0;
+
+        if (finalGrade !== null) {
+            transcript[key].totalPoints += (gpaVal * creditHours);
+            transcript[key].totalHours += creditHours;
         }
     });
 

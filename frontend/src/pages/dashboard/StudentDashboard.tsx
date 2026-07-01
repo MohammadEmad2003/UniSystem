@@ -32,7 +32,7 @@ export default function StudentDashboard() {
       // Transform transcript data for the chart
       const chartData = Object.entries(t.data || {}).map(([key, val]: any) => ({
         sem: key.replace('Level ', 'L'),
-        gpa: parseFloat(val.semesterGPA)
+        gpa: parseFloat(val.semesterGPA) || 0
       }));
       setGpaData(chartData);
     }).finally(() => setLoading(false));
@@ -46,6 +46,9 @@ export default function StudentDashboard() {
     { label: 'Enrolled Classes', value: stats?.enrolled_classes || 0, icon: BookOpen, color: 'from-violet-500 to-violet-600' },
     { label: 'Upcoming Lectures', value: stats?.upcoming_lectures || 0, icon: Award, color: 'from-amber-500 to-amber-600' },
   ];
+
+  // Calculate Peak GPA safely
+  const peakGpa = gpaData.length > 0 ? Math.max(...gpaData.map(d => d.gpa || 0)) : 0;
 
   return (
     <div className="space-y-6">
@@ -97,51 +100,62 @@ export default function StudentDashboard() {
               <p className="text-xs text-slate-500 font-medium mt-1">Semester-wise GPA progression</p>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-500/10 text-primary-600 text-[10px] font-black uppercase">
-               <TrendingUp size={14} /> Peak GPA: {Math.max(...gpaData.map(d => d.gpa), 0).toFixed(2)}
+               <TrendingUp size={14} /> Peak GPA: {peakGpa.toFixed(2)}
             </div>
           </div>
-          
-          <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={gpaData}>
+
+          <ResponsiveContainer width="100%" height={320}>
+            <AreaChart data={gpaData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="gpaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#00e5ff" stopOpacity={0.5} />
+                  <stop offset="50%" stopColor="#00b8d4" stopOpacity={0.2} />
+                  <stop offset="100%" stopColor="#00b8d4" stopOpacity={0} />
                 </linearGradient>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="4" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis 
-                dataKey="sem" 
-                tick={{ fontSize: 11, fontWeight: 'bold' }} 
-                stroke="#94a3b8" 
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148, 163, 184, 0.15)" />
+              <XAxis
+                dataKey="sem"
+                tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }}
                 axisLine={false}
                 tickLine={false}
-                dy={10}
+                dy={15}
               />
-              <YAxis 
-                domain={[0, 4]} 
-                tick={{ fontSize: 11, fontWeight: 'bold' }} 
-                stroke="#94a3b8" 
+              <YAxis
+                domain={[0, 4]}
+                tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }}
                 axisLine={false}
                 tickLine={false}
+                dx={-10}
               />
-              <Tooltip 
-                contentStyle={{ 
-                  borderRadius: '16px', 
-                  border: 'none',
-                  boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-                  padding: '12px'
-                }} 
+              <Tooltip
+                contentStyle={{
+                  borderRadius: '16px',
+                  border: '1px solid rgba(0, 229, 255, 0.2)',
+                  backgroundColor: 'rgba(10, 25, 47, 0.9)',
+                  backdropFilter: 'blur(8px)',
+                  boxShadow: '0 10px 25px -5px rgba(0, 229, 255, 0.15)',
+                  padding: '12px 20px',
+                  color: '#fff',
+                  fontWeight: 'bold'
+                }}
+                itemStyle={{ color: '#00e5ff' }}
+                cursor={{ stroke: 'rgba(0, 229, 255, 0.2)', strokeWidth: 2, strokeDasharray: '5 5' }}
               />
-              <Area 
-                type="monotone" 
-                dataKey="gpa" 
-                stroke="#3b82f6" 
-                strokeWidth={4} 
-                fill="url(#gpaGrad)" 
-                animationDuration={2000}
-                dot={{ r: 6, fill: '#3b82f6', strokeWidth: 3, stroke: '#fff' }}
-                activeDot={{ r: 8, fill: '#3b82f6', strokeWidth: 0 }}
+              <Area
+                type="monotone"
+                dataKey="gpa"
+                stroke="#00e5ff"
+                strokeWidth={5}
+                fill="url(#gpaGrad)"
+                animationDuration={2500}
+                filter="url(#glow)"
+                dot={{ r: 6, fill: '#0a192f', strokeWidth: 3, stroke: '#00e5ff' }}
+                activeDot={{ r: 8, fill: '#00e5ff', strokeWidth: 4, stroke: '#fff', style: { filter: 'drop-shadow(0px 0px 8px rgba(0,229,255,0.8))' } }}
               />
             </AreaChart>
           </ResponsiveContainer>

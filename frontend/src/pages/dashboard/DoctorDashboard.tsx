@@ -62,23 +62,49 @@ export default function DoctorDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Enrollment Chart */}
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Students per Class</h2>
-          <div className="h-[250px] w-full">
+        <div className="card p-6 border-none bg-white dark:bg-[#0a192f] shadow-xl">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-black text-slate-800 dark:text-white">Students per Class</h2>
+              <p className="text-xs text-slate-500 font-medium mt-1">Enrollment distribution across your classes</p>
+            </div>
+            <div className="p-2 rounded-lg bg-primary-500/10">
+              <Users size={18} className="text-primary-500" />
+            </div>
+          </div>
+          <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stats?.class_enrollment_data || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="name" tick={{fontSize: 12}} stroke="#94a3b8" />
-                <YAxis tick={{fontSize: 12}} stroke="#94a3b8" />
-                <Tooltip 
-                  contentStyle={{ 
-                    borderRadius: '12px', 
-                    border: '1px solid #e2e8f0',
-                    backgroundColor: 'rgba(255,255,255,0.9)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                  }} 
+                <defs>
+                  <linearGradient id="enrollGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#00b8d4" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#0097a7" stopOpacity={0.8} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="name" 
+                  tick={{fontSize: 11, fontWeight: 'bold'}} 
+                  stroke="#94a3b8" 
+                  axisLine={false}
+                  tickLine={false}
                 />
-                <Bar dataKey="students" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                <YAxis 
+                  tick={{fontSize: 11, fontWeight: 'bold'}} 
+                  stroke="#94a3b8" 
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                  contentStyle={{
+                    borderRadius: "16px",
+                    border: "none",
+                    boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+                    padding: "12px"
+                  }}
+                />
+                <Bar dataKey="students" name="Students" fill="url(#enrollGrad)" radius={[6, 6, 0, 0]} barSize={30} />
               </BarChart>
             </ResponsiveContainer>
           </div>

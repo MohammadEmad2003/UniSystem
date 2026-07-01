@@ -121,13 +121,13 @@ export const realAdminService = {
   },
   async approveStudent(studentId: string): Promise<ApiResponse<Student>> {
     const res = await apiClient.patch(`/admin/students/${studentId}/status`, {
-      Account_Status: "approved",
+      status: "approved",
     });
     return ok(res.data.data);
   },
   async rejectStudent(studentId: string): Promise<ApiResponse<Student>> {
     const res = await apiClient.patch(`/admin/students/${studentId}/status`, {
-      Account_Status: "rejected",
+      status: "rejected",
     });
     return ok(res.data.data);
   },

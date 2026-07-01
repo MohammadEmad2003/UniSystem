@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, memo } from "react";
+import { createPortal } from "react-dom";
 import { useOutletContext } from "react-router-dom";
 import { materialService, aiRagService, lectureService, studyOutputService, buildStudyOptionsKey } from "../../services";
 import {
@@ -22,16 +23,16 @@ import { normalizeFlashcardText } from "../../utils/aiMathSanitizer";
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-type QuizItem  = { type?: string; difficulty?: string; question: string; options: string[]; answer: string; explanation?: string };
+type QuizItem = { type?: string; difficulty?: string; question: string; options: string[]; answer: string; explanation?: string };
 type FlashItem = { focus_type?: string; front: string; back: string; example?: string | null };
-type PageItem  = { page: number; summary: string };
+type PageItem = { page: number; summary: string };
 
 type AiResult =
-  | { type: "markdown";   title: string; content: string; action: string }
-  | { type: "quiz";       title: string; items: QuizItem[];              action: string }
-  | { type: "flashcards"; title: string; items: FlashItem[];             action: string }
-  | { type: "pages";      title: string; pages: PageItem[];              action: string }
-  | { type: "error";      title: string; content: string;                action: string };
+  | { type: "markdown"; title: string; content: string; action: string }
+  | { type: "quiz"; title: string; items: QuizItem[]; action: string }
+  | { type: "flashcards"; title: string; items: FlashItem[]; action: string }
+  | { type: "pages"; title: string; pages: PageItem[]; action: string }
+  | { type: "error"; title: string; content: string; action: string };
 
 interface Ctx { classId: string; user: User }
 
@@ -126,13 +127,13 @@ function useRotatingTip(action: string | null) {
 
 function SectionLabel({ children, color = "cyan" }: { children: React.ReactNode; color?: string }) {
   const map: Record<string, string> = {
-    cyan:    "bg-[#00e5ff]/10 text-[#00b8d4] dark:text-[#00e5ff] border-[#00e5ff]/20",
-    blue:    "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    cyan: "bg-[#00e5ff]/10 text-[#00b8d4] dark:text-[#00e5ff] border-[#00e5ff]/20",
+    blue: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
     emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-    amber:   "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-    pink:    "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20",
-    violet:  "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20",
-    red:     "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
+    amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    pink: "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20",
+    violet: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20",
+    red: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
   };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${map[color] ?? map.cyan}`}>
@@ -149,12 +150,12 @@ function Callout({ icon, label, color, children }: {
   icon: string; label: string; color: string; children: React.ReactNode;
 }) {
   const border: Record<string, string> = {
-    blue:    "border-blue-500/30 bg-blue-500/5",
-    amber:   "border-amber-500/30 bg-amber-500/5",
+    blue: "border-blue-500/30 bg-blue-500/5",
+    amber: "border-amber-500/30 bg-amber-500/5",
     emerald: "border-emerald-500/30 bg-emerald-500/5",
-    red:     "border-red-500/30 bg-red-500/5",
-    violet:  "border-violet-500/30 bg-violet-500/5",
-    cyan:    "border-[#00e5ff]/30 bg-[#00e5ff]/5",
+    red: "border-red-500/30 bg-red-500/5",
+    violet: "border-violet-500/30 bg-violet-500/5",
+    cyan: "border-[#00e5ff]/30 bg-[#00e5ff]/5",
   };
   return (
     <div className={`my-3 rounded-xl border px-4 py-3 ${border[color] ?? border.cyan}`}>
@@ -173,12 +174,12 @@ function Callout({ icon, label, color, children }: {
 
 const CALLOUT_RE = /^(📘|💡|⚠️|🚀|🔢|🧠)\s*/u;
 const CALLOUT_MAP: Record<string, { icon: string; label: string; color: string }> = {
-  "📘": { icon: "📘", label: "Main Concept",  color: "blue"    },
-  "💡": { icon: "💡", label: "Key Idea",      color: "amber"   },
-  "⚠️": { icon: "⚠️", label: "Important",     color: "red"     },
-  "🚀": { icon: "🚀", label: "Fast Fact",     color: "violet"  },
-  "🔢": { icon: "🔢", label: "Formula",       color: "cyan"    },
-  "🧠": { icon: "🧠", label: "Memory Tip",    color: "emerald" },
+  "📘": { icon: "📘", label: "Main Concept", color: "blue" },
+  "💡": { icon: "💡", label: "Key Idea", color: "amber" },
+  "⚠️": { icon: "⚠️", label: "Important", color: "red" },
+  "🚀": { icon: "🚀", label: "Fast Fact", color: "violet" },
+  "🔢": { icon: "🔢", label: "Formula", color: "cyan" },
+  "🧠": { icon: "🧠", label: "Memory Tip", color: "emerald" },
 };
 
 function EnhancedMarkdown({ content }: { content: string }) {
@@ -240,14 +241,13 @@ function ExplanationPanel({ explanation, correctLabel, isCorrect }: {
       style={{ animation: "fadeSlideIn 0.25s ease both" }}
     >
       {/* Correct-answer banner */}
-      <div className={`flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 dark:border-slate-700/60 ${
-        isCorrect
+      <div className={`flex items-center gap-2 px-4 py-2.5 border-b border-slate-200 dark:border-slate-700/60 ${isCorrect
           ? "bg-emerald-500/8 dark:bg-emerald-500/10"
           : "bg-red-500/8 dark:bg-red-500/10"
-      }`}>
+        }`}>
         {isCorrect
           ? <CheckCircle2 size={14} className="text-emerald-500 flex-shrink-0" />
-          : <XCircle      size={14} className="text-red-500 flex-shrink-0" />}
+          : <XCircle size={14} className="text-red-500 flex-shrink-0" />}
         <span className={`text-xs font-semibold ${isCorrect ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
           {isCorrect ? "Correct!" : "Incorrect"}
         </span>
@@ -275,10 +275,10 @@ const QuizRenderer = memo(function QuizRenderer({ items, onRetry }: {
   items: QuizItem[];
   onRetry?: () => void;
 }) {
-  const [current, setCurrent]   = useState(0);
+  const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<Record<number, number>>({});
   // tracks which questions have had their explanation revealed
-  const [revealed, setReveal]   = useState<Set<number>>(new Set());
+  const [revealed, setReveal] = useState<Set<number>>(new Set());
   const [submitted, setSubmitted] = useState(false);
   const [showReview, setShowReview] = useState(false);
 
@@ -359,7 +359,7 @@ const QuizRenderer = memo(function QuizRenderer({ items, onRetry }: {
           const ci = normaliseAnswer(item.answer, item.options);
           const si = selected[qi] ?? -1;
           const isCorrect = si === ci;
-          const letters = ["A","B","C","D"];
+          const letters = ["A", "B", "C", "D"];
           const correctLabel = item.options[ci]
             ? `${letters[ci]}. ${item.options[ci].replace(/^[A-D]\.\s*/i, "")}`
             : letters[ci];
@@ -369,7 +369,7 @@ const QuizRenderer = memo(function QuizRenderer({ items, onRetry }: {
               <div className="flex items-start gap-2 mb-3">
                 {isCorrect
                   ? <CheckCircle2 size={18} className="text-emerald-500 flex-shrink-0 mt-0.5" />
-                  : <XCircle      size={18} className="text-red-500 flex-shrink-0 mt-0.5" />}
+                  : <XCircle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />}
                 <div className="flex-1">
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <QuestionTypeBadge type={item.type} />
@@ -386,9 +386,9 @@ const QuizRenderer = memo(function QuizRenderer({ items, onRetry }: {
                   const isCor = oi === ci;
                   const isSel = oi === si;
                   let cls = "flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm border ";
-                  if (isCor)      cls += "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium";
+                  if (isCor) cls += "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium";
                   else if (isSel) cls += "border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-300";
-                  else            cls += "border-transparent text-slate-500 dark:text-slate-500";
+                  else cls += "border-transparent text-slate-500 dark:text-slate-500";
                   const letter = letters[oi];
                   return (
                     <div key={oi} className={cls}>
@@ -420,7 +420,7 @@ const QuizRenderer = memo(function QuizRenderer({ items, onRetry }: {
   }
 
   // ── Active quiz question ─────────────────────────────────────────────────
-  const letters = ["A","B","C","D"];
+  const letters = ["A", "B", "C", "D"];
   const correctLabel = q.options[correctIdx]
     ? `${letters[correctIdx]}. ${q.options[correctIdx].replace(/^[A-D]\.\s*/i, "")}`
     : letters[correctIdx];
@@ -461,9 +461,9 @@ const QuizRenderer = memo(function QuizRenderer({ items, onRetry }: {
         {/* Options */}
         <div className="space-y-3">
           {q.options.map((opt, oi) => {
-            const isSelected  = selected[current] === oi;
+            const isSelected = selected[current] === oi;
             const isCorrectOpt = oi === correctIdx;
-            const isWrongSel  = isSelected && !isCorrectOpt;
+            const isWrongSel = isSelected && !isCorrectOpt;
 
             let cls = "w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border text-sm text-left transition-all duration-200 ";
             let circleCls = "w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold border transition-all ";
@@ -500,8 +500,8 @@ const QuizRenderer = memo(function QuizRenderer({ items, onRetry }: {
                 <span className={circleCls}>{letters[oi]}</span>
                 <MarkdownContent inline className="flex-1">{opt}</MarkdownContent>
                 {hasAnsweredCurrent && isCorrectOpt && <CheckCircle2 size={16} className="flex-shrink-0 text-emerald-500" />}
-                {hasAnsweredCurrent && isWrongSel   && <XCircle      size={16} className="flex-shrink-0 text-red-500" />}
-                {!hasAnsweredCurrent && isSelected  && <CheckCircle2 size={16} className="flex-shrink-0 text-[#00e5ff]" />}
+                {hasAnsweredCurrent && isWrongSel && <XCircle size={16} className="flex-shrink-0 text-red-500" />}
+                {!hasAnsweredCurrent && isSelected && <CheckCircle2 size={16} className="flex-shrink-0 text-[#00e5ff]" />}
               </button>
             );
           })}
@@ -532,12 +532,11 @@ const QuizRenderer = memo(function QuizRenderer({ items, onRetry }: {
             <button
               key={i}
               onClick={() => setCurrent(i)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                i === current ? "w-6 bg-[#00e5ff]" :
-                selected[i] !== undefined
-                  ? (selected[i] === normaliseAnswer(items[i].answer, items[i].options) ? "bg-emerald-400" : "bg-red-400")
-                  : "bg-slate-300 dark:bg-slate-700"
-              }`}
+              className={`w-2 h-2 rounded-full transition-all ${i === current ? "w-6 bg-[#00e5ff]" :
+                  selected[i] !== undefined
+                    ? (selected[i] === normaliseAnswer(items[i].answer, items[i].options) ? "bg-emerald-400" : "bg-red-400")
+                    : "bg-slate-300 dark:bg-slate-700"
+                }`}
             />
           ))}
         </div>
@@ -568,9 +567,9 @@ const QuizRenderer = memo(function QuizRenderer({ items, onRetry }: {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const EXPORT_FORMATS: { fmt: ExportFormat; label: string; ext: string; icon: string }[] = [
-  { fmt: "pdf", label: "Export as PDF",      ext: ".pdf", icon: "📄" },
-  { fmt: "md",  label: "Export as Markdown", ext: ".md",  icon: "📝" },
-  { fmt: "txt", label: "Export as Text",     ext: ".txt", icon: "🗒" },
+  { fmt: "pdf", label: "Export as PDF", ext: ".pdf", icon: "📄" },
+  { fmt: "md", label: "Export as Markdown", ext: ".md", icon: "📝" },
+  { fmt: "txt", label: "Export as Text", ext: ".txt", icon: "🗒" },
 ];
 
 function ExportMenu({
@@ -582,10 +581,10 @@ function ExportMenu({
   meta: ExportMeta;
   contentRef?: React.RefObject<HTMLDivElement | null>;
 }) {
-  const [open, setOpen]       = useState(false);
-  const [busy, setBusy]       = useState<ExportFormat | null>(null);
-  const [error, setError]     = useState<string | null>(null);
-  const menuRef               = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<ExportFormat | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click
   useEffect(() => {
@@ -666,9 +665,9 @@ function ExportMenu({
 function DifficultyBadge({ difficulty }: { difficulty?: string }) {
   if (!difficulty || difficulty === "mixed") return null;
   const cfg: Record<string, string> = {
-    easy:   "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    easy: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
     medium: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-    hard:   "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
+    hard: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
   };
   const label: Record<string, string> = { easy: "Easy", medium: "Medium", hard: "Hard" };
   return (
@@ -681,7 +680,7 @@ function DifficultyBadge({ difficulty }: { difficulty?: string }) {
 function QuestionTypeBadge({ type }: { type?: string }) {
   if (!type) return null;
   const cfg: Record<string, string> = {
-    mcq:        "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    mcq: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
     true_false: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20",
   };
   const label: Record<string, string> = { mcq: "MCQ", true_false: "T/F" };
@@ -695,10 +694,10 @@ function QuestionTypeBadge({ type }: { type?: string }) {
 function FocusTypeBadge({ focusType }: { focusType?: string | null }) {
   if (!focusType) return null;
   const cfg: Record<string, string> = {
-    key_terms:   "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20",
+    key_terms: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20",
     definitions: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
-    formulas:    "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20",
-    mixed:       "bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/20",
+    formulas: "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20",
+    mixed: "bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/20",
   };
   const label: Record<string, string> = {
     key_terms: "Term", definitions: "Definition", formulas: "Formula", mixed: "Mixed",
@@ -851,12 +850,11 @@ const FlashcardRenderer = memo(function FlashcardRenderer({ items }: { items: Fl
           <button
             key={i}
             onClick={() => { setCurrent(i); setFlipped(false); }}
-            className={`w-2 h-2 rounded-full transition-all ${
-              i === current ? "w-5 bg-[#00e5ff]" :
-              known.has(i) ? "bg-emerald-400" :
-              unknown.has(i) ? "bg-red-400" :
-              "bg-slate-300 dark:bg-slate-700"
-            }`}
+            className={`w-2 h-2 rounded-full transition-all ${i === current ? "w-5 bg-[#00e5ff]" :
+                known.has(i) ? "bg-emerald-400" :
+                  unknown.has(i) ? "bg-red-400" :
+                    "bg-slate-300 dark:bg-slate-700"
+              }`}
           />
         ))}
       </div>
@@ -990,11 +988,11 @@ interface ToolCard {
 
 // Option values are snake_case to match the API exactly
 const DEFAULT_OPTIONS: Record<string, AiToolOptions> = {
-  quiz:       { count: 10, difficulty: "mixed",        question_type: "mcq" },
-  flashcards: { count: 10, focus: "mixed",             include_examples: false },
-  summary:    { length: "medium", format: "study_notes", include_formulas: true },
-  pages:      { detail_level: "normal", include_key_terms: true, include_formulas: true },
-  notes:      { notes_style: "bullet_notes", detail_level: "detailed", include_examples: true, include_formulas: true },
+  quiz: { count: 10, difficulty: "mixed", question_type: "mcq" },
+  flashcards: { count: 10, focus: "mixed", include_examples: false },
+  summary: { length: "medium", format: "study_notes", include_formulas: true },
+  pages: { detail_level: "normal", include_key_terms: true, include_formulas: true },
+  notes: { notes_style: "bullet_notes", detail_level: "detailed", include_examples: true, include_formulas: true },
 };
 
 function OptionToggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
@@ -1024,11 +1022,10 @@ function OptionChips({ label, options, labels, value, onChange }: {
             key={opt}
             type="button"
             onClick={() => onChange(opt)}
-            className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-all ${
-              value === opt
+            className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-all ${value === opt
                 ? "border-[#00e5ff]/60 bg-[#00e5ff]/10 text-[#00b8d4] dark:text-[#00e5ff]"
                 : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-[#00e5ff]/30 hover:bg-[#00e5ff]/5"
-            }`}
+              }`}
           >
             {labels?.[i] ?? opt}
           </button>
@@ -1050,11 +1047,10 @@ function OptionCountChips({ label, options, value, onChange }: {
             key={opt}
             type="button"
             onClick={() => onChange(opt)}
-            className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-all min-w-[2.5rem] ${
-              value === opt
+            className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-all min-w-[2.5rem] ${value === opt
                 ? "border-[#00e5ff]/60 bg-[#00e5ff]/10 text-[#00b8d4] dark:text-[#00e5ff]"
                 : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-[#00e5ff]/30 hover:bg-[#00e5ff]/5"
-            }`}
+              }`}
           >
             {opt}
           </button>
@@ -1238,10 +1234,10 @@ const typeIcons: Record<string, typeof FileText> = {
   pdf: FileText, link: Link2, video: Video, image: ImageIcon, document: FileText,
 };
 const typeColors: Record<string, string> = {
-  pdf:      "bg-red-500/10 text-red-400",
-  link:     "bg-blue-500/10 text-blue-400",
-  video:    "bg-purple-500/10 text-purple-600",
-  image:    "bg-green-500/10 text-green-500",
+  pdf: "bg-red-500/10 text-red-400",
+  link: "bg-blue-500/10 text-blue-400",
+  video: "bg-purple-500/10 text-purple-600",
+  image: "bg-green-500/10 text-green-500",
   document: "bg-amber-500/10 text-amber-400",
 };
 
@@ -1252,8 +1248,8 @@ const typeColors: Record<string, string> = {
 export default function ClassMaterialsTab() {
   const { classId, user } = useOutletContext<Ctx>();
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [lectures, setLectures]   = useState<any[]>([]);
-  const [loading, setLoading]     = useState(true);
+  const [lectures, setLectures] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -1264,8 +1260,8 @@ export default function ClassMaterialsTab() {
 
   // AI state
   const [activeAiMaterial, setActiveAiMaterial] = useState<Material | null>(null);
-  const [aiLoading, setAiLoading]   = useState<string | null>(null);
-  const [aiResult, setAiResult]     = useState<AiResult | null>(null);
+  const [aiLoading, setAiLoading] = useState<string | null>(null);
+  const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [lastAction, setLastAction] = useState<string>("");
   const [aiModalStep, setAiModalStep] = useState<"tools" | "options" | "result">("tools");
   const [selectedAiTool, setSelectedAiTool] = useState<ToolCard | null>(null);
@@ -1288,9 +1284,9 @@ export default function ClassMaterialsTab() {
       if (Array.isArray(content?.items) && content.items.length) {
         const items: FlashItem[] = content.items.map((c: any) => ({
           focus_type: c.focus_type ?? null,
-          front:      normalizeFlashcardText(c.front ?? ""),
-          back:       normalizeFlashcardText(c.back  ?? ""),
-          example:    c.example ? normalizeFlashcardText(c.example) : null,
+          front: normalizeFlashcardText(c.front ?? ""),
+          back: normalizeFlashcardText(c.back ?? ""),
+          example: c.example ? normalizeFlashcardText(c.example) : null,
         }));
         return { type: "flashcards", title, items, action };
       }
@@ -1378,9 +1374,9 @@ export default function ClassMaterialsTab() {
       const rawCards = parseJsonSafe<any[]>(res.data.flashcards) ?? [];
       const items: FlashItem[] = rawCards.map(c => ({
         focus_type: c.focus_type ?? null,
-        front:      normalizeFlashcardText(c.front   ?? c.term       ?? ""),
-        back:       normalizeFlashcardText(c.back    ?? c.definition ?? ""),
-        example:    c.example ? normalizeFlashcardText(c.example) : null,
+        front: normalizeFlashcardText(c.front ?? c.term ?? ""),
+        back: normalizeFlashcardText(c.back ?? c.definition ?? ""),
+        example: c.example ? normalizeFlashcardText(c.example) : null,
       })).filter(c => c.front && c.back);
       if (!items.length) throw new Error("No flashcards returned.");
       return { type: "flashcards", title, items, action };
@@ -1463,15 +1459,15 @@ export default function ClassMaterialsTab() {
     if (!activeAiMaterial || !selectedAiTool || regenerating) return;
 
     const action = lastAction || selectedAiTool.action;
-    const title  = aiResult?.title ?? selectedAiTool.title;
-    const opts   = { ...(aiToolOptions && Object.keys(aiToolOptions).length ? aiToolOptions : DEFAULT_OPTIONS[action] ?? {}) };
-    const mid    = safeMaterialId(activeAiMaterial);
+    const title = aiResult?.title ?? selectedAiTool.title;
+    const opts = { ...(aiToolOptions && Object.keys(aiToolOptions).length ? aiToolOptions : DEFAULT_OPTIONS[action] ?? {}) };
+    const mid = safeMaterialId(activeAiMaterial);
 
     console.log('[REGENERATE] clicked — action:', action, 'opts:', opts, 'material:', mid);
     console.log('[REGENERATE] force_refresh=true');
 
     const previousResult = aiResult;
-    const previousCache  = cacheInfo;
+    const previousCache = cacheInfo;
 
     setRegenerating(true);
     setRegenError(null);
@@ -1561,9 +1557,9 @@ export default function ClassMaterialsTab() {
       )}
 
       {/* Upload modal */}
-      {showUpload && (
-        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4" onClick={() => setShowUpload(false)}>
-          <div className="bg-slate-50 dark:bg-[#0a192f] border border-slate-300 dark:border-slate-700/50 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8)] w-full max-w-md p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
+      {showUpload && createPortal(
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUpload(false)}>
+          <div className="bg-slate-50 dark:bg-[#0a192f] border border-slate-300 dark:border-slate-700/50 rounded-2xl shadow-[0_15px 50px_rgba(0,0,0,0.8)] w-full max-w-md p-6 animate-fade-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Upload Material</h3>
               <button onClick={() => setShowUpload(false)} className="p-1 hover:bg-surface-100 rounded-lg"><X size={18} /></button>
@@ -1593,7 +1589,8 @@ export default function ClassMaterialsTab() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Materials list */}
@@ -1629,7 +1626,7 @@ export default function ClassMaterialsTab() {
                 {mat.type === "link" || mat.type === "video"
                   ? <a href={mat.url} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-surface-100 rounded-lg transition-colors text-slate-600 dark:text-slate-400"><ExternalLink size={16} /></a>
                   : mat.document
-                    ? <a href={mat.document} download target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-surface-100 rounded-lg transition-colors text-slate-600 dark:text-slate-400"><Download size={16} /></a>
+                    ? <a href={mat.document} download={mat.name} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-surface-100 rounded-lg transition-colors text-slate-600 dark:text-slate-400"><Download size={16} /></a>
                     : <button disabled className="p-2 opacity-50 rounded-lg text-slate-400 cursor-not-allowed"><Download size={16} /></button>
                 }
                 {user.role === "doctor" && (
@@ -1654,7 +1651,7 @@ export default function ClassMaterialsTab() {
       )}
 
       {/* ── Study with AI Modal ─────────────────────────────────────────────── */}
-      {activeAiMaterial && (
+      {activeAiMaterial && createPortal(
         <div
           className="fixed inset-0 bg-slate-900/60 dark:bg-[#050b14]/80 z-[100] flex items-center justify-center p-4 sm:p-6"
           onClick={closeAiModal}
@@ -1688,8 +1685,8 @@ export default function ClassMaterialsTab() {
                 <div className="min-w-0">
                   <h2 className="font-bold text-slate-900 dark:text-white truncate">
                     {aiModalStep === "result" && aiResult ? aiResult.title :
-                     aiModalStep === "options" && selectedAiTool ? selectedAiTool.title :
-                     "Study with AI"}
+                      aiModalStep === "options" && selectedAiTool ? selectedAiTool.title :
+                        "Study with AI"}
                   </h2>
                   <p className="text-xs text-slate-400 truncate">{activeAiMaterial.name}</p>
                 </div>
@@ -1840,8 +1837,8 @@ export default function ClassMaterialsTab() {
                           <ExportMenu
                             result={aiResult as AiResultData}
                             meta={{
-                              materialName:    activeAiMaterial.name,
-                              generatedAt:     cacheInfo ? new Date(cacheInfo.updatedAt) : new Date(),
+                              materialName: activeAiMaterial.name,
+                              generatedAt: cacheInfo ? new Date(cacheInfo.updatedAt) : new Date(),
                               selectedOptions: aiToolOptions as Record<string, unknown>,
                             } satisfies ExportMeta}
                             contentRef={resultContentRef}
@@ -1854,7 +1851,8 @@ export default function ClassMaterialsTab() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

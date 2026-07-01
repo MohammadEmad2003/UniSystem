@@ -15,9 +15,9 @@ export default function LoginPage() {
 
   // Quick login presets
   const presets = [
-    { label: 'Student', email: 'ahmed.hassan@capital.edu' },
-    { label: 'Doctor', email: 'mohamed.elsayed@capital.edu' },
-    { label: 'Admin', email: 'admin@capital.edu' },
+    { label: 'Student', email: 'omar.khaled@unisystem.test', password: 'password123' },
+    { label: 'Doctor', email: 'mohamed.hassan@unisystem.test', password: 'password123' },
+    { label: 'Admin', email: 'admin@unisystem.test', password: 'password123' },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,7 +52,7 @@ export default function LoginPage() {
         {presets.map(p => (
           <button
             key={p.label}
-            onClick={() => { setEmail(p.email); setPassword('password'); }}
+            onClick={() => { setEmail(p.email); setPassword(p.password); }}
             className="flex-1 py-2.5 px-3 text-xs font-bold uppercase tracking-wider bg-white dark:bg-[#111111] text-[#00b8d4] border border-[#00b8d4]/30 rounded-xl hover:bg-[#00b8d4]/10 transition-all duration-300"
           >
             {p.label}

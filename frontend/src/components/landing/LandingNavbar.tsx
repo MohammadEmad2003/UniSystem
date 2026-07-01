@@ -56,7 +56,7 @@ export default function LandingNavbar() {
             Portal Login
           </Link>
           <Link
-            to="/register"
+            to="/login"
             className="rounded-full bg-primary-600 px-6 py-2.5 text-sm font-bold text-white shadow-soft hover:bg-primary-700 transition active:scale-95"
           >
             Apply Now

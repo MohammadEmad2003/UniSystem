@@ -4,6 +4,7 @@ const genericQueries = require('../utilities/genericQueries');
 const asyncWrapper = require('../middleware/asyncWrapper');
 const path = require('path');
 const aiServiceClient = require('../services/aiServiceClient');
+const cloudinaryService = require('../services/cloudinaryService');
 
 const materialModel = genericQueries('Material', { primaryKey: 'material_id' });
 
@@ -16,12 +17,17 @@ const createMaterial = asyncWrapper(async (req, res) => {
     let finalURL = null;
 
     if (type === 'link') {
-        finalURL = url;       
-        finalDocument = null; 
+        finalURL = url;
+        finalDocument = null;
     } else {
-
-        finalDocument = req.file ? req.file.path : null; 
-        finalURL = null;      
+        // Use Cloudinary for file uploads
+        if (req.file) {
+            // Add fl_attachment to bypass Cloudinary's strict PDF delivery rules
+            finalDocument = req.file.path.replace('/upload/', '/upload/fl_attachment/');
+        } else {
+            finalDocument = null;
+        }
+        finalURL = null;
     }
 
     const result = await materialModel.create({
@@ -31,18 +37,17 @@ const createMaterial = asyncWrapper(async (req, res) => {
         document: finalDocument,
         file_path: finalDocument,
         summarize: summarize,
-        type: type 
+        type: type
     });
 
     const newMaterialId = result?.material_id || result?.lastID;
 
-    try {
-        await aiServiceClient.indexMaterial(newMaterialId, {
-            class_id: Number(classId)
-        });
-    } catch (error) {
+    // Fire-and-forget: index in AI service without blocking the response
+    aiServiceClient.indexMaterial(newMaterialId, {
+        class_id: Number(classId)
+    }).catch(error => {
         console.error(`[AI] Failed to index material ${newMaterialId}: ${error.message}`);
-    }
+    });
 
     // Async class re-index so new material is searchable by RAG
     aiServiceClient.triggerReindex(classId, 'material_upload');
@@ -51,12 +56,12 @@ const createMaterial = asyncWrapper(async (req, res) => {
         success: true,
         message: "Material created successfully",
         data: {
-            material_id: newMaterialId, 
+            material_id: newMaterialId,
             name: name,
             lecture_id: lecture_id,
             type: type,
             url: finalURL,
-            document: req.file ? `/uploads/${req.file.filename}` : null,
+            document: finalDocument,
             summarize: summarize,
             uploaded_at: new Date().toISOString()
         }
@@ -87,7 +92,8 @@ const getMaterialsByClass = asyncWrapper(async (req, res) => {
     const result = await db.query(query, [classId]);
     const formattedRows = result.rows.map(row => ({
         ...row,
-        document: row.document ? `http://localhost:3000/uploads/${path.basename(row.document)}` : null        }));
+        document: row.document || null
+    }));
 
     res.status(200).json({
         success: true,
@@ -110,7 +116,7 @@ const getMaterialsByLectureID = asyncWrapper(async (req, res) => {
         lecture_id: row.lec_id,
         name: row.name,
         url: row.url,
-        document: row.document ? `http://localhost:3000/uploads/${path.basename(row.document)}` : null,
+        document: row.document || null,
         type: row.type,
         summarize: row.summarize
     }));
@@ -135,24 +141,6 @@ const deleteMaterial = asyncWrapper(async (req, res) => {
     const classId = lectureResult.rows[0]?.class_id;
 
     const result = await materialModel.delete(materialId);
-
-    if (material.document) {
-        const filePath = material.document;
-
-        const attemptDelete = (path, retries = 3) => {
-            fs.unlink(path, (err) => {
-            if (err && err.code === 'EBUSY' && retries > 0) {
-                console.log(`[RETRY] File is busy, retrying... (${retries} left)`);                    setTimeout(() => attemptDelete(path, retries - 1), 1000);
-          } else if (err) {
-                console.error(`[ERROR] Delete failed: ${err.message}`);
-          } else {
-                console.log("[SUCCESS] File removed from storage successfully.");
-            }
-            });
-        };
-
-        attemptDelete(filePath);
-    }
 
     // Re-index so deleted material is no longer searchable by RAG
     if (classId) {

@@ -2,6 +2,7 @@ const express = require("express");
 const controller = require("../controllers/auth");
 const verifyToken = require("../middleware/verifytoken");
 const upload = require("../middleware/upload");
+const cloudinaryUpload = require("../middleware/cloudinaryUpload");
 
 const router = express.Router();
 
@@ -10,10 +11,7 @@ const router = express.Router();
 // REGISTER - Create new student account
 router.route("/register")
   .post(
-    upload.fields([
-      { name: 'image', maxCount: 1 },
-      { name: 'document', maxCount: 1 }
-    ]),
+    cloudinaryUpload.uploadProfileAndDocument,
     controller.register
   );
 

@@ -3,6 +3,7 @@ const genericQueries = require("../utilities/genericQueries");
 const db = require("../utilities/database");
 const crypto = require("crypto");
 const emailService = require("../services/email.service");
+const cloudinaryService = require("../services/cloudinaryService");
 const userQueries = genericQueries("User", {
   primaryKey: "user_id",
   emailField: "email",
@@ -56,10 +57,15 @@ const register = asyncWrapper(async (req, res, next) => {
   let documentPath = null;
   let imageUrl = null;
 
-  // Skip file upload for now - Vercel doesn't support persistent storage
-  // Files would need to be uploaded to a cloud storage service like AWS S3
+  // Files are already uploaded to Cloudinary by multer-storage-cloudinary middleware
   if (req.files) {
-    console.log('File upload detected but skipped for Vercel compatibility');
+    if (req.files.image && req.files.image[0]) {
+      imageUrl = req.files.image[0].path; // Cloudinary secure_url
+    }
+
+    if (req.files.document && req.files.document[0]) {
+      documentPath = req.files.document[0].path.replace('/upload/', '/upload/fl_attachment/'); // Cloudinary secure_url with attachment flag
+    }
   }
   const verificationToken = crypto.randomBytes(32).toString("hex");
   const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours

@@ -86,6 +86,7 @@ const adminRouter = require("./routes/admin");
 const roomRouter = require("./routes/roomRoutes");
 const aiRouter = require("./routes/aiRoutes");
 const internalAiRouter = require("./routes/internalAiRoutes");
+const paymentRouter = require("./routes/payment");
 
 // ============ ROUTES CONFIGURATION ============
 // Auth Routes (Register, Login, Email Verification, Password Reset, Resend emails)
@@ -98,6 +99,7 @@ const classesRouter = require('./routes/classes');
 app.use('/api/classes', classesRouter);
 app.use("/api/classes", aiRouter);
 app.use("/api/internal/ai", internalAiRouter);
+app.use("/api/payment", paymentRouter);
 
 const attendanceRouter = require('./routes/attendance');
 app.use('/api/attendance', attendanceRouter);

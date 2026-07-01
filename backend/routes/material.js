@@ -1,13 +1,15 @@
 const express = require("express");
 const router = express.Router();
 const upload = require("../middleware/upload"); 
+const cloudinaryUpload = require("../middleware/cloudinaryUpload");
 const allowedTo = require("../middleware/allowedTo");
 const userRoles = require("../utilities/userRoles");
 
 const verifyToken = require("../middleware/verifytoken");
 const { createMaterial, getMaterialsByClass ,deleteMaterial , getMaterialsByLectureID} = require("../controllers/MaterialController");
 
-router.post("/:classId/materials", verifyToken, allowedTo(userRoles.DOCTOR), upload.single('document'), createMaterial);
+// Use Cloudinary upload for materials
+router.post("/:classId/materials", verifyToken, allowedTo(userRoles.DOCTOR), cloudinaryUpload.uploadMaterialFile, createMaterial);
 router.get("/:classId/materials", verifyToken, getMaterialsByClass);
 
 // Get materials by lecture ID

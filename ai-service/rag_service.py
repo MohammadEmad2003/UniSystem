@@ -26,7 +26,7 @@ print("RAG LOADED:", __file__)
 
 
 class RagService:
-    MATERIAL_MATCH_THRESHOLD = 0.35
+    MATERIAL_MATCH_THRESHOLD = 0.20
     ANSWER_CONFIDENCE_THRESHOLD = 0.55
     MATERIAL_CONTEXT_LIMIT = 5
 
@@ -37,6 +37,8 @@ class RagService:
         'linearity', 'parseval', 'harmonic', 'frequency', 'periodic',
         'convolution', 'spectrum', 'euler', 'signal', 'laplace',
         'eigenvalue', 'orthogonal', 'integral', 'derivative',
+        'discrete', 'time', 'systems', 'z-transform', 'nyquist', 'bode',
+        'continuous', 'stability', 'pole', 'zero', 'response'
     ]
     _KEYWORD_BOOST_PER_HIT = 0.015   # score bonus per matched keyword (capped at 0.06)
 
@@ -56,8 +58,8 @@ class RagService:
         self.tesseract_cmd = os.getenv(
             "TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe"
         )
-        self.pdf_chunk_size = int(os.getenv("PDF_CHUNK_SIZE", "900"))
-        self.pdf_chunk_overlap = int(os.getenv("PDF_CHUNK_OVERLAP", "150"))
+        self.pdf_chunk_size = int(os.getenv("PDF_CHUNK_SIZE", "500"))
+        self.pdf_chunk_overlap = int(os.getenv("PDF_CHUNK_OVERLAP", "100"))
         self.backend_api_url = os.getenv("BACKEND_API_URL", "http://localhost:3000").rstrip("/")
         self.backend_origin = self._get_backend_origin(self.backend_api_url)
         self.pdf_base_url = os.getenv("PDF_BASE_URL", "http://localhost:3001").rstrip("/")
@@ -72,38 +74,9 @@ class RagService:
         if not original_question:
             raise ValueError("Question is required.")
 
-        rewritten_question = self.qwen_service.rewrite_question(original_question)
-        candidate = rewritten_question.strip() if rewritten_question else original_question
-
-        # ── Post-rewrite hallucination guard ─────────────────────────────────
-        # Only apply when the original question contains NO academic terms at all.
-        # If the original already has academic content (e.g. "fourier series"),
-        # the rewriter is allowed to surface related terms (e.g. "properties").
-        # The guard exists purely to catch the case where a completely non-academic
-        # input (like "hello hi") gets rewritten into a technical question.
-        orig_lower = original_question.lower()
-        cand_lower = candidate.lower()
-        original_has_academic = any(
-            term in orig_lower for term in self.qwen_service._ACADEMIC_INJECTION_TERMS
-        )
-        if not original_has_academic:
-            injected = [
-                term for term in self.qwen_service._ACADEMIC_INJECTION_TERMS
-                if term in cand_lower
-            ]
-            if injected:
-                print(
-                    f"[REWRITE] rejected — non-academic original but rewrite introduced: {injected}\n"
-                    f"[REWRITE] original={original_question!r}  candidate={candidate!r}"
-                )
-                search_question = original_question
-            else:
-                search_question = candidate
-        else:
-            search_question = candidate
+        search_question = original_question
 
         print(f"Original question: {original_question}")
-        print(f"Rewritten question: {rewritten_question or ''}")
         print(f"Search question used: {search_question}")
 
         question_vector = self.embedding_service.embed_text(search_question)
@@ -1331,7 +1304,7 @@ class RagService:
         return cleaned
 
     def chunk_text_with_pages(
-        self, pages: list[dict], chunk_size: int = 900, overlap: int = 150
+        self, pages: list[dict], chunk_size: int = 500, overlap: int = 100
     ) -> list[dict]:
         chunks: list[dict] = []
 
@@ -1490,7 +1463,7 @@ class RagService:
         return "material"
 
     def _chunk_text(
-        self, text: str, chunk_size: int = 900, overlap: int = 150
+        self, text: str, chunk_size: int = 500, overlap: int = 100
     ) -> list[str]:
         normalized = " ".join((text or "").split())
         if not normalized:

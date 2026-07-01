@@ -11,7 +11,7 @@ load_dotenv()
 class EmbeddingService:
     def __init__(self) -> None:
         self.model_name = os.getenv(
-            "EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
+            "EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5"
         )
         self.model = SentenceTransformer(self.model_name)
         self.vector_size = self.model.get_sentence_embedding_dimension()

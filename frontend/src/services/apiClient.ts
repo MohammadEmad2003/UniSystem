@@ -52,7 +52,7 @@ apiClient.interceptors.response.use(
   }
 );
 
-export const AI_BASE_URL = import.meta.env.VITE_AI_BASE_URL || 'http://localhost:9000';
+export const AI_BASE_URL = (import.meta.env.VITE_AI_BASE_URL || 'http://localhost:9000').replace(/\/+$/, '');
 
 // Normalize backend payloads where role / account_status come capitalized from SQLite.
 export const normalizeUser = <T extends { role?: string; account_status?: string } | undefined>(u: T): T => {

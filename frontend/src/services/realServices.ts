@@ -1,7 +1,7 @@
 // Real backend services. Each function returns { success, data, message? }
 // to match the existing mock service shape so pages don't need changes.
 import axios from "axios";
-import { apiClient, normalizeUser, AI_BASE_URL } from "./apiClient";
+import { apiClient, normalizeUser, AI_BASE_URL, joinUrl } from "./apiClient";
 import type {
   User,
   Student,
@@ -356,7 +356,7 @@ const withAutoIndex = async <T>(
     ) {
       // Try to index the material first
       try {
-        await axios.post(`${AI_BASE_URL}/rag/index/material/${materialId}`, {
+        await axios.post(joinUrl(AI_BASE_URL, `/rag/index/material/${materialId}`), {
           class_id: Number(classId),
         });
         // Retry the original request
@@ -392,7 +392,7 @@ export const realAIRagService = {
   ): Promise<ApiResponse<any>> {
     console.debug('[STUDY_AI_OPTIONS] summary', opts, forceRefresh ? '[FORCE_REFRESH]' : '');
     return withAutoIndex(classId, materialId, () =>
-      axios.post(`${AI_BASE_URL}/rag/material/summary`, {
+      axios.post(joinUrl(AI_BASE_URL, '/rag/material/summary'), {
         class_id:         Number(classId),
         material_id:      Number(materialId),
         length:           opts?.length           ?? 'medium',
@@ -410,7 +410,7 @@ export const realAIRagService = {
   ): Promise<ApiResponse<any>> {
     console.debug('[STUDY_AI_OPTIONS] page_summaries', opts, forceRefresh ? '[FORCE_REFRESH]' : '');
     return withAutoIndex(classId, materialId, () =>
-      axios.post(`${AI_BASE_URL}/rag/material/page-summaries`, {
+      axios.post(joinUrl(AI_BASE_URL, '/rag/material/page-summaries'), {
         class_id:          Number(classId),
         material_id:       Number(materialId),
         detail_level:      opts?.detail_level      ?? 'normal',
@@ -428,7 +428,7 @@ export const realAIRagService = {
   ): Promise<ApiResponse<any>> {
     console.debug('[STUDY_AI_OPTIONS] notes', opts, forceRefresh ? '[FORCE_REFRESH]' : '');
     return withAutoIndex(classId, materialId, () =>
-      axios.post(`${AI_BASE_URL}/rag/material/notes`, {
+      axios.post(joinUrl(AI_BASE_URL, '/rag/material/notes'), {
         class_id:         Number(classId),
         material_id:      Number(materialId),
         notes_style:      opts?.notes_style      ?? 'bullet_notes',
@@ -447,7 +447,7 @@ export const realAIRagService = {
   ): Promise<ApiResponse<any>> {
     console.debug('[STUDY_AI_OPTIONS] quiz', opts, forceRefresh ? '[FORCE_REFRESH]' : '');
     return withAutoIndex(classId, materialId, () =>
-      axios.post(`${AI_BASE_URL}/rag/material/quiz`, {
+      axios.post(joinUrl(AI_BASE_URL, '/rag/material/quiz'), {
         class_id:      Number(classId),
         material_id:   Number(materialId),
         num_questions: opts?.count         ?? 10,
@@ -465,7 +465,7 @@ export const realAIRagService = {
   ): Promise<ApiResponse<any>> {
     console.debug('[STUDY_AI_OPTIONS] flashcards', opts, forceRefresh ? '[FORCE_REFRESH]' : '');
     return withAutoIndex(classId, materialId, () =>
-      axios.post(`${AI_BASE_URL}/rag/material/flashcards`, {
+      axios.post(joinUrl(AI_BASE_URL, '/rag/material/flashcards'), {
         class_id:         Number(classId),
         material_id:      Number(materialId),
         num_cards:        opts?.count            ?? 10,

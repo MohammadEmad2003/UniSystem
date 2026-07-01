@@ -5,7 +5,7 @@ import { useAuthStore } from '../../hooks/useAuthStore';
 import { MessageSquare, FileText, Video, Users, Award, ArrowLeft, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import type { Class } from '../../types';
 
-const AI_URL = (import.meta.env.VITE_AI_BASE_URL || 'http://127.0.0.1:9000').replace(/\/$/, '');
+import { joinUrl, AI_BASE_URL } from '../../services/apiClient';
 
 export default function ClassWorkspacePage() {
   const { classId } = useParams<{ classId: string }>();
@@ -25,7 +25,7 @@ export default function ClassWorkspacePage() {
     if (!classId || reindexing) return;
     setReindexing(true);
     try {
-      const res = await fetch(`${AI_URL}/rag/index/class/${classId}`, { method: 'POST' });
+      const res = await fetch(joinUrl(AI_BASE_URL, `/rag/index/class/${classId}`), { method: 'POST' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       showToast(true, 'AI data re-indexed successfully');
     } catch {

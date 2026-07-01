@@ -68,6 +68,9 @@ class RagService:
         pytesseract.pytesseract.tesseract_cmd = self.tesseract_cmd
 
     def ask_question(self, class_id: int, user_id: int, question: str) -> dict[str, Any]:
+        import time
+        t_start = time.time()
+        
         _ = user_id
         original_question = (question or "").strip()
         print("🔥 ENTERED ask_question")
@@ -79,10 +82,14 @@ class RagService:
         print(f"Original question: {original_question}")
         print(f"Search question used: {search_question}")
 
+        t_embed = time.time()
         question_vector = self.embedding_service.embed_text(search_question)
+        time_embedding = time.time() - t_embed
 
         print(f"[ASK] QA collection: {self.vector_store.QA_COLLECTION}")
         print(f"[ASK] class_id filter: {class_id} (type={type(class_id).__name__})")
+        
+        t_retrieve = time.time()
         qa_results = self.vector_store.search_questions(
             question_vector, class_id, limit=1
         )
@@ -132,6 +139,7 @@ class RagService:
         material_results = self.vector_store.search_materials(
             question_vector, class_id, limit=self.MATERIAL_CONTEXT_LIMIT
         )
+        time_retrieval = time.time() - t_retrieve
         print(f"[RAG] Material results: {len(material_results)}")
         print(
             f"[RAG] Material best score: {material_results[0].score if material_results else None}"
@@ -207,17 +215,17 @@ class RagService:
 
         print(f"[RAG] Top score {effective_top_score:.4f} >= threshold {self.MATERIAL_MATCH_THRESHOLD} — proceeding")
 
-        # ── Smart chunk selection: keep chunks within 15% of top score ────────
-        top_adj_score = boosted[0][0]
-        score_cutoff = top_adj_score * 0.85
-        selected_results = [
-            m for adj_score, m in boosted if adj_score >= score_cutoff
-        ]
-        if len(selected_results) < 2 and len(material_results) >= 2:
-            selected_results = material_results[:2]
+        # ── Smart chunk selection (optimized for latency) ────────
+        selected_results = [material_results[0]]
+        if len(boosted) >= 2:
+            selected_results.append(material_results[1])
+        if len(boosted) >= 3:
+            score_2 = boosted[1][0]
+            score_3 = boosted[2][0]
+            if (score_2 - score_3) < 0.05:
+                selected_results.append(material_results[2])
         print(
-            f"[RAG] Score cutoff={score_cutoff:.4f}  "
-            f"selected {len(selected_results)}/{len(material_results)} chunks"
+            f"[RAG] selected {len(selected_results)}/{len(material_results)} chunks"
         )
         print(f"[RAG] Selected top chunk: index={selected_results[0].payload.get('chunk_index') if selected_results else None}")
 
@@ -238,8 +246,28 @@ class RagService:
             )
 
         total_context_len = sum(len(item.get("chunk_text", "")) for item in context_items)
+        
+        # ── Limit context size to 700 chars ──────────────────────────────────
+        current_len = 0
+        for i, item in enumerate(context_items):
+            chunk_len = len(item.get("chunk_text", ""))
+            if current_len + chunk_len > 700:
+                allowed = 700 - current_len
+                if allowed > 0:
+                    text = item["chunk_text"][:allowed]
+                    last_period = text.rfind(". ")
+                    if last_period > 0:
+                        text = text[:last_period + 1]
+                    item["chunk_text"] = text
+                    current_len += len(text)
+                else:
+                    item["chunk_text"] = ""
+            else:
+                current_len += chunk_len
+        context_items = [item for item in context_items if item.get("chunk_text")]
+        
         print(f"[RAG] entering generation")
-        print(f"[RAG] context length: {total_context_len} chars across {len(context_items)} chunks")
+        print(f"[RAG] context length: {current_len} chars across {len(context_items)} chunks")
 
         page_numbers_used = [
             item["page_number"] for item in context_items if item.get("page_number") is not None
@@ -260,6 +288,10 @@ class RagService:
         print(f"[RAG] Highlight preview: {highlight[:160]}")
 
         print(f"[RAG] generation started")
+        t_prompt = time.time()
+        # Prompt construction is fast, mostly LLM time, but we'll measure LLM time directly inside qwen_service.
+        # We will use qwen_service's printout for LLM generation time, and sum it up here.
+        t_llm = time.time()
         try:
             qwen_result = self.qwen_service.answer_question(
                 question=original_question,
@@ -269,6 +301,8 @@ class RagService:
             print(f"[RAG] generation FAILED with exception: {gen_exc}")
             return {"status": "sent_to_doctor"}
 
+        time_llm = time.time() - t_llm
+        time_prompt = t_llm - t_prompt
         print(f"[RAG] generation completed: decision={qwen_result.get('decision')} answer_len={len(qwen_result.get('answer',''))}")
 
         if (
@@ -321,6 +355,15 @@ class RagService:
         print(f"[ASK] Cleaned output preview: {clean_answer[:200]}")
         if not clean_answer:
             return {"status": "sent_to_doctor"}
+
+        time_total = time.time() - t_start
+        print(f"=== LATENCY LOGS ===")
+        print(f"Embedding time: {time_embedding:.3f}s")
+        print(f"Retrieval time: {time_retrieval:.3f}s")
+        print(f"Prompt construction time: {time_prompt:.3f}s")
+        print(f"LLM generation time: {time_llm:.3f}s")
+        print(f"Total request time: {time_total:.3f}s")
+        print(f"====================")
 
         return {
             "status": "answered",
@@ -458,6 +501,76 @@ class RagService:
             "chunks_indexed": len(chunks),
         }
 
+    def _group_texts(self, texts: list[str], max_chars: int = 4500) -> list[str]:
+        groups = []
+        current_group = []
+        current_len = 0
+        for text in texts:
+            text_len = len(text)
+            if current_group and current_len + text_len + 2 > max_chars:
+                groups.append("\n\n".join(current_group))
+                current_group = [text]
+                current_len = text_len
+            else:
+                current_group.append(text)
+                current_len += text_len + (2 if current_group else 0)
+        if current_group:
+            groups.append("\n\n".join(current_group))
+        return groups
+
+    def _hierarchical_summarize(
+        self, chunks: list[dict], length: str, format: str, include_formulas: bool, max_chars: int = 4500
+    ) -> str | None:
+        print("[SUMMARY] Stage 1 started")
+        texts = [chunk.get("chunk_text", "") for chunk in chunks if chunk.get("chunk_text")]
+        if not texts:
+            return None
+
+        groups = self._group_texts(texts, max_chars)
+        print(f"[SUMMARY] Groups: {len(groups)}")
+        
+        stage1_summaries = []
+        for i, group_text in enumerate(groups, 1):
+            print(f"[SUMMARY] Generating summary for group {i}/{len(groups)}")
+            for attempt in range(2):
+                summary = self.qwen_service.generate_material_summary(
+                    group_text, length, format, include_formulas
+                )
+                if summary:
+                    stage1_summaries.append(summary)
+                    break
+                else:
+                    print(f"[SUMMARY] Group {i} failed on attempt {attempt + 1}")
+        
+        if not stage1_summaries:
+            return None
+            
+        current_summaries = stage1_summaries
+        
+        while len(current_summaries) > 1:
+            print(f"[SUMMARY] Stage 2 merging {len(current_summaries)} summaries")
+            groups = self._group_texts(current_summaries, max_chars)
+            
+            next_summaries = []
+            for i, group_text in enumerate(groups, 1):
+                for attempt in range(2):
+                    summary = self.qwen_service.generate_material_summary(
+                        group_text, length, format, include_formulas
+                    )
+                    if summary:
+                        next_summaries.append(summary)
+                        break
+                    else:
+                        print(f"[SUMMARY] Merge group {i} failed on attempt {attempt + 1}")
+            
+            if not next_summaries:
+                break
+                
+            current_summaries = next_summaries
+            
+        print("[SUMMARY] Final summary generated")
+        return current_summaries[0] if current_summaries else None
+
     def summarize_material_content(
         self,
         class_id: int,
@@ -542,23 +655,10 @@ class RagService:
                     "summary": clean_cached_summary,
                 }
 
-        combined_text = self.build_material_context(chunks, max_chars=100000)
-        limited_context = combined_text[:12000]
-
-        if not limited_context:
-            return {
-                "status": "error",
-                "message": "Material not indexed",
-            }
-
         print(f"[SUMMARY] Chunks count: {len(chunks)}")
-        print(f"[SUMMARY] Total text length: {len(combined_text)}")
-        print(f"[SUMMARY] Context length: {len(limited_context)}")
-        if len(limited_context) < 300:
-            print("[SUMMARY] Material text is short; generating a brief summary")
-
-        summary = self.qwen_service.generate_material_summary(
-            limited_context,
+        
+        summary = self._hierarchical_summarize(
+            chunks=chunks,
             length=length,
             format=format,
             include_formulas=include_formulas,

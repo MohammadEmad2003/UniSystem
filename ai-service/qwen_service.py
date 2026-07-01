@@ -74,20 +74,12 @@ SYSTEM_PROMPT = (
     "Do not invent citations or page numbers."
 )
 
-# Dedicated system prompt for RAG question answering — prioritises math clarity
+# Dedicated system prompt for RAG question answering
 QA_SYSTEM_PROMPT = (
-    "You are a Signals & Systems teaching assistant helping university students.\n\n"
-    "Rules you MUST follow:\n"
-    "- Answer ONLY using the provided class context. Do not hallucinate.\n"
-    "- If the context is insufficient, return exactly: SEND_TO_DOCTOR\n"
-    "- Write in clean Markdown. Use bullet points for lists.\n"
-    "- Preserve every equation from the context exactly.\n"
-    "- Use **bold** for key terms and definitions.\n"
-    "- Keep the answer concise and student-friendly.\n"
-    "- If the context includes page numbers, cite as: (Source: page X).\n"
-    "- Do NOT wrap the whole answer in ``` code fences.\n"
-    "- Do NOT return JSON.\n"
-    "\n" + MATH_RULES
+    "You are an academic assistant.\n"
+    "Answer ONLY using the provided context.\n"
+    "Be concise.\n"
+    "If the context is insufficient, say so."
 )
 
 GENERAL_SYSTEM_PROMPT = (
@@ -123,6 +115,7 @@ class QwenService:
         """Run inference via the local llama-cpp model. Returns reply text or None."""
         t0 = time.time()
         kwargs: dict = {}
+        kwargs["stream"] = True
         if temperature is not None:
             kwargs["temperature"] = temperature
         if top_p is not None:
@@ -137,9 +130,21 @@ class QwenService:
                     {"role": "user",   "content": user_prompt},
                 ],
                 max_tokens=num_predict,
+                stop=["</s>", "Question:", "User:", "Assistant:"],
                 **kwargs,
             )
-            text = (result["choices"][0]["message"].get("content") or "").strip()
+            text = ""
+            if kwargs.get("stream"):
+                for chunk in result:
+                    delta = chunk["choices"][0].get("delta", {})
+                    if "content" in delta:
+                        print(delta["content"], end="", flush=True)
+                        text += delta["content"]
+                print()
+            else:
+                text = result["choices"][0]["message"].get("content") or ""
+            
+            text = text.strip()
             elapsed = round(time.time() - t0, 2)
             print(f"[LLM] {operation} done in {elapsed}s ({len(text)} chars)")
             return text or None
@@ -291,7 +296,7 @@ class QwenService:
             "* Use ONLY the provided text\n\n"
             f"Text:\n{context}"
         )
-        return self._call_llm("material summary generation", SYSTEM_PROMPT, prompt, num_predict=2000)
+        return self._call_llm("material summary generation", SYSTEM_PROMPT, prompt, num_predict=800)
 
     def summarize_page(
         self,
@@ -605,23 +610,12 @@ class QwenService:
         print(f"[qwen_service] generating answer  ctx_len={len(context or '')}  q={question!r:.80}")
         prompt = (
             f"Class context:\n{context}\n\n"
-            f"Student question:\n{question}\n\n"
-            "Instructions:\n"
-            "- Return ONLY the final answer. Do not say 'Here is the answer' or 'Certainly'.\n"
-            "- Write ALL math in LaTeX ($...$ for inline, $$...$$ for display equations).\n"
-            "- Use Markdown. Use bullet points and bold for key terms.\n"
-            "- If the question asks about PROPERTIES or THEOREMS, list EACH property separately.\n"
-            "- If the question asks about Fourier Series, cover: linearity, time shift, frequency shift,\n"
-            "  symmetry, Parseval's theorem, and coefficient formulas — if they appear in the context.\n"
-            "- Provide a complete answer. Do NOT stop mid-sentence.\n"
-            "- Do NOT wrap the output in ``` code fences.\n"
-            "- Do NOT return JSON.\n"
-            "- If the context does not contain enough information to answer, return exactly: SEND_TO_DOCTOR"
+            f"Student question:\n{question}"
         )
         answer = self._call_llm(
             "answer generation", QA_SYSTEM_PROMPT, prompt,
-            num_predict=2048,
-            temperature=0.15, top_p=0.8, repeat_penalty=1.1,
+            num_predict=160,
+            temperature=0.2, top_p=0.9, repeat_penalty=1.05,
         )
         if answer:
             print(f"[LLM] answer preview: {answer[:160]}{'...' if len(answer)>160 else ''}")

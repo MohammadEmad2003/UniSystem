@@ -80,10 +80,39 @@ const getFileUrl = (publicId, options = {}) => {
   return cloudinary.url(publicId, options);
 };
 
+/**
+ * Upload base64 image to Cloudinary
+ * @param {string} base64Data - Base64 encoded image data
+ * @param {object} options - Additional upload options
+ * @returns {Promise<object>} Upload result
+ */
+const uploadBase64 = async (base64Data, options = {}) => {
+  try {
+    // Ensure base64Data is a valid string
+    if (!base64Data || typeof base64Data !== 'string') {
+      throw new Error('Invalid base64 data provided');
+    }
+
+    // Remove the public_id from options to avoid unsigned upload error
+    // Cloudinary will auto-generate a unique public_id
+    const { public_id, ...uploadOptions } = options;
+
+    const result = await cloudinary.uploader.upload(base64Data, {
+      resource_type: 'auto',
+      ...uploadOptions
+    });
+    return result;
+  } catch (error) {
+    console.error('Cloudinary base64 upload error:', error);
+    throw new Error(`Failed to upload base64 image: ${error.message}`);
+  }
+};
+
 module.exports = {
   uploadFile,
   uploadImage,
   uploadDocument,
   deleteFile,
-  getFileUrl
+  getFileUrl,
+  uploadBase64
 };

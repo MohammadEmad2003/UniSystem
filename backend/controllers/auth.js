@@ -21,6 +21,23 @@ const asyncWrapper = require('../middleware/asyncWrapper');
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const jwtSecret = process.env.JWT_SECRET || process.env.JWT_SECRET_KEY;
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
+
+// Configure multer for memory storage (for Vercel compatibility)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  }
+});
 
 // REGISTER - Create new student account
 const register = asyncWrapper(async (req, res, next) => {
@@ -594,6 +611,46 @@ const profile = asyncWrapper(async (req, res, next) => {
   });
 });
 
+// UPLOAD PROFILE IMAGE
+const uploadProfileImage = asyncWrapper(async (req, res, next) => {
+  if (!req.file) {
+    const error = new Error("No image file provided");
+    error.statusCode = 400;
+    return next(error);
+  }
+
+  const currentUser = req.currentUser;
+  if (!currentUser || !currentUser.user_id) {
+    const error = new Error("User not authenticated");
+    error.statusCode = 401;
+    return next(error);
+  }
+
+  try {
+    // multer-storage-cloudinary puts the Cloudinary secure_url in req.file.path
+    const imageUrl = req.file.path;
+
+    // Update user's image_url in database
+    await db.query(
+      'UPDATE "User" SET image_url = $1 WHERE user_id = $2',
+      [imageUrl, currentUser.user_id]
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        image_url: imageUrl,
+      },
+      message: "Profile image uploaded successfully"
+    });
+  } catch (error) {
+    console.error('Error uploading profile image:', error);
+    const err = new Error("Failed to upload image");
+    err.statusCode = 500;
+    return next(err);
+  }
+});
+
 module.exports = {
   register,
   login,
@@ -603,4 +660,6 @@ module.exports = {
   resendVerificationEmail,
   resendPasswordResetEmail,
   profile,
+  uploadProfileImage,
+  upload, // Export multer middleware for use in routes
 };

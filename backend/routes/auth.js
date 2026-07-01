@@ -23,6 +23,10 @@ router.route("/login")
 router.route("/profile")
   .get(verifyToken, controller.profile);
 
+// UPLOAD PROFILE IMAGE - Upload profile image (requires authentication)
+router.route("/profile-image")
+  .post(verifyToken, cloudinaryUpload.uploadProfileImage, controller.uploadProfileImage);
+
 // VERIFY EMAIL - Verify email with token from email
 router.route("/verify/:token")
   .get(controller.verifyEmail);

@@ -7,7 +7,6 @@ from sentence_transformers import SentenceTransformer
 
 load_dotenv()
 
-
 class EmbeddingService:
     def __init__(self) -> None:
         self.model_name = os.getenv(

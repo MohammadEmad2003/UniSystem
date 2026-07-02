@@ -13,28 +13,25 @@ const getStudentStats = asyncWrapper(async (req, res) => {
         return res.status(400).json({ success: false, message: 'Student ID is required' });
     }
 
-    const query = `
-        SELECT
-            total_gpa AS gpa,
-            total_hours AS total_hours,
-            (SELECT COUNT(*) FROM Enrollment WHERE user_id = $1) AS enrolled_classes,
-            (SELECT COUNT(*) FROM Lecture WHERE class_id IN (SELECT class_id FROM Enrollment WHERE user_id = $2)) AS upcoming_lectures
-        FROM Student
-        WHERE user_id = $3
-    `;
-
     try {
-        const stats = await db.query(query, [studentId, studentId, studentId]);
-        if (!stats.rows || stats.rows.length === 0) {
-            return res.status(404).json({ success: false, message: 'Student not found' });
-        }
+        // Get transcript data from gpaService for accurate GPA and hours
+        const transcriptData = await gpaService.getStudentTranscript(studentId);
 
-        const statsData = stats.rows[0];
+        // Get enrolled classes and upcoming lectures from database
+        const query = `
+            SELECT
+                (SELECT COUNT(*) FROM Enrollment WHERE user_id = $1) AS enrolled_classes,
+                (SELECT COUNT(*) FROM Lecture WHERE class_id IN (SELECT class_id FROM Enrollment WHERE user_id = $2)) AS upcoming_lectures
+        `;
+
+        const stats = await db.query(query, [studentId, studentId]);
+        const statsData = stats.rows[0] || {};
+
         res.status(200).json({
             success: true,
             data: {
-                gpa: statsData.gpa || 0,
-                total_hours: statsData.total_hours || 0,
+                gpa: transcriptData.cumulativeGPA || 0,
+                total_hours: transcriptData.totalHours || 0,
                 enrolled_classes: statsData.enrolled_classes || 0,
                 upcoming_lectures: statsData.upcoming_lectures || 0,
                 unread_notifications: 0

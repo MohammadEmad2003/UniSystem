@@ -109,12 +109,14 @@ export default function ManageRoomsPage() {
         </button>
       </div>
 
-      <div className="flex items-center gap-4 bg-white dark:bg-[#111111] p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <Search className="text-slate-400" size={20} />
+      <div className="flex items-center gap-4 bg-slate-900/95 dark:bg-slate-950/95 p-4 rounded-3xl border border-slate-800 shadow-[0_10px_40px_rgba(0,0,0,0.2)]">
+        <div className="w-11 h-11 rounded-2xl bg-slate-800 text-slate-300 flex items-center justify-center shadow-inner">
+          <Search className="text-slate-300" size={20} />
+        </div>
         <input
           type="text"
           placeholder="Search by room name or ID..."
-          className="bg-transparent border-none focus:ring-0 w-full text-slate-900 dark:text-white"
+          className="w-full bg-slate-900/95 dark:bg-slate-950/95 border border-slate-700 dark:border-slate-700 rounded-[28px] px-5 py-4 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 focus:border-cyan-400 transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.15)]"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -127,38 +129,41 @@ export default function ManageRoomsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRooms.map((room) => (
-            <div key={room.room_id} className="group bg-white dark:bg-[#111111] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 hover:shadow-2xl hover:shadow-[#00b8d4]/10 transition-all duration-500 relative overflow-hidden">
+            <div key={room.room_id} className="card p-6 group hover:border-primary-500/50 transition-all duration-300 animate-slide-up bg-white dark:bg-[#0a192f] border border-slate-200 dark:border-slate-800">
               <div className="absolute top-0 right-0 p-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => handleEdit(room)} className="p-2 bg-blue-500/10 text-blue-500 rounded-xl hover:bg-blue-500 hover:text-white transition-all">
+                <button onClick={() => handleEdit(room)} className="p-2 hover:bg-primary-500/10 rounded-xl text-slate-400 hover:text-primary-500 transition-all">
                   <Edit2 size={16} />
                 </button>
-                <button onClick={() => handleDelete(room.room_id)} className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
+                <button onClick={() => handleDelete(room.room_id)} className="p-2 hover:bg-red-500/10 rounded-xl text-slate-400 hover:text-red-500 transition-all">
                   <Trash2 size={16} />
                 </button>
               </div>
               
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#00b8d4]/20 to-transparent flex items-center justify-center text-[#00b8d4]">
-                  <Building2 size={28} />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500/10 to-indigo-600/10 flex items-center justify-center border border-primary-500/20">
+                  <Building2 size={28} className="text-primary-500" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-lg">{room.room_name}</h3>
-                  <span className="text-xs font-black text-[#00b8d4] tracking-widest uppercase">{room.room_id}</span>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">{room.room_name}</h3>
+                  <span className="text-xs font-black text-primary-500 tracking-widest uppercase">{room.room_id}</span>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
-                  <Users size={16} className="text-[#00b8d4]" />
-                  <span>Capacity: <span className="font-bold text-slate-900 dark:text-white">{room.capacity} Students</span></span>
+              <div className="space-y-3 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                  <Users size={16} className="text-primary-500" />
+                  <span className="font-medium">Capacity:</span>
+                  <span className="font-bold text-slate-900 dark:text-white ml-auto">{room.capacity} Students</span>
                 </div>
-                <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
-                  <Building2 size={16} className="text-[#00b8d4]" />
-                  <span>Type: <span className="badge bg-[#00b8d4]/10 text-[#00b8d4] text-[10px]">{room.type}</span></span>
+                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                  <Building2 size={16} className="text-primary-500" />
+                  <span className="font-medium">Type:</span>
+                  <span className="font-bold text-slate-900 dark:text-white ml-auto">{room.type}</span>
                 </div>
-                <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
-                  <MapPin size={16} className="text-[#00b8d4]" />
-                  <span className="truncate">{room.location}</span>
+                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                  <MapPin size={16} className="text-primary-500" />
+                  <span className="font-medium">Location:</span>
+                  <span className="font-bold text-slate-900 dark:text-white ml-auto truncate">{room.location}</span>
                 </div>
               </div>
             </div>
@@ -167,63 +172,66 @@ export default function ManageRoomsPage() {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#0a192f] border border-slate-200 dark:border-slate-800 w-full max-w-lg rounded-3xl overflow-hidden animate-scale-in">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-[#00b8d4]/10 to-transparent">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white uppercase tracking-tight">
-                {isEditing ? "Edit Room" : "Add New Room"}
-              </h2>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white p-2">
+        <div className="fixed inset-0 bg-black/70 z-50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-950/95 border border-slate-800 shadow-[0_35px_120px_rgba(0,0,0,0.45)] w-full max-w-xl rounded-[32px] overflow-hidden animate-scale-in">
+            <div className="p-6 bg-gradient-to-r from-[#0b1220] via-[#07101c] to-[#0b1220] border-b border-slate-800 flex items-start justify-between gap-4">
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-[0.28em] text-cyan-400/70">Room Details</p>
+                <h2 className="text-2xl font-black text-white leading-tight">{isEditing ? "Edit Room" : "Add New Room"}</h2>
+                <p className="text-sm text-slate-400 max-w-xl">Keep room data accurate and consistent across schedules, labs, and lecture halls.</p>
+              </div>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white p-2 rounded-2xl transition-colors">
                 <X size={24} />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
+
+            <form onSubmit={handleSubmit} className="p-8 space-y-6 bg-slate-950">
               {error && (
-                <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-500 text-sm rounded-2xl flex items-center gap-3">
+                <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-200 text-sm rounded-3xl flex items-center gap-3">
                   <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                   {error}
                 </div>
               )}
-              
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Room ID</label>
+
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="space-y-3">
+                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-[0.24em]">Room ID</label>
                   <input
                     required
                     disabled={isEditing}
-                    className="input-field disabled:opacity-50"
-                    placeholder="e.g. H1-101"
+                    className="input-field bg-slate-900/80 text-white border-slate-700 focus:border-cyan-400 focus:ring-cyan-400/30"
+                    placeholder="H1-101"
                     value={form.room_id}
                     onChange={(e) => setForm({ ...form, room_id: e.target.value })}
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Room Name</label>
+                <div className="space-y-3">
+                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-[0.24em]">Room Name</label>
                   <input
                     required
-                    className="input-field"
-                    placeholder="e.g. Hall A"
+                    className="input-field bg-slate-900/80 text-white border-slate-700 focus:border-cyan-400 focus:ring-cyan-400/30"
+                    placeholder="Hall A"
                     value={form.room_name}
                     onChange={(e) => setForm({ ...form, room_name: e.target.value })}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Capacity</label>
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="space-y-3">
+                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-[0.24em]">Capacity</label>
                   <input
                     required
                     type="number"
-                    className="input-field"
+                    className="input-field bg-slate-900/80 text-white border-slate-700 focus:border-cyan-400 focus:ring-cyan-400/30"
                     value={form.capacity}
                     onChange={(e) => setForm({ ...form, capacity: parseInt(e.target.value) })}
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Type</label>
+                <div className="space-y-3">
+                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-[0.24em]">Type</label>
                   <select
-                    className="input-field"
+                    className="input-field bg-slate-900/80 text-white border-slate-700 focus:border-cyan-400 focus:ring-cyan-400/30"
                     value={form.type}
                     onChange={(e) => setForm({ ...form, type: e.target.value })}
                   >
@@ -235,20 +243,25 @@ export default function ManageRoomsPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Location</label>
+              <div className="space-y-3">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-[0.24em]">Location</label>
                 <input
                   required
-                  className="input-field"
-                  placeholder="e.g. Building H1, Floor 2"
+                  className="input-field bg-slate-900/80 text-white border-slate-700 focus:border-cyan-400 focus:ring-cyan-400/30"
+                  placeholder="Building H1, Floor 2"
                   value={form.location}
                   onChange={(e) => setForm({ ...form, location: e.target.value })}
                 />
               </div>
 
-              <button type="submit" className="btn-primary w-full py-4 text-sm font-bold uppercase tracking-widest shadow-xl shadow-[#00b8d4]/20 mt-4">
-                {isEditing ? "Update Room Information" : "Create Room"}
-              </button>
+              <div className="grid items-center gap-4 sm:grid-cols-[1fr_auto]">
+                <button type="submit" className="btn-primary w-full py-4 text-sm font-bold uppercase tracking-[0.24em] shadow-xl shadow-cyan-500/20 transition-all hover:-translate-y-0.5">
+                  {isEditing ? "Update Room" : "Create Room"}
+                </button>
+                <button type="button" onClick={() => setShowModal(false)} className="rounded-3xl border border-slate-700 bg-slate-900/70 px-6 py-4 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-all">
+                  Cancel
+                </button>
+              </div>
             </form>
           </div>
         </div>

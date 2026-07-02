@@ -17,6 +17,7 @@ export default function StudentDashboard() {
   const [stats, setStats] = useState<StudentStats | null>(null);
   const [classes, setClasses] = useState<Class[]>([]);
   const [gpaData, setGpaData] = useState<any[]>([]);
+  const [transcriptData, setTranscriptData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,9 +29,10 @@ export default function StudentDashboard() {
     ]).then(([s, c, t]) => {
       setStats(s.data);
       setClasses(c.data);
-      
+      setTranscriptData(t.data);
+
       // Transform transcript data for the chart
-      const chartData = Object.entries(t.data || {}).map(([key, val]: any) => ({
+      const chartData = Object.entries(t.data?.transcript || {}).map(([key, val]: any) => ({
         sem: key.replace('Level ', 'L'),
         gpa: parseFloat(val.semesterGPA) || 0
       }));
@@ -40,6 +42,16 @@ export default function StudentDashboard() {
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
 
+  // Get academic standing from transcript data
+  const academicStanding = transcriptData?.academicStanding || 'No Grades Yet';
+  const standingColor = transcriptData?.standingColor || 'gray';
+  const cumulativeGPA = transcriptData?.cumulativeGPA || 0;
+  const honorRoll = transcriptData?.honorRoll || false;
+  const totalFailedCourses = transcriptData?.totalFailedCourses || 0;
+
+  // Calculate Peak GPA safely
+  const peakGpa = gpaData.length > 0 ? Math.max(...gpaData.map(d => d.gpa || 0)) : 0;
+
   const statCards = [
     { label: 'GPA', value: stats?.gpa?.toFixed(2) || '0.00', icon: TrendingUp, color: 'from-primary-500 to-primary-600' },
     { label: 'Credit Hours', value: stats?.total_hours || 0, icon: Clock, color: 'from-emerald-500 to-emerald-600' },
@@ -47,8 +59,17 @@ export default function StudentDashboard() {
     { label: 'Upcoming Lectures', value: stats?.upcoming_lectures || 0, icon: Award, color: 'from-amber-500 to-amber-600' },
   ];
 
-  // Calculate Peak GPA safely
-  const peakGpa = gpaData.length > 0 ? Math.max(...gpaData.map(d => d.gpa || 0)) : 0;
+  // Color mapping for academic standing flags returned by backend
+  const standingColors = {
+    gold: 'from-amber-400 to-amber-500',
+    blue: 'from-blue-400 to-blue-500',
+    green: 'from-emerald-400 to-emerald-500',
+    orange: 'from-orange-400 to-orange-500',
+    red: 'from-red-400 to-red-500',
+    gray: 'from-slate-400 to-slate-500'
+  };
+
+  const standingBgColor = standingColors[standingColor as keyof typeof standingColors] || 'from-slate-400 to-slate-500';
 
   return (
     <div className="space-y-6">
@@ -66,7 +87,7 @@ export default function StudentDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest">{s.label}</p>
-                    <p className="text-3xl font-black text-slate-900 dark:text-white mt-1">{s.value}</p>
+                    <p className="text-3xl font-black text-slate-900 dark:text-white mt-1">{cumulativeGPA.toFixed(2)}</p>
                     <p className="text-[10px] text-primary-500 font-bold mt-2 group-hover:translate-x-1 transition-transform flex items-center gap-1">View Full Transcript <ArrowRight size={10} /></p>
                   </div>
                   <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center shadow-lg`}>
@@ -91,6 +112,32 @@ export default function StudentDashboard() {
         ))}
       </div>
 
+      {/* Academic Standing Banner */}
+      <div className={`card p-4 border-none bg-gradient-to-r ${standingBgColor} text-white shadow-lg animate-slide-up`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Award size={24} className="text-white" />
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider opacity-90">Academic Standing</p>
+              <p className="text-lg font-black">{academicStanding}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            {honorRoll && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full">
+                <Award size={14} />
+                <span className="text-xs font-bold">Honor Roll</span>
+              </div>
+            )}
+            {totalFailedCourses > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full">
+                <span className="text-xs font-bold">{totalFailedCourses} Failed Course{totalFailedCourses > 1 ? 's' : ''}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* GPA Chart */}
         <div className="lg:col-span-2 card p-6 border-none bg-white dark:bg-[#0a192f] shadow-xl">
@@ -100,7 +147,7 @@ export default function StudentDashboard() {
               <p className="text-xs text-slate-500 font-medium mt-1">Semester-wise GPA progression</p>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-500/10 text-primary-600 text-[10px] font-black uppercase">
-               <TrendingUp size={14} /> Peak GPA: {peakGpa.toFixed(2)}
+              <TrendingUp size={14} /> Peak GPA: {peakGpa.toFixed(2)}
             </div>
           </div>
 

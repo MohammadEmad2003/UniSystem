@@ -170,9 +170,10 @@ export interface Grade {
   final: number;
   gpa: number;
   generated_at: string;
+  letter?: string;
+  max_grade?: number;
   // New optional fields for adding grades via API
   grade?: number;
-  max_grade?: number;
 }
 
 export interface StudentGradeSummary {
@@ -186,6 +187,8 @@ export interface StudentGradeSummary {
   attendance?: number;
   total: number;
   gpa: number;
+  letter?: string;
+  max_grade?: number;
 }
 
 // ---- Discussion (Q&A) ----

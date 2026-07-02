@@ -54,7 +54,8 @@ export default function ClassGradesTab() {
         class_id: classId,
         student_id: form.student_id,
         type: form.type,
-        grade: g
+        grade: g,
+        max_grade: m
       } as any);
       const res = await gradeService.getByClass(classId);
       setSummaries(res.data);
@@ -162,8 +163,11 @@ export default function ClassGradesTab() {
               <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">Project</th>
               <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">Practical</th>
               <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">Attendance</th>
+              <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">Final</th>
               <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">Total</th>
+              <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">Max Grade</th>
               <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">GPA</th>
+              <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase">Letter</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-100">
@@ -174,8 +178,11 @@ export default function ClassGradesTab() {
                 <td className="px-4 py-3 text-center text-sm text-slate-600 dark:text-slate-400">{s.project ?? '—'}</td>
                 <td className="px-4 py-3 text-center text-sm text-slate-600 dark:text-slate-400">{s.practical ?? '—'}</td>
                 <td className="px-4 py-3 text-center text-sm text-slate-600 dark:text-slate-400">{s.attendance ?? '—'}</td>
+                <td className="px-4 py-3 text-center text-sm text-slate-600 dark:text-slate-400">{s.final ?? '—'}</td>
                 <td className="px-4 py-3 text-center font-semibold text-slate-800 dark:text-slate-200">{s.total}</td>
+                <td className="px-4 py-3 text-center text-sm text-slate-600 dark:text-slate-400">{s.max_grade ?? '—'}</td>
                 <td className="px-4 py-3 text-center"><span className="badge bg-[#00e5ff]/10 text-[#00e5ff]">{(s.gpa || 0).toFixed(1)}</span></td>
+                <td className="px-4 py-3 text-center text-sm text-slate-600 dark:text-slate-400">{s.letter ?? '—'}</td>
               </tr>
             ))}
           </tbody>

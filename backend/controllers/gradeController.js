@@ -1,6 +1,7 @@
 const httpStatus = require('../utilities/httpstatustext');
 const asyncWrapper = require("../middleware/asyncWrapper");
 const genericQueries = require('../utilities/genericQueries');
+const gpaService = require('../services/gpaService');
 
 const gradeQueries = genericQueries('Grades', { primaryKey: 'grade_id' });
 
@@ -18,6 +19,7 @@ const getStudentGrades = asyncWrapper(async (req, res, next) => {
     `SELECT 
       g.grade_id, g.user_id, g.class_id, g.generate_at,
       g.attendance, g.practical, g.project, g.midterm, g.final, g.gpa,
+      g.max_midterm, g.max_project, g.max_practical, g.max_attendance, g.max_final,
       g.doctor_id, c.course_code, c.level, c.semester, co.name as course_name
     FROM Grades g
     LEFT JOIN Class c ON g.class_id = c.class_id
@@ -36,23 +38,30 @@ const getStudentGrades = asyncWrapper(async (req, res, next) => {
   }
 
   // Format response
-  const formattedGrades = grades.map(grade => ({
-    grade_id: grade.grade_id,
-    student_id: grade.user_id,
-    class_id: grade.class_id,
-    course_code: grade.course_code,
-    course_name: grade.course_name,
-    level: grade.level,
-    semester: grade.semester,
-    attendance: grade.attendance,
-    practical: grade.practical,
-    project: grade.project,
-    midterm: grade.midterm,
-    final: grade.final,
-    gpa: grade.gpa,
-    doctor_id: grade.doctor_id,
-    generated_at: grade.generate_at
-  }));
+  const formattedGrades = grades.map(grade => {
+    const total = (grade.attendance || 0) + (grade.practical || 0) + (grade.project || 0) + (grade.midterm || 0) + (grade.final || 0);
+    const maxTotal = (grade.max_midterm || 0) + (grade.max_project || 0) + (grade.max_practical || 0) + (grade.max_attendance || 0) + (grade.max_final || 0);
+    const { letter, gpa: computedGpa } = gpaService.calculateCourseGPA(total, maxTotal);
+
+    return {
+      grade_id: grade.grade_id,
+      student_id: grade.user_id,
+      class_id: grade.class_id,
+      course_code: grade.course_code,
+      course_name: grade.course_name,
+      level: grade.level,
+      semester: grade.semester,
+      attendance: grade.attendance,
+      practical: grade.practical,
+      project: grade.project,
+      midterm: grade.midterm,
+      final: grade.final,
+      gpa: computedGpa,
+      letter: letter,
+      doctor_id: grade.doctor_id,
+      generated_at: grade.generate_at
+    };
+  });
 
   res.status(200).json({
     success: true,

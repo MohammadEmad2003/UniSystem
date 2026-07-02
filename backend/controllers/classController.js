@@ -169,13 +169,21 @@ const enrollStudent = asyncWrapper(async (req, res) => {
   // تحقق من حدود الساعات المسموح بها
   const enrollmentCheck = await gpaService.canEnrollInClass(student_id, classId);
   if (!enrollmentCheck.canEnroll) {
-    return res.status(400).json({ success: httpstatustext.error, message: { msg: enrollmentCheck.message } });
+    return res.status(400).json({
+      success: httpstatustext.error,
+      message: { msg: enrollmentCheck.message },
+      warnings: enrollmentCheck.warnings || []
+    });
   }
 
   // تحقق من المتطلبات السابقة (Prerequisites)
   const prereqCheck = await gpaService.checkPrerequisites(student_id, classId);
   if (!prereqCheck.canEnroll) {
-    return res.status(400).json({ success: httpstatustext.error, message: { msg: prereqCheck.message } });
+    return res.status(400).json({
+      success: httpstatustext.error,
+      message: { msg: prereqCheck.message },
+      missingPrereqs: prereqCheck.missingPrereqs || []
+    });
   }
 
   // تأكد إن الـ student مش enrolled بالفعل
@@ -241,13 +249,18 @@ const getClassGrades = asyncWrapper(async (req, res) => {
         g.class_id,
         g.midterm, g.project, g.practical,
         g.attendance, g.final, g.gpa,
+        g.max_midterm, g.max_project, g.max_practical, g.max_attendance, g.max_final,
         (g.midterm + g.project + g.practical + g.attendance + COALESCE(g.final, 0)) AS total
        FROM Grades g
        INNER JOIN "User" u ON g.user_id = u.user_id
        WHERE g.class_id = $1`,
       [classId]
   );
-  const grades = gradesResult.rows || [];
+  const grades = (gradesResult.rows || []).map((row) => {
+    const maxTotal = (row.max_midterm || 0) + (row.max_project || 0) + (row.max_practical || 0) + (row.max_attendance || 0) + (row.max_final || 0);
+    const { letter, gpa: computedGpa } = gpaService.calculateCourseGPA(row.total, maxTotal);
+    return { ...row, letter, gpa: computedGpa };
+  });
 
   res.json({ success: httpstatustext.success, data: grades });
 });
@@ -260,12 +273,18 @@ const getStudentGrades = asyncWrapper(async (req, res) => {
       `SELECT 
         grade_id, class_id, user_id AS student_id,
         generate_at,
-        attendance, practical, project, midterm, final, gpa
+        attendance, practical, project, midterm, final, gpa,
+        max_midterm, max_project, max_practical, max_attendance, max_final
        FROM Grades
        WHERE class_id = $1 AND user_id = $2`,
       [classId, studentId]
   );
-  const grades = gradesResult.rows || [];
+  const grades = (gradesResult.rows || []).map((row) => {
+    const total = (row.midterm || 0) + (row.project || 0) + (row.practical || 0) + (row.attendance || 0) + (row.final || 0);
+    const maxTotal = (row.max_midterm || 0) + (row.max_project || 0) + (row.max_practical || 0) + (row.max_attendance || 0) + (row.max_final || 0);
+    const { letter, gpa: computedGpa } = gpaService.calculateCourseGPA(total, maxTotal);
+    return { ...row, letter, gpa: computedGpa };
+  });
 
   res.json({ success: httpstatustext.success, data: grades });
 });
@@ -326,8 +345,11 @@ const addGrade = asyncWrapper(async (req, res) => {
     const totalMarks = (updatedGrade.midterm || 0) + (updatedGrade.project || 0) +
       (updatedGrade.practical || 0) + (updatedGrade.attendance || 0) +
       (updatedGrade.final || 0);
+    const maxTotal = (updatedGrade.max_midterm || 0) + (updatedGrade.max_project || 0) +
+      (updatedGrade.max_practical || 0) + (updatedGrade.max_attendance || 0) +
+      (updatedGrade.max_final || 0);
 
-    const courseGPA = gpaService.calculateCourseGPA(totalMarks);
+    const courseGPA = gpaService.calculateCourseGPA(totalMarks, maxTotal).gpa;
 
     await db.query(
       `UPDATE Grades SET gpa = $1 WHERE user_id = $2 AND class_id = $3`,

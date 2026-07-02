@@ -15,21 +15,32 @@ const normalizeKeys = (val: unknown): unknown => {
   if (Array.isArray(val)) return val.map(normalizeKeys);
   if (val !== null && typeof val === 'object') {
     return Object.fromEntries(
-      Object.entries(val as Record<string, unknown>).map(([k, v]) => [
-        k.toLowerCase(), normalizeKeys(v),
-      ])
+      Object.entries(val as Record<string, unknown>).map(([k, v]) => {
+        const normalizedKey = /[A-Z]/.test(k) && k.includes('_') ? k.toLowerCase() : k;
+        return [normalizedKey, normalizeKeys(v)];
+      })
     );
   }
   return val;
 };
 
-apiClient.interceptors.request.use((config) => {
+const getStoredAuthToken = (): string | null => {
   try {
     const raw = localStorage.getItem('capital-uni-auth');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const token = parsed?.state?.token;
-      if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.state?.token || parsed?.token || null;
+  } catch {
+    return null;
+  }
+};
+
+apiClient.interceptors.request.use((config) => {
+  try {
+    const token = getStoredAuthToken();
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
     }
   } catch {
     // ignore — request goes out unauthenticated

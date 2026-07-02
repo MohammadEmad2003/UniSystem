@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../../hooks/useAuthStore";
-import { gradeService } from "../../services";
+import { gradeService, studentService } from "../../services";
 import { Award, TrendingUp, BookOpen, Download } from "lucide-react";
 import type { Grade } from "../../types";
 
@@ -9,14 +9,23 @@ export default function StudentGradesPage() {
   const [grades, setGrades] = useState<Grade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cumulativeGPA, setCumulativeGPA] = useState(0);
+  const [totalHours, setTotalHours] = useState(0);
 
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    gradeService
-      .getByStudent(user.user_id)
-      .then((res) => {
-        if (res.success) setGrades(res.data);
+
+    Promise.all([
+      gradeService.getByStudent(user.user_id),
+      studentService.getTranscript(user.user_id),
+    ])
+      .then(([gradeRes, transcriptRes]) => {
+        if (gradeRes.success) setGrades(gradeRes.data);
+        if (transcriptRes.success) {
+          setCumulativeGPA(transcriptRes.data.cumulativeGPA || 0);
+          setTotalHours(transcriptRes.data.totalHours || 0);
+        }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -263,6 +272,7 @@ export default function StudentGradesPage() {
                     <th style="text-align:center">Proj</th>
                     <th style="text-align:center">Final</th>
                     <th style="text-align:center">Total</th>
+                    <th style="text-align:center">Letter</th>
                     <th style="text-align:center">GPA</th>
                   </tr>
                 </thead>
@@ -280,6 +290,7 @@ export default function StudentGradesPage() {
                       <td style="text-align:center; font-weight:800; color:#00b8d4;">
                         ${(g.midterm || 0) + (g.practical || 0) + (g.project || 0) + (g.attendance || 0) + (g.final || 0)}
                       </td>
+                      <td style="text-align:center; font-size:12px; font-weight:700; color:#94a3b8;">${g.letter || '—'}</td>
                       <td class="gpa-column">${g.gpa.toFixed(2)}</td>
                     </tr>
                   `,
@@ -296,12 +307,12 @@ export default function StudentGradesPage() {
                 
                 <div style="display: flex; gap: 30px; align-items: center;">
                   <div style="text-align: right;">
-                    <p style="margin:0; font-size:12px; color:#94a3b8;">Total Credits: <strong style="color:white;">${(user as any)?.total_hours || 0}</strong></p>
+                    <p style="margin:0; font-size:12px; color:#94a3b8;">Total Credits: <strong style="color:white;">${totalHours}</strong></p>
                     <p style="margin:5px 0 0; font-size:12px; color:#94a3b8;">Standing: <strong style="color:white;">Distinction</strong></p>
                   </div>
                   <div class="stats-card">
                     <span class="lbl">Cumulative GPA</span>
-                    <span class="val">${(user as any)?.total_gpa?.toFixed(2) || "0.00"}</span>
+                    <span class="val">${cumulativeGPA.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -369,7 +380,7 @@ export default function StudentGradesPage() {
           <div>
             <p className="text-sm text-slate-500 font-medium">Cumulative GPA</p>
             <p className="text-2xl font-bold text-slate-900 dark:text-white">
-              {(user as any)?.total_gpa?.toFixed(2) || "0.00"}
+              {cumulativeGPA.toFixed(2)}
             </p>
           </div>
         </div>
@@ -382,7 +393,7 @@ export default function StudentGradesPage() {
               Completed Credits
             </p>
             <p className="text-2xl font-bold text-slate-900 dark:text-white">
-              {(user as any)?.total_hours || 0} Hrs
+              {totalHours} Hrs
             </p>
           </div>
         </div>
@@ -425,6 +436,9 @@ export default function StudentGradesPage() {
                 </th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">
                   Total
+                </th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">
+                  Letter
                 </th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">
                   GPA
@@ -476,6 +490,9 @@ export default function StudentGradesPage() {
                       >
                         {total}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-center text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      {grade.letter || '—'}
                     </td>
                     <td className="px-6 py-4 text-center font-bold text-primary-500">
                       {grade.gpa.toFixed(2)}

@@ -13,15 +13,17 @@ import {
 } from 'lucide-react';
 
 interface TranscriptCourse {
-  Course_Code: string;
-  Course_Name: string;
-  Credit_Hours: number;
-  GPA: number;
-  Midterm: number;
-  Project: number;
-  Practical: number;
-  Attendance: number;
-  Final: number | null;
+  course_code: string;
+  course_name: string;
+  credit_hours: number;
+  gpa: number;
+  letter?: string;
+  max_grade?: number;
+  midterm: number;
+  project: number;
+  practical: number;
+  attendance: number;
+  final: number | null;
 }
 
 interface SemesterRecord {
@@ -38,6 +40,8 @@ type TranscriptData = Record<string, SemesterRecord>;
 export default function TranscriptPage() {
   const { user } = useAuthStore();
   const [transcript, setTranscript] = useState<TranscriptData | null>(null);
+  const [cumulativeGPA, setCumulativeGPA] = useState(0);
+  const [totalHours, setTotalHours] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,10 +49,15 @@ export default function TranscriptPage() {
     if (!user) return;
     studentService.getTranscript(user.user_id)
       .then(res => {
-        if (res.success) setTranscript(res.data);
-        else throw new Error(res.message);
+        if (res.success) {
+          setTranscript(res.data.transcript || null);
+          setCumulativeGPA(res.data.cumulativeGPA || 0);
+          setTotalHours(res.data.totalHours || 0);
+        } else {
+          throw new Error(res.message);
+        }
       })
-      .catch(e => setError('Failed to load academic transcript'))
+      .catch(() => setError('Failed to load academic transcript'))
       .finally(() => setLoading(false));
   }, [user]);
 
@@ -88,7 +97,7 @@ export default function TranscriptPage() {
           <button onClick={() => window.print()} className="btn-secondary flex items-center gap-2 border-2">
             <Printer size={18} /> Print
           </button>
-          <button className="btn-primary flex items-center gap-2 shadow-lg shadow-primary-500/20">
+          <button onClick={() => window.print()} className="btn-primary flex items-center gap-2 shadow-lg shadow-primary-500/20">
             <Download size={18} /> Download PDF
           </button>
         </div>
@@ -105,23 +114,14 @@ export default function TranscriptPage() {
            <div className="space-y-1">
              <p className="text-primary-100 text-xs font-bold uppercase tracking-widest">Cumulative GPA</p>
              <div className="flex items-center gap-2">
-               <p className="text-3xl font-black">
-                 {transcript 
-                   ? (Object.values(transcript).reduce((acc, cur) => acc + cur.totalPoints, 0) / 
-                      Math.max(1, Object.values(transcript).reduce((acc, cur) => acc + cur.totalHours, 0))).toFixed(2) 
-                   : '0.00'
-                 }
-               </p>
+               <p className="text-3xl font-black">{cumulativeGPA.toFixed(2)}</p>
                <TrendingUp size={20} className="text-emerald-400" />
              </div>
            </div>
            <div className="space-y-1">
              <p className="text-primary-100 text-xs font-bold uppercase tracking-widest">Total Earned Hours</p>
              <p className="text-3xl font-black">
-               {transcript 
-                 ? Object.values(transcript).reduce((acc, cur) => acc + cur.totalHours, 0) 
-                 : 0
-               } <span className="text-lg font-normal opacity-70">hrs</span>
+               {totalHours} <span className="text-lg font-normal opacity-70">hrs</span>
              </p>
            </div>
         </div>
@@ -165,36 +165,40 @@ export default function TranscriptPage() {
                         <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 tracking-wider">Course</th>
                         <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 tracking-wider text-center">Hours</th>
                         <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 tracking-wider text-center">Grade</th>
+                        <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 tracking-wider text-center">Letter</th>
                         <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500 tracking-wider text-right">Points</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {sem.courses.map((c: TranscriptCourse) => (
-                        <tr key={c.Course_Code} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
+                        <tr key={c.course_code} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
                           <td className="px-6 py-4">
                             <div>
-                              <p className="font-bold text-slate-800 dark:text-slate-200">{c.Course_Name}</p>
-                              <p className="text-xs text-slate-500 font-mono">{c.Course_Code}</p>
+                              <p className="font-bold text-slate-800 dark:text-slate-200">{c.course_name}</p>
+                              <p className="text-xs text-slate-500 font-mono">{c.course_code}</p>
                             </div>
                           </td>
                           <td className="px-6 py-4 text-center font-bold text-slate-600 dark:text-slate-400">
-                            {c.Credit_Hours}
+                            {c.credit_hours}
                           </td>
                           <td className="px-6 py-4 text-center">
-                             {c.Final !== null ? (
+                             {c.final !== null ? (
                                <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-black text-sm ${
-                                 c.GPA >= 3.7 ? 'bg-emerald-500/10 text-emerald-600' :
-                                 c.GPA >= 2.0 ? 'bg-primary-500/10 text-primary-600' : 'bg-rose-500/10 text-rose-600'
+                                 c.gpa >= 3.7 ? 'bg-emerald-500/10 text-emerald-600' :
+                                 c.gpa >= 2.0 ? 'bg-primary-500/10 text-primary-600' : 'bg-rose-500/10 text-rose-600'
                                }`}>
-                                 {c.GPA.toFixed(1)}
+                                 {c.gpa.toFixed(1)}
                                </span>
                              ) : (
                                <span className="text-xs font-bold text-amber-500 uppercase tracking-widest italic bg-amber-500/10 px-3 py-1 rounded-full">In Progress</span>
                              )}
                           </td>
+                          <td className="px-6 py-4 text-center font-bold text-slate-700 dark:text-slate-200">
+                            {c.letter || '—'}
+                          </td>
                           <td className="px-6 py-4 text-right">
                              <p className="font-black text-slate-800 dark:text-slate-200">
-                               {c.Final !== null ? (c.GPA * c.Credit_Hours).toFixed(2) : '-'}
+                               {c.final !== null ? (c.gpa * c.credit_hours).toFixed(2) : '-'}
                              </p>
                           </td>
                         </tr>

@@ -501,75 +501,280 @@ class RagService:
             "chunks_indexed": len(chunks),
         }
 
-    def _group_texts(self, texts: list[str], max_chars: int = 4500) -> list[str]:
-        groups = []
-        current_group = []
-        current_len = 0
+    # ── Token-aware text grouper (Part 3 / Part 4 / Part 2) ─────────────
+    _SUMMARY_MAX_INPUT_TOKENS = 650
+
+    def _group_texts(self, texts: list[str], max_tokens: int | None = None) -> list[str]:
+        """Pack text strings into groups so each group stays under max_tokens.
+        
+        Group ONLY by estimated token count.
+        If a single chunk exceeds the limit, it is split automatically.
+        If adding another chunk exceeds the limit, starts a new group.
+        """
+        limit = max_tokens if max_tokens is not None else self._SUMMARY_MAX_INPUT_TOKENS
+        groups: list[str] = []
+        current: list[str] = []
+        current_toks = 0
+        
         for text in texts:
-            text_len = len(text)
-            if current_group and current_len + text_len + 2 > max_chars:
-                groups.append("\n\n".join(current_group))
-                current_group = [text]
-                current_len = text_len
+            tlen_toks = QwenService.est_tokens(text)
+            
+            # If a single chunk alone exceeds the limit: split it
+            if tlen_toks > limit:
+                if current:
+                    groups.append("\n\n".join(current))
+                    current = []
+                    current_toks = 0
+                
+                chunk_chars = limit * 4
+                idx = 0
+                while idx < len(text):
+                    part = text[idx:idx + chunk_chars]
+                    if idx + chunk_chars < len(text):
+                        last_stop = max(part.rfind(". "), part.rfind("\n"))
+                        if last_stop > len(part) // 2:
+                            part = part[:last_stop + 1]
+                    groups.append(part.strip())
+                    idx += len(part)
+                continue
+
+            sep_toks = QwenService.est_tokens("\n\n") if current else 0
+            if current and current_toks + sep_toks + tlen_toks > limit:
+                groups.append("\n\n".join(current))
+                current = [text]
+                current_toks = tlen_toks
             else:
-                current_group.append(text)
-                current_len += text_len + (2 if current_group else 0)
-        if current_group:
-            groups.append("\n\n".join(current_group))
+                current.append(text)
+                current_toks += sep_toks + tlen_toks
+                
+        if current:
+            groups.append("\n\n".join(current))
         return groups
 
+    # ── Hierarchical recursive summarizer (Part 3 / Part 6 / Part 8) ──────────
+
+    def _process_group_with_retry(
+        self,
+        group_text: str,
+        stage_name: str,
+        group_idx: int,
+        summarize_func: Any,
+        *args: Any
+    ) -> list[str]:
+        """
+        Process a group text with the summarizer function.
+        If it fails, it splits the group into two halves and retries recursively (Smart Retry).
+        Returns a list of generated summaries.
+        """
+        result = None
+        for attempt in range(2):
+            try:
+                result = summarize_func(group_text, *args)
+                if result:
+                    return [result]
+            except Exception as exc:
+                print(f"[SUMMARY] {stage_name} group {group_idx} exception attempt {attempt + 1}: {exc}")
+                
+        print(f"[SUMMARY] {stage_name} group {group_idx} failed both attempts. Applying SMART RETRY (halving).")
+        # Split text into two halves and retry independently
+        mid = len(group_text) // 2
+        
+        # Try to split on a natural boundary if possible
+        best_split = group_text.rfind("\n\n", 0, mid + 500)
+        if best_split > len(group_text) // 4:
+            mid = best_split
+
+        part1 = group_text[:mid].strip()
+        part2 = group_text[mid:].strip()
+        
+        results = []
+        if part1:
+            res1 = self._process_group_with_retry(part1, stage_name + ".1", group_idx, summarize_func, *args)
+            results.extend(res1)
+        if part2:
+            res2 = self._process_group_with_retry(part2, stage_name + ".2", group_idx, summarize_func, *args)
+            results.extend(res2)
+            
+        return results
+
+    def _deduplicate_and_truncate_summaries(self, summaries: list[str]) -> list[str]:
+        import re
+        cleaned_summaries = []
+        for s in summaries:
+            if not s:
+                continue
+            
+            # Remove duplicated bullet points/sentences/formulas (Requirement 8)
+            lines = []
+            seen = set()
+            for line in s.split("\n"):
+                l_strip = line.strip()
+                if not l_strip:
+                    continue
+                norm = re.sub(r"\s+", " ", l_strip.lower())
+                norm = norm.replace("$", "").replace(" ", "")
+                if norm not in seen:
+                    seen.add(norm)
+                    lines.append(line)
+            cleaned = "\n".join(lines).strip()
+            
+            # Truncate to roughly 250 characters before merge (Requirement 5)
+            if len(cleaned) > 250:
+                truncated = cleaned[:250]
+                last_punct = max(truncated.rfind(". "), truncated.rfind("\n"))
+                if last_punct > 100:
+                    cleaned = truncated[:last_punct + 1]
+                else:
+                    cleaned = truncated.rstrip()
+            
+            cleaned_summaries.append(cleaned.strip())
+        return cleaned_summaries
+
     def _hierarchical_summarize(
-        self, chunks: list[dict], length: str, format: str, include_formulas: bool, max_chars: int = 4500
+        self,
+        chunks: list[dict],
+        length: str,
+        format: str,
+        include_formulas: bool,
+        max_tokens: int | None = None,
     ) -> str | None:
-        print("[SUMMARY] Stage 1 started")
-        texts = [chunk.get("chunk_text", "") for chunk in chunks if chunk.get("chunk_text")]
+        import time as _time
+        import os
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        t_total = _time.time()
+        texts = [c.get("chunk_text", "") for c in chunks if c.get("chunk_text")]
         if not texts:
             return None
 
-        groups = self._group_texts(texts, max_chars)
-        print(f"[SUMMARY] Groups: {len(groups)}")
+        # Task 12: Streaming progress start
+        print("Extracting PDF... Done.")
+        print(f"Creating chunks... Semantic chunking done. Number of chunks: {len(texts)}")
+
+        # ── Stage 1: Chunk Summaries (Requirement 1 & 5) ──────────────────────────
+        print("[SUMMARY] Stage 1 started: Summarizing each chunk")
         
-        stage1_summaries = []
-        for i, group_text in enumerate(groups, 1):
-            print(f"[SUMMARY] Generating summary for group {i}/{len(groups)}")
-            for attempt in range(2):
-                summary = self.qwen_service.generate_material_summary(
-                    group_text, length, format, include_formulas
-                )
-                if summary:
-                    stage1_summaries.append(summary)
-                    break
-                else:
-                    print(f"[SUMMARY] Group {i} failed on attempt {attempt + 1}")
+        t_s1 = _time.time()
+        stage1_summaries: list[str] = []
         
+        # Parallel Execution (Requirement 9): Worker count = min(os.cpu_count(), number_of_chunks)
+        max_workers = min(os.cpu_count() or 4, len(texts))
+        print(f"[SUMMARY] Stage 1 Parallel Execution running with {max_workers} threads")
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(
+                    self.qwen_service.generate_chunk_summary,
+                    text
+                ): idx for idx, text in enumerate(texts)
+            }
+            
+            results_dict = {}
+            for future in as_completed(futures):
+                idx = futures[future]
+                print(f"Generating summary {idx+1}/{len(texts)}...")
+                try:
+                    results_dict[idx] = future.result()
+                except Exception as exc:
+                    print(f"[SUMMARY] Thread error for Stage 1 chunk {idx}: {exc}")
+                    
+            for idx in sorted(results_dict.keys()):
+                if results_dict[idx]:
+                    stage1_summaries.append(results_dict[idx])
+
+        elapsed_s1 = round(_time.time() - t_s1, 2)
+        print(f"[SUMMARY] Stage 1 done in {elapsed_s1}s — {len(stage1_summaries)} summaries generated.")
+
         if not stage1_summaries:
             return None
-            
-        current_summaries = stage1_summaries
+
+        # ── Stage 2: Merge every three summaries (Requirement 5) ──────────────────
+        print("Merging summaries...")
+        t_s2 = _time.time()
         
-        while len(current_summaries) > 1:
-            print(f"[SUMMARY] Stage 2 merging {len(current_summaries)} summaries")
-            groups = self._group_texts(current_summaries, max_chars)
-            
-            next_summaries = []
-            for i, group_text in enumerate(groups, 1):
-                for attempt in range(2):
-                    summary = self.qwen_service.generate_material_summary(
-                        group_text, length, format, include_formulas
-                    )
-                    if summary:
-                        next_summaries.append(summary)
-                        break
-                    else:
-                        print(f"[SUMMARY] Merge group {i} failed on attempt {attempt + 1}")
-            
-            if not next_summaries:
-                break
-                
-            current_summaries = next_summaries
-            
-        print("[SUMMARY] Final summary generated")
-        return current_summaries[0] if current_summaries else None
+        # Clean, deduplicate, and truncate Stage 1 summaries to 250 characters (Requirement 5 & 8)
+        truncated_stage1 = self._deduplicate_and_truncate_summaries(stage1_summaries)
+        
+        stage2_inputs = []
+        for i in range(0, len(truncated_stage1), 3):
+            group = truncated_stage1[i:i+3]
+            stage2_inputs.append("\n\n".join(group))
+
+        print(f"[SUMMARY] Stage 2: Grouped {len(truncated_stage1)} summaries into {len(stage2_inputs)} merge groups.")
+        stage2_summaries: list[str] = []
+        
+        with ThreadPoolExecutor(max_workers=min(os.cpu_count() or 4, len(stage2_inputs))) as executor:
+            futures = {
+                executor.submit(
+                    self.qwen_service.generate_material_summary,
+                    group_text,
+                    length,
+                    format,
+                    include_formulas,
+                    250  # Dynamic Token Budget: 250 tokens for merge summaries (Requirement 7)
+                ): idx for idx, group_text in enumerate(stage2_inputs)
+            }
+            results_dict = {}
+            for future in as_completed(futures):
+                idx = futures[future]
+                try:
+                    results_dict[idx] = future.result()
+                except Exception as exc:
+                    print(f"[SUMMARY] Stage 2 merge {idx} failed: {exc}")
+            for idx in sorted(results_dict.keys()):
+                if results_dict[idx]:
+                    stage2_summaries.append(results_dict[idx])
+
+        elapsed_s2 = round(_time.time() - t_s2, 2)
+        print(f"[SUMMARY] Stage 2 done in {elapsed_s2}s")
+
+        # ── Stage 3: Generate one final lecture summary (Requirement 5 & 6) ───────
+        print("Generating final notes...")
+        t_s3 = _time.time()
+        
+        # Clean and deduplicate intermediate merged summaries (Requirement 8)
+        combined_stage2 = "\n\n".join(self._deduplicate_and_truncate_summaries(stage2_summaries))
+        
+        final = self.qwen_service.generate_material_summary(
+            combined_stage2,
+            length,
+            format,
+            include_formulas,
+            500  # Dynamic Token Budget: 350-500 tokens for final summary (Requirement 7)
+        )
+        elapsed_s3 = round(_time.time() - t_s3, 2)
+        print(f"[SUMMARY] Stage 3 done in {elapsed_s3}s")
+        print("Done.")
+
+        elapsed_total = round(_time.time() - t_total, 2)
+        
+        # Task 13: Performance Logging
+        import sys
+        peak_ram = 0.0
+        try:
+            import psutil
+            peak_ram = psutil.Process(os.getpid()).memory_info().rss / (1024 ** 2)
+        except Exception:
+            pass
+        
+        avg_chunk_tokens = sum(QwenService.est_tokens(t) for t in texts) / len(texts) if texts else 0
+        total_tokens_generated = sum(QwenService.est_tokens(s) for s in stage1_summaries) + sum(QwenService.est_tokens(s) for s in stage2_summaries) + QwenService.est_tokens(final or "")
+        toks_per_sec = total_tokens_generated / elapsed_total if elapsed_total > 0 else 0
+
+        print("=== PERFORMANCE METRICS ===")
+        print(f"PDF extraction time: N/A (cached or handled prior)")
+        print(f"Chunking time: N/A")
+        print(f"Embedding time: N/A")
+        print(f"Stage 1 time: {elapsed_s1}s")
+        print(f"Stage 2 time: {elapsed_s2}s")
+        print(f"Stage 3 time: {elapsed_s3}s")
+        print(f"Total generation time: {elapsed_total}s")
+        print(f"Peak RAM: {peak_ram:.2f} MB")
+        print(f"Average chunk tokens: {avg_chunk_tokens:.1f}")
+        print(f"Tokens per second: {toks_per_sec:.2f} tok/s")
+        print("===========================")
+
+        return final
 
     def summarize_material_content(
         self,
@@ -1402,47 +1607,98 @@ class RagService:
         cleaned = "\n".join(lines).strip()
         cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
         return cleaned
-
     def chunk_text_with_pages(
         self, pages: list[dict], chunk_size: int = 500, overlap: int = 100
     ) -> list[dict]:
-        chunks: list[dict] = []
+        # Task 4: Semantic chunking
+        # Approx 1 token = 4 characters. Target size = 1000 tokens (4000 chars), overlap = 100 tokens (400 chars).
+        target_chunk_chars = 4000
+        target_overlap_chars = 400
 
+        blocks = []
         for page in pages:
-            normalized = " ".join((page.get("text") or "").split())
-            if not normalized:
+            text = page.get("text") or ""
+            page_num = page.get("page_number")
+            source = "pdf_extracted_text" if page.get("source") == "pdf_text" else "pdf_ocr_text"
+            
+            # Split page text into blocks by double newlines to keep paragraphs, headings, lists, tables together
+            raw_blocks = text.split("\n\n")
+            for rb in raw_blocks:
+                rb_stripped = rb.strip()
+                if rb_stripped:
+                    blocks.append({
+                        "text": rb_stripped,
+                        "page_number": page_num,
+                        "source": source
+                    })
+
+        chunks = []
+        current_chunk_blocks = []
+        current_chunk_len = 0
+
+        def create_chunk_from_blocks(blks: list[dict]) -> dict:
+            combined_text = "\n\n".join(b["text"] for b in blks)
+            return {
+                "text": combined_text,
+                "page_number": blks[0]["page_number"] if blks else 1,
+                "source": blks[0]["source"] if blks else "pdf_extracted_text"
+            }
+
+        for block in blocks:
+            block_len = len(block["text"])
+            
+            # If a block itself is larger than the target chunk size, split it character-wise
+            if block_len > target_chunk_chars:
+                if current_chunk_blocks:
+                    chunks.append(create_chunk_from_blocks(current_chunk_blocks))
+                    current_chunk_blocks = []
+                    current_chunk_len = 0
+                
+                start = 0
+                while start < len(block["text"]):
+                    end = min(start + target_chunk_chars, len(block["text"]))
+                    if end < len(block["text"]):
+                        boundary = block["text"].rfind(" ", start, end)
+                        if boundary > start + (target_chunk_chars // 2):
+                            end = boundary
+                    part = block["text"][start:end].strip()
+                    if part:
+                        chunks.append({
+                            "text": part,
+                            "page_number": block["page_number"],
+                            "source": block["source"]
+                        })
+                    start = max(end - target_overlap_chars, start + 1)
                 continue
 
-            start = 0
-            while start < len(normalized):
-                end = min(start + chunk_size, len(normalized))
-                if end < len(normalized):
-                    boundary = normalized.rfind(" ", start, end)
-                    if boundary > start + (chunk_size // 2):
-                        end = boundary
+            if current_chunk_len + block_len > target_chunk_chars:
+                chunks.append(create_chunk_from_blocks(current_chunk_blocks))
+                
+                # Overlap: include trailing blocks from current chunk
+                overlap_blocks = []
+                overlap_len = 0
+                for b in reversed(current_chunk_blocks):
+                    if overlap_len + len(b["text"]) <= target_overlap_chars:
+                        overlap_blocks.insert(0, b)
+                        overlap_len += len(b["text"])
+                    else:
+                        break
+                current_chunk_blocks = overlap_blocks
+                current_chunk_len = overlap_len
 
-                chunk_text = normalized[start:end].strip()
-                if chunk_text:
-                    chunks.append(
-                        {
-                            "text": chunk_text,
-                            "page_number": page["page_number"],
-                            "chunk_index": len(chunks),
-                            "text_source_field": (
-                                "pdf_extracted_text"
-                                if page.get("source") == "pdf_text"
-                                else "pdf_ocr_text"
-                            ),
-                        }
-                    )
+            current_chunk_blocks.append(block)
+            current_chunk_len += block_len
 
-                if end >= len(normalized):
-                    break
+        if current_chunk_blocks:
+            chunks.append(create_chunk_from_blocks(current_chunk_blocks))
 
-                start = max(end - overlap, start + 1)
+        # Add metadata index and text_source_field
+        for idx, c in enumerate(chunks):
+            c["chunk_index"] = idx
+            c["text_source_field"] = c.pop("source")
 
+        print(f"[SEMANTIC_CHUNK] Created {len(chunks)} semantic chunks from {len(pages)} pages.")
         return chunks
-
     def get_material_text(self, material: dict) -> tuple[str, str]:
         document_candidates = [
             ("Document", self._clean_material_value(material.get("Document"))),

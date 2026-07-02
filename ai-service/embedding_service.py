@@ -13,7 +13,11 @@ class EmbeddingService:
             "EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5"
         )
         self.model = SentenceTransformer(self.model_name)
-        self.vector_size = self.model.get_sentence_embedding_dimension()
+        # Backward-compatible: new API is get_embedding_dimension(), old is get_sentence_embedding_dimension()
+        if hasattr(self.model, "get_embedding_dimension"):
+            self.vector_size = self.model.get_embedding_dimension()
+        else:
+            self.vector_size = self.model.get_sentence_embedding_dimension()
 
     def embed_text(self, text: str) -> list[float]:
         normalized = (text or "").strip()

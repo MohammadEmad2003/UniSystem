@@ -16,9 +16,10 @@ ENV HF_HOME=/app/.cache/huggingface
 ENV PORT=9000
 ENV TESSERACT_CMD=/usr/bin/tesseract
 ENV LOCAL_MODEL_DIR=/app/models
-ENV LOCAL_MODEL_REPO=Qwen/Qwen2.5-1.5B-Instruct-GGUF
-ENV LOCAL_MODEL_FILE=qwen2.5-1.5b-instruct-q4_k_m.gguf
+ENV LOCAL_MODEL_REPO=Qwen/Qwen2.5-0.5B-Instruct-GGUF
+ENV LOCAL_MODEL_FILE=qwen2.5-0.5b-instruct-q4_k_m.gguf
 ENV LOCAL_MODEL_CTX=2048
+ENV LOCAL_MODEL_BATCH=128
 ENV LOCAL_MODEL_THREADS=4
 ENV LOCAL_MODEL_GPU_LAYERS=0
 # جوة قسم الـ Environment Variables في الـ Dockerfile بتاعك

@@ -3,7 +3,9 @@ const asyncWrapper = require("../middleware/asyncWrapper");
 const db = require("../utilities/database");
 const axios = require("axios");
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:9000";
+
+
+const AI_SERVICE_URL = (process.env.AI_SERVICE_URL || "http://localhost:9000").replace(/\/+$/, "");
 
 const logSqlError = (label, err, query, params) => {
   console.error(`[AI][SQL] ${label} failed: ${err.message}`);

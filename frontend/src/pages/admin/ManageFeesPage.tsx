@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { DollarSign, Save, Clock, Target, Calendar } from 'lucide-react';
 import { adminService } from '../../services';
 import { useAuthStore } from '../../hooks/useAuthStore';
+import { FormSkeleton, StatsCardSkeleton } from '../../components/ui/Skeleton';
 
 interface LevelConfig {
   fees: number;
@@ -118,7 +119,16 @@ export default function ManageFeesPage() {
     }));
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <StatsCardSkeleton key={i} />
+        ))}
+      </div>
+      <FormSkeleton fields={4} />
+    </div>
+  );
 
   const currentLevelConfigs = configs[selectedSemester];
 

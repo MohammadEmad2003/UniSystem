@@ -6,6 +6,7 @@ import {
   Play, Square, Users, Copy, Check, Lock, Unlock, KeyRound
 } from 'lucide-react';
 import type { Lecture, User } from '../../types';
+import { CardSkeleton, ListItemSkeleton } from '../../components/ui/Skeleton';
 
 interface Ctx { classId: string; user: User }
 
@@ -160,8 +161,10 @@ export default function ClassLecturesTab() {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center h-48">
-      <div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+    <div className="space-y-4">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <CardSkeleton key={i} />
+      ))}
     </div>
   );
 

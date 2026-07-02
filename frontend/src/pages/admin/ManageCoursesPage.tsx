@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { courseService, departmentService } from '../../services';
 import { FolderOpen, Plus, Trash2, X, Link as LinkIcon, Info, ChevronRight } from 'lucide-react';
 import type { Course, Department } from '../../types';
+import { ListItemSkeleton } from '../../components/ui/Skeleton';
 
 export default function ManageCoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -60,7 +61,13 @@ export default function ManageCoursesPage() {
 
   const getDeptName = (id: string | number) => departments.find(d => String(d.dept_id) === String(id))?.dept_name || String(id);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className="space-y-2">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <ListItemSkeleton key={i} />
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-6">

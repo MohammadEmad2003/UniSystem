@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from "lucide-react";
+import logo from "../../assets/images/logo.png";
 
 export default function LandingFooter() {
   return (
@@ -8,9 +9,7 @@ export default function LandingFooter() {
         <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-4 mb-20">
           <div className="col-span-1 lg:col-span-1">
             <Link to="/" className="flex items-center gap-3 mb-8 group">
-              <div className="h-10 w-10 bg-primary-600 rounded-lg flex items-center justify-center text-white font-black shadow-glow group-hover:rotate-3 transition">
-                C
-              </div>
+              <img src={logo} alt="Capital University Logo" className="h-10 w-10 object-contain group-hover:rotate-3 transition" />
               <span className="text-2xl font-bold text-primary-950 dark:text-white tracking-tighter">
                 CAPITAL
               </span>

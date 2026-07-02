@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Moon, Sun } from "lucide-react";
 import { useThemeStore } from "../../hooks/useThemeStore";
+import logo from "../../assets/images/logo.png";
 
 export default function LandingNavbar() {
   const { theme, toggleTheme } = useThemeStore();
@@ -10,8 +11,8 @@ export default function LandingNavbar() {
       <div className="flex w-full items-center justify-between px-6 py-4 lg:px-12 max-w-[1600px] mx-auto">
         <Link to="/" className="flex items-center gap-3 group">
           {/* Logo */}
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-600 text-white shadow-glow transform group-hover:rotate-3 transition duration-300">
-            <span className="text-xl font-black">C</span>
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-600 text-white shadow-glow transform group-hover:rotate-3 transition duration-300 overflow-hidden">
+            <img src={logo} alt="Capital University Logo" className="w-full h-full object-contain p-2" />
           </div>
           <div className="flex flex-col leading-none">
             <span className="text-xl font-black tracking-tighter text-primary-950 dark:text-white">

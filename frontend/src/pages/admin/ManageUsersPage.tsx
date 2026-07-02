@@ -3,6 +3,7 @@ import { adminService, departmentService } from '../../services';
 import { UserPlus, X, Users, GraduationCap, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '../../hooks/useAuthStore';
 import type { Student, Doctor, Department, Admin } from '../../types';
+import { ListItemSkeleton } from '../../components/ui/Skeleton';
 
 export default function ManageUsersPage() {
   const { token, user } = useAuthStore();
@@ -58,7 +59,13 @@ export default function ManageUsersPage() {
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className="space-y-2">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <ListItemSkeleton key={i} />
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-6">

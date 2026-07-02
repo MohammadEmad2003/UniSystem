@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus, X, MapPin, Users, Building2, Trash2, Edit2, Search } from "lucide-react";
 import { apiClient } from "../../services/apiClient";
+import { CardSkeleton } from "../../components/ui/Skeleton";
 
 interface Room {
   room_id: string;
@@ -123,8 +124,10 @@ export default function ManageRoomsPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-10 h-10 border-4 border-[#00b8d4]/20 border-t-[#00b8d4] rounded-full animate-spin" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <CardSkeleton key={i} />
+          ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

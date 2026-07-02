@@ -23,6 +23,7 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
+import { DashboardSkeleton } from "../../components/ui/Skeleton";
 import type { FinancialStats } from "../../types";
 
 export default function StudentAffairsDashboard() {
@@ -36,12 +37,7 @@ export default function StudentAffairsDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading)
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
-      </div>
-    );
+  if (loading) return <DashboardSkeleton />;
 
   const paymentData = [
     { name: "Paid", value: stats?.total_paid || 0, color: "#10b981" },

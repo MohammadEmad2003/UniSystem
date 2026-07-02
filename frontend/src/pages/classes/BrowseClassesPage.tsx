@@ -4,6 +4,7 @@ import { useAuthStore } from '../../hooks/useAuthStore';
 import { classService, adminService, studentService } from '../../services';
 import { Users, Search, Plus, Check, ArrowRight, Trash2, Clock, Info } from 'lucide-react';
 import type { Class, Student } from '../../types';
+import { ClassCardSkeleton } from '../../components/ui/Skeleton';
 
 export default function BrowseClassesPage() {
   const { user } = useAuthStore();
@@ -102,8 +103,10 @@ export default function BrowseClassesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <ClassCardSkeleton key={i} />
+        ))}
       </div>
     );
   }

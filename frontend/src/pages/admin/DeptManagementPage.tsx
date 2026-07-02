@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { adminService, departmentService, courseService, classService } from '../../services';
-import { 
-  Users, 
-  GraduationCap, 
-  BookOpen, 
+import {
+  Users,
+  GraduationCap,
+  BookOpen,
   Building2,
   Search,
   Mail,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../hooks/useAuthStore';
 import type { Student, Doctor, Course, Class, AdminStats } from '../../types';
+import { ListItemSkeleton, StatsCardSkeleton } from '../../components/ui/Skeleton';
 
 export default function DeptManagementPage() {
   const { user } = useAuthStore();
@@ -46,7 +47,20 @@ export default function DeptManagementPage() {
   }, [deptId]);
 
   if (!deptId) return <div className="card p-12 text-center">No managed department found.</div>;
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <StatsCardSkeleton key={i} />
+        ))}
+      </div>
+      <div className="space-y-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <ListItemSkeleton key={i} />
+        ))}
+      </div>
+    </div>
+  );
 
   const filteredData = () => {
     if (tab === 'students') return students.filter(s => `${s.f_name} ${s.l_name}`.toLowerCase().includes(searchTerm.toLowerCase()));

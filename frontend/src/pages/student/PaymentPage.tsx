@@ -20,6 +20,7 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
+import { FormSkeleton, StatsCardSkeleton } from "../../components/ui/Skeleton";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
@@ -298,12 +299,14 @@ export default function PaymentPage() {
     setPaymentAmount(0);
   };
 
-  if (loading)
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-[3px] border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+  if (loading) return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="space-y-4">
+        <StatsCardSkeleton />
+        <FormSkeleton fields={3} />
       </div>
-    );
+    </div>
+  );
 
   const isPaid = details?.payment_status?.toLowerCase() === "paid";
 

@@ -20,6 +20,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { DashboardSkeleton } from "../../components/ui/Skeleton";
 import { useAuthStore } from "../../hooks/useAuthStore";
 import type { AdminStats } from "../../types";
 
@@ -42,12 +43,7 @@ export default function AdminDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading)
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
-      </div>
-    );
+  if (loading) return <DashboardSkeleton />;
 
   const statCards = [
     {

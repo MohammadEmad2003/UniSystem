@@ -3,6 +3,8 @@ import { useAuthStore } from "../../hooks/useAuthStore";
 import { gradeService, studentService } from "../../services";
 import { Award, TrendingUp, BookOpen, Download } from "lucide-react";
 import type { Grade } from "../../types";
+import { GradesTableSkeleton } from "../../components/ui/Skeleton";
+import logo from "../../assets/images/logo.png";
 
 export default function StudentGradesPage() {
   const { user } = useAuthStore();
@@ -242,7 +244,7 @@ export default function StudentGradesPage() {
               
               <div class="header">
                 <div class="logo-box">
-                  <img src="/uni_logo.png" class="logo-img" alt="University Logo" />
+                  <img src="${logo.toString()}" class="logo-img" alt="University Logo" />
                 </div>
                 <div class="uni-name">
                   <h1>Capital University</h1>
@@ -345,12 +347,7 @@ export default function StudentGradesPage() {
 
     (window as any).html2pdf().set(opt).from(element).save();
   };
-  if (loading)
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
-      </div>
-    );
+  if (loading) return <GradesTableSkeleton rows={5} />;
 
   return (
     <div className="space-y-6">

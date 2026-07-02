@@ -4,6 +4,7 @@ import { useAuthStore } from '../../hooks/useAuthStore';
 import { classService } from '../../services';
 import { Users, BookOpen, ArrowRight, X, Plus } from 'lucide-react';
 import type { Class } from '../../types';
+import { ClassCardSkeleton } from '../../components/ui/Skeleton';
 
 const gradients = [
   'from-primary-500 to-primary-700', 'from-violet-500 to-violet-700',
@@ -44,7 +45,13 @@ export default function MyClassesPage() {
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <ClassCardSkeleton key={i} />
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-6">

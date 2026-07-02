@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../hooks/useAuthStore';
 import { studentService } from '../../services';
-import { 
-  GraduationCap, 
-  Calendar, 
-  BookOpen, 
-  TrendingUp, 
+import {
+  GraduationCap,
+  Calendar,
+  BookOpen,
+  TrendingUp,
   Download,
   Award,
   ChevronRight,
   Printer
 } from 'lucide-react';
+import { TranscriptSkeleton } from '../../components/ui/Skeleton';
+import logo from '../../assets/images/logo.png';
 
 interface TranscriptCourse {
   course_code: string;
@@ -61,7 +63,7 @@ export default function TranscriptPage() {
       .finally(() => setLoading(false));
   }, [user]);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
+  if (loading) return <TranscriptSkeleton />;
 
   if (error) return (
     <div className="card p-12 text-center">
@@ -84,8 +86,8 @@ export default function TranscriptPage() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-primary-600 flex items-center justify-center text-white shadow-xl shadow-primary-500/20">
-            <GraduationCap size={32} />
+          <div className="w-16 h-16 rounded-2xl bg-primary-600 flex items-center justify-center text-white shadow-xl shadow-primary-500/20 overflow-hidden">
+            <img src={logo} alt="Capital University Logo" className="w-full h-full object-contain p-2" />
           </div>
           <div>
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white drop-shadow-sm font-bold">Academic Transcript</h1>

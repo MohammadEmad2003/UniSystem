@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { classService } from '../../services';
 import { Users, GraduationCap, Mail } from 'lucide-react';
 import type { Student, User } from '../../types';
+import { ListItemSkeleton } from '../../components/ui/Skeleton';
 
 interface Ctx { classId: string; user: User }
 
@@ -15,7 +16,13 @@ export default function ClassStudentsTab() {
     classService.getStudents(classId).then(r => setStudents(r.data as Student[])).finally(() => setLoading(false));
   }, [classId]);
 
-  if (loading) return <div className="flex items-center justify-center h-48"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className="space-y-2">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <ListItemSkeleton key={i} />
+      ))}
+    </div>
+  );
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">

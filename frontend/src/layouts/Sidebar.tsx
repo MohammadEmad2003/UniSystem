@@ -19,6 +19,7 @@ import {
   DollarSign,
   Award,
 } from "lucide-react";
+import logo from "../assets/images/logo.png";
 
 export default function Sidebar() {
   const { user, logout } = useAuthStore();
@@ -60,11 +61,8 @@ export default function Sidebar() {
         {/* Logo */}
         <div className="p-6 border-b border-slate-200 dark:border-slate-800/50">
           <div className="flex items-center gap-4 group cursor-pointer">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00b8d4]/10 dark:from-[#00b8d4]/20 to-transparent border border-[#00b8d4]/20 dark:border-[#00e5ff]/30 shadow-[0_0_8px_rgba(0,184,212,0.1)] dark:shadow-[0_0_15px_rgba(0,229,255,0.2)] flex items-center justify-center group-hover:shadow-[0_0_15px_rgba(0,184,212,0.2)] dark:group-hover:shadow-[0_0_25px_rgba(0,229,255,0.4)] transition-all duration-500">
-              <GraduationCap
-                size={24}
-                className="text-[#00b8d4] dark:text-[#00e5ff]"
-              />
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00b8d4]/10 dark:from-[#00b8d4]/20 to-transparent border border-[#00b8d4]/20 dark:border-[#00e5ff]/30 shadow-[0_0_8px_rgba(0,184,212,0.1)] dark:shadow-[0_0_15px_rgba(0,229,255,0.2)] flex items-center justify-center group-hover:shadow-[0_0_15px_rgba(0,184,212,0.2)] dark:group-hover:shadow-[0_0_25px_rgba(0,229,255,0.4)] transition-all duration-500 overflow-hidden">
+              <img src={logo} alt="Capital University Logo" className="w-full h-full object-contain p-2" />
             </div>
             <div>
               <h1

@@ -18,6 +18,7 @@ import {
   type ExportFormat,
 } from "../../utils/exportStudyContent";
 import { normalizeFlashcardText } from "../../utils/aiMathSanitizer";
+import { CardSkeleton, ListItemSkeleton } from "../../components/ui/Skeleton";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -1540,8 +1541,10 @@ export default function ClassMaterialsTab() {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center h-48">
-      <div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+    <div className="space-y-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <CardSkeleton key={i} />
+      ))}
     </div>
   );
 

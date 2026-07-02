@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { GraduationCap } from "lucide-react";
+import logo from "../assets/images/logo.png";
 
 export default function AuthLayout() {
   return (
@@ -16,8 +17,8 @@ export default function AuthLayout() {
       <div className="relative z-10 w-full max-w-lg">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white dark:bg-[#111111]/50 backdrop-blur-xl border border-[#00e5ff]/20 shadow-[0_0_30px_rgba(0,229,255,0.2)] mb-5">
-            <GraduationCap size={40} className="text-[#00e5ff]" />
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white dark:bg-[#111111]/50 backdrop-blur-xl border border-[#00e5ff]/20 shadow-[0_0_30px_rgba(0,229,255,0.2)] mb-5 overflow-hidden">
+            <img src={logo} alt="Capital University Logo" className="w-full h-full object-contain p-2" />
           </div>
           <h1
             className="text-4xl font-black text-slate-900 dark:text-white tracking-tight uppercase"

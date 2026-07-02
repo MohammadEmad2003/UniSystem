@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { classService, courseService, adminService } from '../../services';
 import { BookOpen, Plus, Trash2, X, Users } from 'lucide-react';
 import type { Class, Course, Doctor, Semester, AcademicLevel } from '../../types';
+import { ListItemSkeleton } from '../../components/ui/Skeleton';
 
 export default function ManageClassesPage() {
   const [classes, setClasses] = useState<Class[]>([]);
@@ -32,7 +33,13 @@ export default function ManageClassesPage() {
     setClasses(prev => prev.filter(c => String(c.class_id) !== String(id)));
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className="space-y-2">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <ListItemSkeleton key={i} />
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-6">

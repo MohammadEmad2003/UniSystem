@@ -3,6 +3,7 @@ import { departmentService, adminService } from '../../services';
 import { Building2, Plus, Pencil, Trash2, X, GraduationCap, Clock } from 'lucide-react';
 import { useAuthStore } from '../../hooks/useAuthStore';
 import type { Department } from '../../types';
+import { CardSkeleton } from '../../components/ui/Skeleton';
 
 export default function ManageDepartmentsPage() {
   const { token } = useAuthStore();
@@ -68,7 +69,13 @@ export default function ManageDepartmentsPage() {
     setShowForm(true); 
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <CardSkeleton key={i} />
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">

@@ -9,7 +9,7 @@ const { Server } = require("socket.io");
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: process.env.FRONTEND_URL || "*",
     methods: ["GET", "POST"]
   },
 });
@@ -21,6 +21,10 @@ io.on("connection", (socket) => {
 });
 
 require('dotenv').config();
+
+// Import error handler and validator
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const { sanitizeInput } = require('./middleware/validator');
 
 require('./models/userModel');
 require('./models/departmentModel');
@@ -66,6 +70,9 @@ app.use("/files", express.static(uploadsPath));
 
 // parse json body
 app.use(express.json());
+
+// Sanitize all inputs to prevent XSS
+app.use(sanitizeInput);
 
 // Log incoming requests
 app.use((req, res, next) => {
@@ -129,21 +136,10 @@ app.use("/api/admin", adminRouter);
 app.use("/api/rooms", roomRouter);
 // handling other routes by jsend
 //and to handle unfound routes
-app.all(/.*/, (req, res) => {
-  res.status(404).json({
-    success: httpstatustext.error,
-    message: "route not found",
-  });
-});
+app.use(notFoundHandler);
 
 // global error handling middleware
-//we put err in the first parameter because we send it in asyncWrapper by next() method
-app.use((err, req, res, next) => {
-  res.status(err.statusCode || 500).json({
-    success: httpstatustext.error,
-    message: err.message,
-  });
-});
+app.use(errorHandler);
 
 server.listen(process.env.PORT, () => {
   console.log("Server is running on port " + process.env.PORT);

@@ -3,6 +3,7 @@ const controller = require("../controllers/auth");
 const verifyToken = require("../middleware/verifytoken");
 const upload = require("../middleware/upload");
 const cloudinaryUpload = require("../middleware/cloudinaryUpload");
+const { validators } = require("../middleware/validator");
 
 const router = express.Router();
 
@@ -11,13 +12,17 @@ const router = express.Router();
 // REGISTER - Create new student account
 router.route("/register")
   .post(
+    validators.register(),
     cloudinaryUpload.uploadProfileAndDocument,
     controller.register
   );
 
 // LOGIN - Authenticate user
 router.route("/login")
-  .post(controller.login);
+  .post(
+    validators.login(),
+    controller.login
+  );
 
 // GET PROFILE - Get current user profile (requires authentication)
 router.route("/profile")

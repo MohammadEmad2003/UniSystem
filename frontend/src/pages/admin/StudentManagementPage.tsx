@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../hooks/useAuthStore';
 import type { Student, Department, AcademicLevel } from '../../types';
+import { ListItemSkeleton, TableSkeleton } from '../../components/ui/Skeleton';
 
 export default function StudentManagementPage() {
   const { token } = useAuthStore();
@@ -135,7 +136,13 @@ export default function StudentManagementPage() {
     s.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className="space-y-4">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <ListItemSkeleton key={i} />
+      ))}
+    </div>
+  );
 
   return (
     <>

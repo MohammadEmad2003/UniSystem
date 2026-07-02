@@ -5,6 +5,7 @@ import { doctorService, classService } from '../../services';
 import { BookOpen, Users, Video, FileText, ArrowRight, MessageSquare, Calendar } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { DoctorStats, Class } from '../../types';
+import { DashboardSkeleton } from '../../components/ui/Skeleton';
 
 export default function DoctorDashboard() {
   const { user } = useAuthStore();
@@ -23,7 +24,7 @@ export default function DoctorDashboard() {
     }).finally(() => setLoading(false));
   }, [user]);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
+  if (loading) return <DashboardSkeleton />;
 
   const statCards = [
     { label: 'My Classes', value: stats?.total_classes || 0, icon: BookOpen, color: 'from-primary-500 to-primary-600' },

@@ -4,6 +4,7 @@ import { classService } from '../../services';
 import { useAuthStore } from '../../hooks/useAuthStore';
 import { MessageSquare, FileText, Video, Users, Award, ArrowLeft, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import type { Class } from '../../types';
+import { CardSkeleton } from '../../components/ui/Skeleton';
 
 import { joinUrl, AI_BASE_URL } from '../../services/apiClient';
 
@@ -40,7 +41,7 @@ export default function ClassWorkspacePage() {
     classService.getById(classId).then(res => setCls(res.data)).finally(() => setLoading(false));
   }, [classId]);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>;
+  if (loading) return <CardSkeleton />;
   if (!cls) return <div className="text-center py-12 text-slate-600 dark:text-slate-400">Class not found</div>;
 
   const tabs = [

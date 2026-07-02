@@ -35,15 +35,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="UniSystem AI Service", version="1.0.0", lifespan=lifespan)
 
-frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
-backend_url = os.getenv("BACKEND_API_URL", "http://localhost:3000").rstrip("/")
-pdf_base_url = os.getenv("PDF_BASE_URL", "http://localhost:3001").rstrip("/")
+# CORS: accept requests from any origin so Vercel, HF Spaces, and local dev all work.
+# Production deployments lock this down via the ALLOWED_ORIGINS env var (comma-separated).
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
+if _raw_origins.strip() == "*":
+    _allow_origins = ["*"]
+else:
+    _allow_origins = [o.strip().rstrip("/") for o in _raw_origins.split(",") if o.strip()]
 
 # Enable CORS for frontend requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_url, backend_url, pdf_base_url],
-    allow_credentials=True,
+    allow_origins=_allow_origins,
+    allow_credentials=_allow_origins != ["*"],  # credentials not allowed with wildcard
     allow_methods=["*"],
     allow_headers=["*"],
 )

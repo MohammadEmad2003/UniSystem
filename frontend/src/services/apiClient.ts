@@ -75,6 +75,9 @@ export function joinUrl(base: string, path: string): string {
   const cleanBase = base.replace(/\/+$/, '');
   const cleanPath = path.replace(/^\/+/, '');
   const url = `${cleanBase}/${cleanPath}`;
+  console.log("AI_BASE_URL =", base);
+  console.log("Endpoint =", path);
+  console.log("Final URL =", url);
   if (import.meta.env.DEV) {
     console.debug('[API] Base URL:', cleanBase, '| Endpoint:', cleanPath, '| Final URL:', url);
   }

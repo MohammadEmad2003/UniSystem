@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import time
+import threading
 from typing import Any
 
 from dotenv import load_dotenv
@@ -74,12 +75,12 @@ SYSTEM_PROMPT = (
     "Do not invent citations or page numbers."
 )
 
-# Dedicated system prompt for RAG question answering
+# Dedicated system prompt for RAG question answering — concise, per Part 5
 QA_SYSTEM_PROMPT = (
-    "You are an academic assistant.\n"
+    "You are a university teaching assistant.\n"
     "Answer ONLY using the provided context.\n"
-    "Be concise.\n"
-    "If the context is insufficient, say so."
+    "If the answer is unavailable, say so.\n"
+    "Maximum 5 concise bullet points."
 )
 
 GENERAL_SYSTEM_PROMPT = (
@@ -93,11 +94,26 @@ GENERAL_SYSTEM_PROMPT = (
 
 class QwenService:
     def __init__(self) -> None:
-        _repo = os.getenv("LOCAL_MODEL_REPO", "Qwen/Qwen2.5-1.5B-Instruct-GGUF")
-        _file = os.getenv("LOCAL_MODEL_FILE", "qwen2.5-1.5b-instruct-q4_k_m.gguf")
+        _repo = os.getenv("LOCAL_MODEL_REPO", "Qwen/Qwen2.5-0.5B-Instruct-GGUF")
+        _file = os.getenv("LOCAL_MODEL_FILE", "qwen2.5-0.5b-instruct-q4_k_m.gguf")
         print(f"[qwen_service] Using local llama-cpp LLM")
         print(f"[qwen_service] Model repo : {_repo}")
         print(f"[qwen_service] Model file : {_file}")
+
+    # ── Token estimation (Part 4) ─────────────────────────────────────────────
+    # Use llama-cpp tokenizer when loaded; fall back to chars/4 estimate.
+    @staticmethod
+    def est_tokens(text: str) -> int:
+        """Conservative token estimate: 1 token ≈ 4 characters."""
+        return max(1, len(text) // 4)
+
+    # Context window & reserved budget constants
+    _CTX_WINDOW    = int(os.getenv("LOCAL_MODEL_CTX", "2048"))
+    _RESERVE_TOKS  = 180   # Generation reserve
+    _SAFETY_MARGIN = 100   # Special tokens / safety padding
+    
+    # Thread safety lock for concurrent execution fallback
+    _llm_lock = threading.Lock()
 
     # ── Core local LLM call ────────────────────────────────────────────────────
 
@@ -106,44 +122,92 @@ class QwenService:
         operation: str,
         system: str,
         user_prompt: str,
-        num_predict: int = 2048,
-        temperature: float | None = None,
-        top_p: float | None = None,
-        repeat_penalty: float | None = None,
+        num_predict: int = 120,
+        temperature: float | None = 0.2,
+        top_p: float | None = 0.9,
+        repeat_penalty: float | None = 1.1,
+        top_k: int | None = 40,
         **_ignored,  # absorb any legacy kwargs (e.g. timeout) without crashing
     ) -> str | None:
         """Run inference via the local llama-cpp model. Returns reply text or None."""
         t0 = time.time()
-        kwargs: dict = {}
-        kwargs["stream"] = True
+
+        sys_toks = self.est_tokens(system)
+        prompt_toks = self.est_tokens(user_prompt)
+
+        # 1. Token Budget Safety (Requirement 6): Keep at least 400 tokens free in ctx
+        # Max allowed prompt tokens = context_window - 400 - num_predict
+        max_prompt_toks = self._CTX_WINDOW - 400 - num_predict
+        if sys_toks + prompt_toks > max_prompt_toks:
+            allowed_user_toks = max_prompt_toks - sys_toks
+            if allowed_user_toks < 0:
+                allowed_user_toks = 0
+            # Truncate user_prompt to fit budget BEFORE inference
+            user_prompt = user_prompt[:max(0, allowed_user_toks * 4)]
+            prompt_toks = self.est_tokens(user_prompt)
+            print(f"[LLM] Prompt truncated before inference to fit 400-token safety buffer. New user toks: {prompt_toks}")
+
+        # 2. Dynamic Context Budget (Requirement 7)
+        available_generation = self._CTX_WINDOW - prompt_toks - sys_toks - 400
+        # Stage 2 can use up to 512 tokens when enough context is available (Requirement 5)
+        num_predict = min(num_predict, available_generation, 512)
+        if num_predict < 10:
+            num_predict = 10
+
+        # Print debug info (Requirement 7)
+        print(f"Prompt tokens: {sys_toks + prompt_toks}")
+        print(f"Available generation space: {available_generation}")
+        print(f"Selected generation tokens: {num_predict}")
+        print(f"max_tokens: {num_predict}")
+
+        kwargs: dict = {"stream": True, "echo": False}
         if temperature is not None:
             kwargs["temperature"] = temperature
         if top_p is not None:
             kwargs["top_p"] = top_p
         if repeat_penalty is not None:
             kwargs["repeat_penalty"] = repeat_penalty
+        if top_k is not None:
+            kwargs["top_k"] = top_k
         try:
             llm = LocalLLM.get()
-            result = llm._load().create_chat_completion(
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user",   "content": user_prompt},
-                ],
-                max_tokens=num_predict,
-                stop=["</s>", "Question:", "User:", "Assistant:"],
-                **kwargs,
-            )
-            text = ""
-            if kwargs.get("stream"):
-                for chunk in result:
-                    delta = chunk["choices"][0].get("delta", {})
-                    if "content" in delta:
-                        print(delta["content"], end="", flush=True)
-                        text += delta["content"]
-                print()
-            else:
-                text = result["choices"][0]["message"].get("content") or ""
             
+            text = ""
+            finish_reason = None
+            completion_tokens = 0
+            # Enforce sequential fallback for thread safety
+            with self._llm_lock:
+                result = llm._load().create_chat_completion(
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user",   "content": user_prompt},
+                    ],
+                    max_tokens=num_predict,
+                    stop=["<|im_end|>", "</s>"],
+                    **kwargs,
+                )
+                
+                if kwargs.get("stream"):
+                    for chunk in result:
+                        choice = chunk["choices"][0]
+                        delta = choice.get("delta", {})
+                        if "content" in delta:
+                            print(delta["content"], end="", flush=True)
+                            text += delta["content"]
+                            completion_tokens += 1
+                        if choice.get("finish_reason"):
+                            finish_reason = choice.get("finish_reason")
+                    print()
+                else:
+                    text = result["choices"][0]["message"].get("content") or ""
+                    finish_reason = result["choices"][0].get("finish_reason")
+                    completion_tokens = result.get("usage", {}).get("completion_tokens", 0)
+            
+            # Print after generation stats (Requirement 8)
+            print(f"finish_reason: {finish_reason}")
+            print(f"generated_tokens: {completion_tokens}")
+            print(f"generated_characters: {len(text)}")
+
             text = text.strip()
             elapsed = round(time.time() - t0, 2)
             print(f"[LLM] {operation} done in {elapsed}s ({len(text)} chars)")
@@ -207,7 +271,7 @@ class QwenService:
         )
         result = self._call_llm(
             "query rewrite", SYSTEM_PROMPT, prompt,
-            num_predict=256, temperature=0.1, top_p=0.9,
+            num_predict=256,
         )
 
         if result:
@@ -246,57 +310,96 @@ class QwenService:
         format: str = "study_notes",
         include_formulas: bool = True,
     ) -> str | None:
-        length_instruction = {
-            "short": (
-                "Write ONE short paragraph of 4-6 sentences maximum — OR — exactly 5 bullet points maximum.\n"
-                "Do NOT add multiple sections. Keep it extremely concise."
-            ),
-            "medium": (
-                "Write 2-3 clearly separated ## sections.\n"
-                "Each section: 3-5 bullet points or 1-2 short paragraphs. Do not over-explain."
-            ),
-            "detailed": (
-                "Write multiple ## sections covering every major concept.\n"
-                "Use sub-bullets for supporting details. Be thorough."
-            ),
-        }.get(length, "Write 2-3 clearly separated sections covering the main ideas.")
-
-        format_instruction = {
-            "paragraph": (
-                "Use ONLY flowing prose paragraphs. ABSOLUTELY NO bullet points or dashes anywhere.\n"
-                "Each section is a paragraph block."
-            ),
-            "bullet_points": (
-                "Use ONLY bullet point lists (- item). ABSOLUTELY NO paragraphs.\n"
-                "Every piece of content must be a bullet point."
-            ),
-            "study_notes": (
-                "Use ## headings for each section.\n"
-                "Under each heading: bullet points for key ideas, then **Key Takeaway:** one line."
-            ),
-        }.get(format, "Use ## headings with bullet points under each section.")
-
-        formula_rule = (
-            "Include ALL important formulas and equations using LaTeX: $...$ for inline, $$...$$ for block math."
+        """Final-stage (merge) summary — concise study note, max 120 words."""
+        formula_line = (
+            "Include important formulas using $...$."
             if include_formulas
-            else "Do NOT include any formulas or mathematical expressions. Explain concepts in words only."
+            else "No formulas."
         )
+        format_line = {
+            "bullet_points": "Bullet points only.",
+            "paragraph":     "Short prose paragraphs.",
+            "study_notes":   "## headings + bullet points.",
+        }.get(format, "## headings + bullet points.")
 
         prompt = (
-            "Summarize the material below in clean Markdown.\n\n"
-            f"=== LENGTH RULE (STRICT) ===\n{length_instruction}\n\n"
-            f"=== FORMAT RULE (STRICT) ===\n{format_instruction}\n\n"
-            f"=== FORMULA RULE (STRICT) ===\n{formula_rule}\n\n"
-            "=== HARD RULES ===\n"
-            "* NO intro text like 'Here is', 'Certainly', 'This document'\n"
-            "* NO repetition between sections\n"
-            "* COMPLETE the full summary — do NOT stop mid-sentence\n"
-            "* Do NOT use ``` code fences\n"
-            "* Do NOT return JSON\n"
-            "* Use ONLY the provided text\n\n"
-            f"Text:\n{context}"
+            "Summarize the provided lecture material into a cohesive, high-quality set of university study notes.\n"
+            "The output must contain exactly these headings:\n"
+            "# Lecture Summary\n"
+            "## Key Concepts\n"
+            "## Definitions\n"
+            "## Important Formulas\n"
+            "## Examples\n"
+            "## Important Notes\n"
+            "## Exam Tips\n"
+            "## Common Mistakes\n"
+            "## Quick Revision\n\n"
+            "Guidelines:\n"
+            "- Write in the tone of a university teaching assistant.\n"
+            "- Never write: \"This lecture discusses...\"\n"
+            "- Never write introductions.\n"
+            "- Never write conclusions.\n"
+            "- Never repeat chapter names.\n"
+            "- Write concise study notes.\n"
+            f"- {formula_line}\n\n"
+            f"Lecture Content:\n{context}"
         )
-        return self._call_llm("material summary generation", SYSTEM_PROMPT, prompt, num_predict=800)
+        return self._call_llm(
+            "material summary generation", SYSTEM_PROMPT, prompt,
+            num_predict=512,
+        )
+
+    def generate_chunk_summary(self, chunk_text: str) -> str | None:
+        """Stage-1 per-group summary used by hierarchical summarizer. Ultra-short."""
+        prompt = (
+            "Summarize these lecture notes.\n"
+            "Requirements:\n"
+            "- Return ONLY bullet points.\n"
+            "- Maximum 5 bullet points.\n"
+            "- Maximum 120 words.\n"
+            "- No introduction.\n"
+            "- No conclusion.\n"
+            "- No repetition.\n"
+            "- Keep only the key concepts.\n"
+            "- Preserve formulas if present.\n\n"
+            f"Text:\n{chunk_text}"
+        )
+        result = self._call_llm(
+            "chunk summary", SYSTEM_PROMPT, prompt,
+            num_predict=120,
+        )
+        if not result:
+            return result
+
+        result = result.strip()
+        # Remove duplicated lines (Requirement 2)
+        lines = []
+        seen = set()
+        for line in result.split("\n"):
+            l_strip = line.strip()
+            if not l_strip:
+                continue
+            norm = re.sub(r"\s+", " ", l_strip.lower())
+            if norm not in seen:
+                seen.add(norm)
+                lines.append(line)
+        result = "\n".join(lines).strip()
+
+        # Word count safety (Requirement 2)
+        words = result.split()
+        if len(words) > 120:
+            result = " ".join(words[:120])
+
+        # Safely truncate if output exceeds 350 characters (Requirement 2)
+        if len(result) > 350:
+            truncated = result[:350]
+            last_punct = max(truncated.rfind(". "), truncated.rfind("\n"))
+            if last_punct > 150:
+                result = truncated[:last_punct + 1]
+            else:
+                result = truncated.rstrip()
+
+        return result.strip()
 
     def summarize_page(
         self,
@@ -525,7 +628,6 @@ class QwenService:
             self._JSON_SYSTEM_PROMPT,
             user_prompt,
             num_predict=2048,
-            temperature=0.2,
         )
 
     def generate_flashcards(
@@ -603,7 +705,6 @@ class QwenService:
             self._JSON_SYSTEM_PROMPT,
             user_prompt,
             num_predict=2048,
-            temperature=0.2,
         )
 
     def generate_answer(self, context: str, question: str) -> str | None:
@@ -615,7 +716,6 @@ class QwenService:
         answer = self._call_llm(
             "answer generation", QA_SYSTEM_PROMPT, prompt,
             num_predict=160,
-            temperature=0.2, top_p=0.9, repeat_penalty=1.05,
         )
         if answer:
             print(f"[LLM] answer preview: {answer[:160]}{'...' if len(answer)>160 else ''}")

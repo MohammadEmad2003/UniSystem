@@ -1,7 +1,10 @@
 package com.unisystem.unisystem_nfc
 
+import android.content.ComponentName
 import android.nfc.NfcAdapter
+import android.nfc.cardemulation.CardEmulation
 import android.os.Bundle
+import android.util.Log
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -10,10 +13,13 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterFragmentActivity() {
     private val METHOD_CHANNEL = "com.unisystem.nfc/hce"
     private val EVENT_CHANNEL = "com.unisystem.nfc/hce_events"
+    private val TAG = "MainActivity"
     private var methodChannel: MethodChannel? = null
     private var eventChannel: EventChannel? = null
     private var eventSink: EventChannel.EventSink? = null
     private var currentPayload: String? = null
+    private var nfcAdapter: NfcAdapter? = null
+    private var cardEmulation: CardEmulation? = null
 
     companion object {
         private var instance: MainActivity? = null
@@ -34,6 +40,12 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         instance = this
+        
+        // Initialize NFC adapter and card emulation
+        nfcAdapter = NfcAdapter.getDefaultAdapter(this)
+        cardEmulation = CardEmulation.getInstance(nfcAdapter)
+        
+        Log.d(TAG, "MainActivity created. NFC available: ${nfcAdapter != null}")
     }
 
     override fun onDestroy() {
@@ -124,6 +136,8 @@ class MainActivity : FlutterFragmentActivity() {
         timestamp: Long?
     ): Boolean {
         return try {
+            Log.d(TAG, "Starting HCE session...")
+            
             if (studentId != null && deviceId != null && challenge != null) {
                 val payload = mapOf(
                     "studentId" to studentId,
@@ -132,12 +146,37 @@ class MainActivity : FlutterFragmentActivity() {
                     "timestamp" to (timestamp ?: System.currentTimeMillis())
                 )
                 currentPayload = payload.toString()
+                Log.d(TAG, "Payload set: $currentPayload")
+                
+                // Open NFC payment settings for user to enable the app
+                openNfcSettings()
+                
                 true
             } else {
+                Log.e(TAG, "Invalid parameters: studentId=$studentId, deviceId=$deviceId, challenge=$challenge")
                 false
             }
         } catch (e: Exception) {
+            Log.e(TAG, "Error starting HCE session: ${e.message}", e)
             false
+        }
+    }
+
+    private fun openNfcSettings() {
+        try {
+            val intent = android.content.Intent(android.provider.Settings.ACTION_NFC_PAYMENT_SETTINGS)
+            startActivity(intent)
+            Log.d(TAG, "Opened NFC payment settings")
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not open NFC payment settings: ${e.message}")
+            // Fallback to general NFC settings
+            try {
+                val intent = android.content.Intent(android.provider.Settings.ACTION_NFC_SETTINGS)
+                startActivity(intent)
+                Log.d(TAG, "Opened NFC settings")
+            } catch (e2: Exception) {
+                Log.e(TAG, "Could not open NFC settings (fallback): ${e2.message}")
+            }
         }
     }
 

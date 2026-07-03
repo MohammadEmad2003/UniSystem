@@ -31,7 +31,12 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadPayments();
+    // Delay loading to prevent crash on screen open
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _loadPayments();
+      }
+    });
   }
 
   @override
@@ -47,33 +52,45 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       _paymentSuccess = false;
     });
 
-    final token = await widget.authService.getToken();
-    final user = await widget.authService.getCurrentUser();
+    try {
+      final token = await widget.authService.getToken();
+      final user = await widget.authService.getCurrentUser();
 
-    if (token != null && user != null) {
-      final result = await widget.backendService.getStudentPayments(user.id, token);
-      if (result['success'] == true) {
-        final paymentsData = result['payments'];
-        setState(() {
-          if (paymentsData is Map<String, dynamic>) {
-            _details = paymentsData;
-          } else if (paymentsData is List && paymentsData.isNotEmpty) {
-             // In case the backend returns a list
-            _details = paymentsData[0] is Map ? paymentsData[0] as Map<String, dynamic> : null;
-          } else {
-            _details = null;
-          }
-          _isLoading = false;
-        });
+      if (token != null && user != null) {
+        final result = await widget.backendService.getStudentPayments(user.id, token).timeout(
+          const Duration(seconds: 30),
+          onTimeout: () {
+            throw Exception('Loading payments timeout. Please check your connection.');
+          },
+        );
+        if (result['success'] == true) {
+          final paymentsData = result['payments'];
+          setState(() {
+            if (paymentsData is Map<String, dynamic>) {
+              _details = paymentsData;
+            } else if (paymentsData is List && paymentsData.isNotEmpty) {
+               // In case the backend returns a list
+              _details = paymentsData[0] is Map ? paymentsData[0] as Map<String, dynamic> : null;
+            } else {
+              _details = null;
+            }
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _errorMessage = result['error'] ?? 'Failed to load payment details';
+            _isLoading = false;
+          });
+        }
       } else {
         setState(() {
-          _errorMessage = result['error'] ?? 'Failed to load payment details';
+          _errorMessage = 'Not logged in';
           _isLoading = false;
         });
       }
-    } else {
+    } catch (e) {
       setState(() {
-        _errorMessage = 'Not logged in';
+        _errorMessage = 'Error loading payments: ${e.toString()}';
         _isLoading = false;
       });
     }
@@ -119,6 +136,11 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         user.id,
         amount.toString(),
         token,
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Request timeout. Please check your connection.');
+        },
       );
 
       if (result['success'] != true) {
@@ -130,7 +152,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       final clientSecret = result['clientSecret'];
       final paymentIntentId = result['paymentIntentId'];
 
-      // Initialize Stripe payment sheet
+      // Initialize Stripe payment sheet with timeout
       await stripe.Stripe.instance.initPaymentSheet(
         paymentSheetParameters: stripe.SetupPaymentSheetParameters(
           paymentIntentClientSecret: clientSecret,
@@ -138,15 +160,30 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           allowsDelayedPaymentMethods: true,
           style: ThemeMode.system,
         ),
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Payment sheet initialization timeout.');
+        },
       );
 
-      // Present payment sheet
-      await stripe.Stripe.instance.presentPaymentSheet();
+      // Present payment sheet with timeout
+      await stripe.Stripe.instance.presentPaymentSheet().timeout(
+        const Duration(minutes: 5),
+        onTimeout: () {
+          throw Exception('Payment timeout.');
+        },
+      );
 
       // If we reach here, payment was successful
       
-      // Confirm payment with backend
-      await widget.backendService.confirmPayment(paymentIntentId, token);
+      // Confirm payment with backend with timeout
+      await widget.backendService.confirmPayment(paymentIntentId, token).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Payment confirmation timeout.');
+        },
+      );
 
       setState(() {
         _paymentSuccess = true;
@@ -205,26 +242,23 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
               ? _buildErrorState(isDark)
               : _details == null
                   ? _buildEmptyState(isDark)
-                  : RefreshIndicator(
-                      onRefresh: _loadPayments,
-                      child: SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildSummaryCard(isDark),
-                            const SizedBox(height: 24),
-                            if (_paymentSuccess)
-                              _buildSuccessCard(isDark)
-                            else if (isPaid)
-                              _buildApprovedCard(isDark)
-                            else
-                              _buildPaymentForm(isDark, remaining),
-                            const SizedBox(height: 24),
-                            _buildCoursesCard(isDark),
-                          ],
-                        ),
+                  : SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildSummaryCard(isDark),
+                          const SizedBox(height: 24),
+                          if (_paymentSuccess)
+                            _buildSuccessCard(isDark)
+                          else if (isPaid)
+                            _buildApprovedCard(isDark)
+                          else
+                            _buildPaymentForm(isDark, remaining),
+                          const SizedBox(height: 24),
+                          _buildCoursesCard(isDark),
+                        ],
                       ),
                     ),
     );
@@ -339,7 +373,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             ),
             const SizedBox(height: 20),
             
-            // Progress
+            // Progress - simplified without LinearProgressIndicator
             if (totalFees > 0) ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -349,13 +383,24 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 8,
-                  backgroundColor: isDark ? AppColors.borderDark : AppColors.border,
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.success),
+              Container(
+                height: 8,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: isDark ? AppColors.borderDark : AppColors.border,
+                ),
+                child: FractionallySizedBox(
+                  widthFactor: progress,
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(10),
+                        bottomLeft: Radius.circular(10),
+                      ),
+                      color: AppColors.success,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -410,9 +455,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             TextField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-              ],
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -421,20 +463,10 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.attach_money, color: AppColors.success, size: 28),
                 hintText: '0.00',
-                hintStyle: TextStyle(color: AppColors.success.withOpacity(0.5)),
                 filled: true,
                 fillColor: AppColors.success.withOpacity(0.05),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: AppColors.success.withOpacity(0.2), width: 2),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: AppColors.success.withOpacity(0.2), width: 2),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: AppColors.success, width: 2),
                 ),
               ),
             ),

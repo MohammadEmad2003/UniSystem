@@ -35,6 +35,7 @@ class HceService : HostApduService() {
     
     override fun processCommandApdu(commandApdu: ByteArray?, extras: Bundle?): ByteArray {
         if (commandApdu == null) {
+            Log.e(TAG, "Received null APDU")
             return hexStringToByteArray(RESPONSE_ERROR)
         }
         
@@ -44,19 +45,39 @@ class HceService : HostApduService() {
         return when {
             commandHex.startsWith(SELECT_AID) -> {
                 // SELECT command - return OK
-                Log.d(TAG, "SELECT command received")
+                Log.d(TAG, "SELECT command received, returning OK")
                 hexStringToByteArray(RESPONSE_OK)
             }
             commandHex.startsWith(READ_DATA) -> {
                 // READ command - return payload data from MainActivity
                 Log.d(TAG, "READ command received")
-                val payload = MainActivity.getPayload() ?: "NO_DATA"
+                val payload = MainActivity.getPayload()
                 
-                // Notify Flutter that NFC was read
-                nfcEventCallback?.invoke("nfc_read")
-                
-                val response = payload.toByteArray() + hexStringToByteArray(RESPONSE_OK)
-                response
+                if (payload != null) {
+                    Log.d(TAG, "Returning payload: $payload")
+                    
+                    // Notify Flutter that NFC was read
+                    nfcEventCallback?.invoke("nfc_read")
+                    
+                    // Convert payload to bytes and append status bytes
+                    val payloadBytes = payload.toByteArray()
+                    val statusBytes = hexStringToByteArray(RESPONSE_OK)
+                    val response = payloadBytes + statusBytes
+                    
+                    // Limit response size to avoid buffer overflow (max 255 bytes for APDU)
+                    val finalResponse = if (response.size > 255) {
+                        Log.w(TAG, "Response too large (${response.size} bytes), truncating to 255")
+                        response.copyOf(255)
+                    } else {
+                        response
+                    }
+                    
+                    finalResponse
+                } else {
+                    Log.e(TAG, "No payload available")
+                    val errorResponse = "NO_DATA".toByteArray() + hexStringToByteArray(RESPONSE_ERROR)
+                    errorResponse
+                }
             }
             else -> {
                 Log.d(TAG, "Unknown command: $commandHex")

@@ -152,6 +152,8 @@ class _NfcScanScreenState extends State<NfcScanScreen> {
   }
 
   void _handleNfcEvent(dynamic event, String challenge) {
+    print('📡 NFC Event received: $event');
+    
     // Handle NFC reader interaction
     setState(() {
       _statusMessage = 'NFC interaction detected...';

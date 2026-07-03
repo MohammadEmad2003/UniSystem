@@ -5,7 +5,6 @@ import 'state/app_state.dart';
 import 'services/auth_service.dart';
 import 'services/backend_service.dart';
 import 'services/nfc_service.dart';
-import 'models/student.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/nfc_scan_screen.dart';
@@ -14,13 +13,16 @@ import 'screens/schedule_screen.dart';
 import 'screens/grades_screen.dart';
 import 'screens/payments_screen.dart';
 import 'screens/browse_classes_screen.dart';
+import 'models/student.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 
 String getBaseUrl() {
-  // Use Vercel url for production
-  return 'https://uni-system-psi.vercel.app';
+  // Use Vercel url for production or fallback, but for local dev:
+  // return 'https://uni-system-psi.vercel.app';
 
   // Using your computer's local network IP so both Emulator and Physical devices can connect!
-  // return 'http://192.168.1.5:3000';
+  return 'http://192.168.1.5:3000';
 }
 
 // Web-inspired color scheme
@@ -211,6 +213,14 @@ class _MainNavigationState extends State<MainNavigation> {
       );
     }
 
+    if (appState.currentStudent == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return _buildNavigation();
   }
 
@@ -316,32 +326,66 @@ class _MainNavigationState extends State<MainNavigation> {
       appState.setUser(user);
       print('✅ User set in app state');
       
-      // Create minimal student object from user data (Vercel doesn't have student profile endpoint)
-      final minimalStudent = Student(
-        id: user.id,
-        studentNumber: user.ssn ?? user.id,
-        name: user.name,
-        faculty: 'Faculty of Information Technology',
-        department: user.departmentName ?? (user.departmentId != null ? 'Department ${user.departmentId}' : 'N/A'),
-        academicLevel: user.academicLevel ?? 'N/A',
-        accountStatus: user.accountStatus ?? 'Active',
-        paymentStatus: user.paymentStatus ?? 'Unknown',
-        ssn: user.ssn,
-      );
-      appState.setStudent(minimalStudent);
-      print('✅ Minimal student object created from user data');
+      // Get or generate persistent device ID
+      String? deviceId = await authService.getDeviceId();
+      if (deviceId == null) {
+        deviceId = 'device_${DateTime.now().millisecondsSinceEpoch}';
+        await authService.setDeviceId(deviceId);
+        print('📱 New device ID generated: $deviceId');
+      } else {
+        print('📱 Existing device ID: $deviceId');
+      }
+
+      // Register device with student ID
+      final registerResult = await authService.registerDevice(deviceId, user.id);
+      print('📝 Device registration: ${registerResult['success']}');
       
-      print('🏁 Login success handler completed');
-      // The UI will automatically rebuild due to appState changes
+      // Get student profile with user ID
+      final student = await authService.getStudentProfile(user.id);
+      
+      if (student != null) {
+        appState.setStudent(student);
+        print('✅ Student set in app state from profile');
+      } else {
+        print('⚠️ Student profile not found, generating minimal student from user data...');
+        
+        // Fallback to generating a minimal Student from User data
+        String departmentValue = 'N/A';
+        
+        // Try to get department name from backend if we have departmentId but no departmentName
+        if (user.departmentName != null && user.departmentName!.isNotEmpty) {
+          departmentValue = user.departmentName!;
+        } else if (user.departmentId != null) {
+          final backendService = context.read<BackendService>();
+          final token = await authService.getToken();
+          final deptResult = await backendService.getDepartmentName(user.departmentId!, token ?? '');
+          
+          if (deptResult['success'] == true && deptResult['departmentName'] != null) {
+            departmentValue = deptResult['departmentName'];
+          } else {
+            departmentValue = 'Department ${user.departmentId}';
+          }
+        }
+        
+        final minimalStudent = Student(
+          id: user.id,
+          studentNumber: user.ssn ?? user.id,
+          name: user.name,
+          faculty: 'Faculty of Information Technology',
+          department: departmentValue,
+          academicLevel: user.academicLevel ?? '1',
+          accountStatus: user.accountStatus ?? 'Active',
+          paymentStatus: user.paymentStatus ?? 'Unknown',
+          ssn: user.ssn,
+        );
+        appState.setStudent(minimalStudent);
+        print('✅ Minimal student object created and set in app state');
+      }
     } else {
       print('❌ User is null, cannot proceed');
-      // Show error to user
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load user profile')),
-        );
-      }
     }
+    
+    print('🏁 Login success handler completed');
   }
 
   Future<void> _handleLogout() async {
@@ -351,6 +395,5 @@ class _MainNavigationState extends State<MainNavigation> {
     await authService.clearAuth();
     appState.logout();
   }
-
-
 }
+

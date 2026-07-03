@@ -316,7 +316,14 @@ class BackendService {
       }
       
       final errorData = jsonDecode(response.body);
-      return {'success': false, 'error': errorData['message']?.msg ?? errorData['message'] ?? 'Enrollment failed'};
+      dynamic msgData = errorData['message'] ?? errorData['msg'];
+      String errorMsg = 'Enrollment failed';
+      if (msgData is Map) {
+        errorMsg = msgData['msg']?.toString() ?? msgData.toString();
+      } else if (msgData != null) {
+        errorMsg = msgData.toString();
+      }
+      return {'success': false, 'error': errorMsg};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }
@@ -339,6 +346,27 @@ class BackendService {
       
       final errorData = jsonDecode(response.body);
       return {'success': false, 'error': errorData['message'] ?? 'Drop failed'};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> getDepartmentName(int departmentId, String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/departments/$departmentId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {'success': true, 'departmentName': data['data']['name'] ?? data['name']};
+      }
+      
+      return {'success': false, 'error': 'Department not found'};
     } catch (e) {
       return {'success': false, 'error': e.toString()};
     }

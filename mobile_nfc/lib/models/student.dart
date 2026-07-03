@@ -24,12 +24,17 @@ class Student {
   });
 
   factory Student.fromJson(Map<String, dynamic> json) {
+    final department = json['department']?.toString() ?? 
+                      json['department_name']?.toString() ?? 
+                      json['department_id']?.toString() ?? 
+                      '';
+    
     return Student(
       id: json['id']?.toString() ?? json['user_id']?.toString() ?? '',
       studentNumber: json['studentNumber']?.toString() ?? json['student_id']?.toString() ?? '',
       name: json['name']?.toString() ?? '${json['f_name'] ?? ''} ${json['l_name'] ?? ''}'.trim(),
       faculty: json['faculty']?.toString() ?? 'Faculty of Information Technology',
-      department: json['department']?.toString() ?? json['department_id']?.toString() ?? '',
+      department: department,
       academicLevel: json['academicLevel']?.toString() ?? json['academic_level']?.toString() ?? '1',
       photoUrl: json['photoUrl']?.toString(),
       accountStatus: json['accountStatus']?.toString() ?? json['account_status']?.toString() ?? 'pending',

@@ -575,14 +575,12 @@ const profile = asyncWrapper(async (req, res, next) => {
   if (user.role === "Student") {
     const student = await studentQueries.getById(user.user_id);
     if (student) {
-      // Fetch department name
       let departmentName = null;
       if (student.dept_id) {
-        const deptResult = await db.query(
-          `SELECT name FROM Department WHERE dept_id = $1`,
-          [student.dept_id]
-        );
-        departmentName = deptResult.rows[0]?.name ?? null;
+        const deptResult = await db.query('SELECT dept_name FROM Department WHERE dept_id = $1', [student.dept_id]);
+        if (deptResult.rows && deptResult.rows.length > 0) {
+          departmentName = deptResult.rows[0].dept_name;
+        }
       }
       profileData = {
         ...profileData,
@@ -599,10 +597,18 @@ const profile = asyncWrapper(async (req, res, next) => {
   } else if (user.role === "Doctor") {
     const doctor = await doctorQueries.getById(user.user_id);
     if (doctor) {
+      let departmentName = null;
+      if (doctor.dept_id) {
+        const deptResult = await db.query('SELECT dept_name FROM Department WHERE dept_id = $1', [doctor.dept_id]);
+        if (deptResult.rows && deptResult.rows.length > 0) {
+          departmentName = deptResult.rows[0].dept_name;
+        }
+      }
       profileData = {
         ...profileData,
         specialization: doctor.specialization,
         department_id: doctor.dept_id,
+        department_name: departmentName,
       };
     }
   } else if (user.role === "Admin") {

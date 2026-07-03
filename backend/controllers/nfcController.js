@@ -170,7 +170,7 @@ exports.verifyResponse = async (req, res) => {
           id: student.user_id,
           name: `${student.f_name} ${student.l_name}`,
           studentNumber: student.student_id,
-          department: student.department_id
+          department: student.department_id?.toString() || 'N/A'
         }
       }
     });
@@ -237,9 +237,11 @@ exports.getStudent = async (req, res) => {
     const { id } = req.params;
 
     const studentQuery = `
-      SELECT u.user_id, s.ssn as student_id, u.f_name, u.l_name, s.dept_id as department_id, s.academic_level, u.account_status, s.payment_status
+      SELECT u.user_id, s.ssn as student_id, u.f_name, u.l_name, s.dept_id as department_id, 
+             d.dept_name as department_name, s.academic_level, u.account_status, s.payment_status
       FROM "User" u
       JOIN student s ON u.user_id = s.user_id
+      LEFT JOIN Department d ON s.dept_id = d.dept_id
       WHERE u.user_id = $1
     `;
     const studentResult = await query(studentQuery, [id]);
@@ -260,7 +262,7 @@ exports.getStudent = async (req, res) => {
         studentNumber: student.student_id,
         name: `${student.f_name} ${student.l_name}`,
         faculty: 'Faculty of Information Technology',
-        department: student.department_id,
+        department: student.department_name || student.department_id?.toString() || 'N/A',
         academicLevel: student.academic_level,
         accountStatus: student.account_status,
         paymentStatus: student.payment_status

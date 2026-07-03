@@ -186,20 +186,6 @@ const nfcAttendance = asyncWrapper(async (req, res) => {
   const lectureResult = await db.query(`SELECT lec_id FROM Lecture WHERE room_id = $1 AND status = 'open'`, [rk]);
   const lecture = lectureResult.rows[0];
 
-  const lec_id = lecture?.lec_id;
-
-  // Monitor Path: Emit to Socket.io (Proxy Mode)
-  // This allows the Admin/Link Card page to see the scan even if no lecture is active.
-  const io = req.app.get("io");
-  if (io) {
-    io.emit("nfc_scan", {
-      uid,
-      lec_id,
-      room_id: rk,
-      time: new Date().toISOString()
-    });
-  }
-
   if (!lecture) {
     return res.status(400).json({ success: httpstatustext.error, message: "No active lecture in this room" });
   }
@@ -382,6 +368,81 @@ async function processAttendance(userId, lecId, method, res) {
   });
 }
 
+const scanCardOnly = asyncWrapper(async (req, res) => {
+  const { uid, room_id } = req.body;
+  console.log(`[Hardware] Standalone Card Read - UID: ${uid}, Room: ${room_id}`);
+
+  if (!uid) {
+    return res.status(400).json({ success: httpstatustext.error, message: "uid is required" });
+  }
+
+  const rk = normalizeRoomKey(room_id);
+
+  const studentResult = await db.query(
+    `SELECT s.user_id, u.f_name, u.l_name
+       FROM Student s
+       INNER JOIN "User" u ON s.user_id = u.user_id
+      WHERE s.nfc_tag_id = $1`,
+    [uid]
+  );
+  const student = studentResult.rows[0] || null;
+  const studentName = student ? `${student.f_name || ''} ${student.l_name || ''}`.trim() : null;
+
+  const io = req.app.get("io");
+  if (io) {
+    io.emit("nfc_scan", {
+      uid,
+      room_id: rk || null,
+      linked: !!student,
+      studentId: student ? student.user_id : null,
+      studentName,
+      time: new Date().toISOString()
+    });
+  }
+
+  return res.status(200).json({
+    success: httpstatustext.success,
+    message: student ? "Card linked" : "Card not linked",
+    data: { uid, linked: !!student, studentId: student ? student.user_id : null, studentName }
+  });
+});
+
+const readCardInfo = asyncWrapper(async (req, res) => {
+  const { uid, room_id } = req.body;
+  console.log(`[Hardware] Card Info Read - UID: ${uid}, Room: ${room_id}`);
+
+  if (!uid) {
+    return res.status(400).json({ success: httpstatustext.error, message: "uid is required" });
+  }
+
+  const rk = normalizeRoomKey(room_id);
+
+  const studentResult = await db.query(
+    `SELECT s.user_id, u.f_name, u.l_name, s.academic_level, s.total_gpa, d.dept_name
+       FROM Student s
+       INNER JOIN "User" u ON s.user_id = u.user_id
+       LEFT JOIN Department d ON s.dept_id = d.dept_id
+      WHERE s.nfc_tag_id = $1`,
+    [uid]
+  );
+  const student = studentResult.rows[0] || null;
+  const studentName = student ? `${student.f_name || ''} ${student.l_name || ''}`.trim() : null;
+
+  return res.status(200).json({
+    success: httpstatustext.success,
+    message: student ? "Card info retrieved" : "Card not linked",
+    data: { 
+      uid, 
+      linked: !!student, 
+      studentId: student ? student.user_id : null, 
+      studentName,
+      academicLevel: student ? student.academic_level : null,
+      gpa: student ? student.total_gpa : null,
+      department: student ? student.dept_name : null
+    }
+  });
+});
+
 module.exports = {
   getLectureAttendance,
   getStudentAttendanceByClass,
@@ -391,5 +452,7 @@ module.exports = {
   recordAttendance,
   nfcAttendance,
   manualAttendance,
-  onlineAttendance
+  onlineAttendance,
+  scanCardOnly,
+  readCardInfo
 };

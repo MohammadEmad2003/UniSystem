@@ -111,6 +111,12 @@ app.use("/api/payment", paymentRouter);
 const attendanceRouter = require('./routes/attendance');
 app.use('/api/attendance', attendanceRouter);
 
+// Direct top-level NFC routes for ESP32 hardware compatibility
+const { scanCardOnly, readCardInfo } = require('./controllers/attendanceController');
+app.post('/api/nfc/scan', scanCardOnly);
+app.post('/api/nfc/read-only', scanCardOnly);
+app.post('/api/nfc/read-info', readCardInfo);
+
 const questionsRouter = require('./routes/questions');
 app.use('/api/questions', questionsRouter);
 

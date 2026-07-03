@@ -575,11 +575,21 @@ const profile = asyncWrapper(async (req, res, next) => {
   if (user.role === "Student") {
     const student = await studentQueries.getById(user.user_id);
     if (student) {
+      // Fetch department name
+      let departmentName = null;
+      if (student.dept_id) {
+        const deptResult = await db.query(
+          `SELECT name FROM Department WHERE dept_id = $1`,
+          [student.dept_id]
+        );
+        departmentName = deptResult.rows[0]?.name ?? null;
+      }
       profileData = {
         ...profileData,
         ssn: student.ssn,
         academic_level: student.academic_level,
         department_id: student.dept_id,
+        department_name: departmentName,
         nfc_tag_id: student.nfc_tag_id,
         payment_status: student.payment_status,
         total_hours: student.total_hours,

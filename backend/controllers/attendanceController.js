@@ -7,7 +7,6 @@ const normalizeRoomKey = (room_id) => {
   return String(room_id).trim();
 };
 
-// GET /lectures/:lectureId/attendance
 
 const getLectureAttendance = asyncWrapper(async (req, res) => {
   const { lectureId } = req.params;

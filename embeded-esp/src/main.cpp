@@ -11,8 +11,8 @@
 #include "BuzzerModule.h"
 
 // إعدادات الشبكة والسيرفر
-const char *ssid = "A9";
-const char *password = "33113109";
+const char *ssid = "realme";
+const char *password = "12345678";
 const char *serverUrl = "https://uni-system-psi.vercel.app";
 const int currentRoomId = 2;
 

@@ -198,7 +198,7 @@ const nfcAttendance = asyncWrapper(async (req, res) => {
     return res.status(404).json({ success: httpstatustext.error, message: "Student not found with this NFC tag" });
   }
 
-  return processAttendance(student.user_id, lec_id, 'nfc', res);
+  return processAttendance(student.user_id, lecture.lec_id, 'nfc', res);
 });
 
 // POST /attendance/manual

@@ -190,12 +190,58 @@ const nfcAttendance = asyncWrapper(async (req, res) => {
     return res.status(400).json({ success: httpstatustext.error, message: "No active lecture in this room" });
   }
 
-  // Find student by NFC UID
-  const studentResult = await db.query(`SELECT user_id FROM Student WHERE nfc_tag_id = $1`, [uid]);
-  const student = studentResult.rows[0];
+  // Check if uid is actually an HCE JSON payload (phone HCE)
+  let studentId = null;
+  let isHcePayload = false;
+
+  try {
+    let uidToParse = uid;
+
+    // Try to decode hex string (phone HCE sends hex-encoded JSON)
+    if (uid.length > 20 && !uid.includes(':') && /^[0-9a-fA-F]+$/.test(uid)) {
+      try {
+        let decoded = '';
+        for (let i = 0; i < uid.length; i += 2) {
+          decoded += String.fromCharCode(parseInt(uid.substr(i, 2), 16));
+        }
+        uidToParse = decoded;
+        console.log(`[Hardware] Decoded hex string to: ${uidToParse.substring(0, 50)}...`);
+      } catch (hexError) {
+        console.log(`[Hardware] Hex decode failed, using original uid`);
+      }
+    }
+
+    // Try to parse as JSON - if it has studentId, it's an HCE payload
+    if (uidToParse.includes('studentId') || uidToParse.includes('deviceId')) {
+      const parsed = JSON.parse(uidToParse);
+      if (parsed.studentId) {
+        studentId = parsed.studentId;
+        isHcePayload = true;
+        console.log(`[Hardware] Detected HCE payload from phone, studentId: ${studentId}`);
+      }
+    }
+  } catch (e) {
+    // Not JSON, treat as regular UID
+    console.log(`[Hardware] Regular NFC card UID`);
+  }
+
+  let student;
+
+  if (isHcePayload) {
+    // For HCE payload, look up student by user_id directly
+    const studentResult = await db.query(`SELECT user_id FROM "User" WHERE user_id = $1`, [studentId]);
+    student = studentResult.rows[0];
+  } else {
+    // For regular card, look up by NFC tag ID
+    const studentResult = await db.query(`SELECT user_id FROM Student WHERE nfc_tag_id = $1`, [uid]);
+    student = studentResult.rows[0];
+  }
 
   if (!student) {
-    return res.status(404).json({ success: httpstatustext.error, message: "Student not found with this NFC tag" });
+    return res.status(404).json({ 
+      success: httpstatustext.error, 
+      message: isHcePayload ? "Student not found from HCE payload" : "Student not found with this NFC tag" 
+    });
   }
 
   return processAttendance(student.user_id, lecture.lec_id, 'nfc', res);

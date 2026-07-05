@@ -8,7 +8,6 @@ class BackendService {
   BackendService({required this.baseUrl});
 
   Future<String?> getToken() async {
-    // This should be called from AuthService, but for simplicity we'll get it here
     // In production, use dependency injection
     return null;
   }

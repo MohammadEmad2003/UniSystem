@@ -10,6 +10,7 @@ class User {
   final int? departmentId;
   final String? departmentName;
   final String? ssn;
+  final String? nfcTagId;  // إضافة NFC Tag ID
 
   User({
     required this.id,
@@ -23,6 +24,7 @@ class User {
     this.departmentId,
     this.departmentName,
     this.ssn,
+    this.nfcTagId,  // إضافة هنا
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -38,6 +40,7 @@ class User {
       departmentId: json['department_id'] != null ? int.tryParse(json['department_id'].toString()) : null,
       departmentName: json['department_name']?.toString(),
       ssn: json['ssn']?.toString(),
+      nfcTagId: json['nfcTagId']?.toString() ?? json['nfc_tag_id']?.toString(),  // من API
     );
   }
 
@@ -54,6 +57,7 @@ class User {
       'department_id': departmentId,
       'department_name': departmentName,
       'ssn': ssn,
+      'nfcTagId': nfcTagId,
     };
   }
 }

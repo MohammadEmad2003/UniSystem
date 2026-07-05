@@ -75,7 +75,8 @@ class MainActivity : FlutterFragmentActivity() {
                     val deviceId = call.argument<String>("deviceId")
                     val challenge = call.argument<String>("challenge")
                     val timestamp = call.argument<Long>("timestamp")
-                    val success = startHceSession(studentId, deviceId, challenge, timestamp)
+                    val nfcTagId = call.argument<String>("nfcTagId")  // إضافة NFC Tag ID
+                    val success = startHceSession(studentId, deviceId, challenge, timestamp, nfcTagId)
                     result.success(success)
                 }
                 "stopHceSession" -> {
@@ -133,28 +134,24 @@ class MainActivity : FlutterFragmentActivity() {
         studentId: String?,
         deviceId: String?,
         challenge: String?,
-        timestamp: Long?
+        timestamp: Long?,
+        nfcTagId: String?
     ): Boolean {
         return try {
             Log.d(TAG, "Starting HCE session...")
             
-            if (studentId != null && deviceId != null && challenge != null) {
-                // Create proper JSON string instead of Map.toString()
-                val payload = """{
-                    "studentId":"$studentId",
-                    "deviceId":"$deviceId",
-                    "challenge":"$challenge",
-                    "timestamp":${timestamp ?: System.currentTimeMillis()}
-                }"""
+            if (nfcTagId != null && !nfcTagId.isEmpty()) {
+                // Send only the NFC Tag ID - mimics physical card behavior
+                val payload = nfcTagId
                 currentPayload = payload
-                Log.d(TAG, "Payload set: $currentPayload")
+                Log.d(TAG, "Payload set to NFC Tag ID: $payload")
                 
                 // Open NFC payment settings for user to enable the app
                 openNfcSettings()
                 
                 true
             } else {
-                Log.e(TAG, "Invalid parameters: studentId=$studentId, deviceId=$deviceId, challenge=$challenge")
+                Log.e(TAG, "Invalid nfcTagId: $nfcTagId")
                 false
             }
         } catch (e: Exception) {

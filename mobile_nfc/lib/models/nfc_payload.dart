@@ -5,6 +5,7 @@ class NfcPayload {
   final int timestamp;
   final String? signature;
   final String? hash;
+  final String? nfcTagId;  // إضافة NFC Tag ID
 
   NfcPayload({
     required this.studentId,
@@ -13,6 +14,7 @@ class NfcPayload {
     required this.timestamp,
     this.signature,
     this.hash,
+    this.nfcTagId,  // إضافة هنا
   });
 
   factory NfcPayload.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,7 @@ class NfcPayload {
       timestamp: json['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
       signature: json['signature'],
       hash: json['hash'],
+      nfcTagId: json['nfcTagId'],  // من API
     );
   }
 
@@ -34,6 +37,7 @@ class NfcPayload {
       'timestamp': timestamp,
       if (signature != null) 'signature': signature,
       if (hash != null) 'hash': hash,
+      if (nfcTagId != null) 'nfcTagId': nfcTagId,
     };
   }
 

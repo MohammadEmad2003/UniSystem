@@ -9,6 +9,7 @@ class Student {
   final String accountStatus;
   final String paymentStatus;
   final String? ssn;
+  final String? nfcTagId;  // إضافة NFC Tag ID
 
   Student({
     required this.id,
@@ -21,6 +22,7 @@ class Student {
     required this.accountStatus,
     required this.paymentStatus,
     this.ssn,
+    this.nfcTagId,  // إضافة هنا
   });
 
   factory Student.fromJson(Map<String, dynamic> json) {
@@ -40,6 +42,7 @@ class Student {
       accountStatus: json['accountStatus']?.toString() ?? json['account_status']?.toString() ?? 'pending',
       paymentStatus: json['paymentStatus']?.toString() ?? json['payment_status']?.toString() ?? 'unpaid',
       ssn: json['ssn']?.toString(),
+      nfcTagId: json['nfcTagId']?.toString() ?? json['nfc_tag_id']?.toString(),  // من API
     );
   }
 
@@ -55,6 +58,7 @@ class Student {
       'accountStatus': accountStatus,
       'paymentStatus': paymentStatus,
       'ssn': ssn,
+      'nfcTagId': nfcTagId,
     };
   }
 }

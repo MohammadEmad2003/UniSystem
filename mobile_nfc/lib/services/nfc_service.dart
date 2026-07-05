@@ -70,6 +70,7 @@ class NfcService {
         'timestamp': payload.timestamp,
         'signature': payload.signature,
         'hash': payload.hash,
+        'nfcTagId': payload.nfcTagId,  // إضافة NFC Tag ID
       });
       _isScanning = result ?? false;
       return _isScanning;

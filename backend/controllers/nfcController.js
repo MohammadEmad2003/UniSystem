@@ -238,7 +238,7 @@ exports.getStudent = async (req, res) => {
 
     const studentQuery = `
       SELECT u.user_id, s.ssn as student_id, u.f_name, u.l_name, s.dept_id as department_id, 
-             d.dept_name as department_name, s.academic_level, u.account_status, s.payment_status
+             d.dept_name as department_name, s.academic_level, u.account_status, s.payment_status, s.nfc_tag_id
       FROM "User" u
       JOIN student s ON u.user_id = s.user_id
       LEFT JOIN Department d ON s.dept_id = d.dept_id
@@ -265,7 +265,8 @@ exports.getStudent = async (req, res) => {
         department: student.department_name || student.department_id?.toString() || 'N/A',
         academicLevel: student.academic_level,
         accountStatus: student.account_status,
-        paymentStatus: student.payment_status
+        paymentStatus: student.payment_status,
+        nfcTagId: student.nfc_tag_id
       }
     });
   } catch (error) {

@@ -113,12 +113,13 @@ class _NfcScanScreenState extends State<NfcScanScreen> {
     final challenge = challengeResult['challenge'];
     final timestamp = challengeResult['timestamp'] ?? DateTime.now().millisecondsSinceEpoch;
 
-    // Create NFC payload
+    // Create NFC payload مع NFC Tag ID من database
     final payload = NfcPayload(
       studentId: student.id,
       deviceId: deviceId,
       challenge: challenge,
       timestamp: timestamp,
+      nfcTagId: student.nfcTagId,  // إضافة NFC Tag من database
     );
 
     setState(() {

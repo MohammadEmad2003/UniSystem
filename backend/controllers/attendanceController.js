@@ -285,6 +285,17 @@ const nfcAttendance = asyncWrapper(async (req, res) => {
     console.log(`[Hardware] ❌ NFC Attendance FAILED - ${errorMessage}`);
     console.log(`[Hardware] Debug Info:`, debugInfo);
     
+    // Extra debugging for HCE issues
+    if (!isHcePayload && uid && uid.includes(':')) {
+      console.log(`[Hardware] ⚠️ Detected colon-separated UID format (${uid})`);
+      console.log(`[Hardware] ℹ️ This looks like a physical card or HCE not properly initialized`);
+      console.log(`[Hardware] ℹ️ If this is a phone scan, please check:`);
+      console.log(`[Hardware]   1. Flutter app is updated with latest code`);
+      console.log(`[Hardware]   2. NFC is enabled on phone`);
+      console.log(`[Hardware]   3. App is set as default NFC payment app`);
+      console.log(`[Hardware]   4. Student UID is registered in database: ${uid}`);
+    }
+    
     return res.status(404).json({ 
       success: httpstatustext.error, 
       message: errorMessage,

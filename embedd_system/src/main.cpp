@@ -119,18 +119,23 @@ void loop() {
   if (scanCard()) {
 
     String uid = getUID();
+    String hceData = getHcePayload();
 
-    if (uid != lastUid || millis() - lastUidTime > 2000) {
+    // If HCE payload is available, use it instead of UID
+    String dataToSend = hceData.length() > 0 ? hceData : uid;
 
-      StaticJsonDocument<128> doc;
+    if (dataToSend != lastUid || millis() - lastUidTime > 2000) {
+
+      StaticJsonDocument<256> doc;
 
       doc["type"] = "nfc_detected";
-      doc["uid"] = uid;
+      doc["uid"] = dataToSend;
+      doc["isHce"] = hceData.length() > 0;
 
       serializeJson(doc, Serial);
       Serial.println();
 
-      lastUid = uid;
+      lastUid = dataToSend;
       lastUidTime = millis();
     }
   }

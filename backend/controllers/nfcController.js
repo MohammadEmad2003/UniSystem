@@ -344,3 +344,210 @@ exports.registerDevice = async (req, res) => {
     });
   }
 };
+
+// POST /api/nfc/direct-attendance
+// New endpoint for phone to submit attendance directly (bypass embedded system)
+exports.directAttendance = async (req, res) => {
+  try {
+    const { studentId, deviceId, challenge, room_id } = req.body;
+
+    if (!studentId || !room_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'studentId and room_id are required'
+      });
+    }
+
+    // Verify student exists
+    const studentQuery = `
+      SELECT u.user_id, u.f_name, u.l_name, u.account_status
+      FROM "User" u
+      WHERE u.user_id = $1
+    `;
+    const studentResult = await query(studentQuery, [studentId]);
+
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    const student = studentResult.rows[0];
+
+    // Check if student is approved
+    if (student.account_status !== 'approved') {
+      return res.status(403).json({
+        success: false,
+        message: 'Student account is not approved'
+      });
+    }
+
+    // Verify room exists
+    const roomQuery = `SELECT room_id FROM Room WHERE room_id = $1`;
+    const roomResult = await query(roomQuery, [room_id]);
+
+    if (roomResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Room not found'
+      });
+    }
+
+    // Find active lecture in this room
+    const lectureQuery = `
+      SELECT lec_id, class_id, start_time, end_time, type
+      FROM Lecture
+      WHERE room_id = $1 AND status = 'open'
+    `;
+    const lectureResult = await query(lectureQuery, [room_id]);
+    const lecture = lectureResult.rows[0];
+
+    if (!lecture) {
+      return res.status(400).json({
+        success: false,
+        message: 'No active lecture in this room'
+      });
+    }
+
+    // Verify student enrollment
+    const enrollmentQuery = `
+      SELECT * FROM Enrollment WHERE user_id = $1 AND class_id = $2
+    `;
+    const enrollmentResult = await query(enrollmentQuery, [studentId, lecture.class_id]);
+
+    if (enrollmentResult.rows.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Student is not enrolled in this class'
+      });
+    }
+
+    // Calculate early/late check
+    const now = new Date();
+    const startTime = new Date(lecture.start_time);
+    const endTime = lecture.end_time ? new Date(lecture.end_time) : null;
+
+    let earlyCheck = 0;
+    let lateCheck = 0;
+
+    // Early Window = Start_Time → Start_Time + 15 min
+    const earlyLimit = new Date(startTime.getTime() + 15 * 60000);
+    if (now >= startTime && now <= earlyLimit) {
+      earlyCheck = 1;
+    }
+
+    // Late Window = After End_Time (up to 15 mins)
+    if (endTime) {
+      const timeSinceEnd = now.getTime() - endTime.getTime();
+
+      if (timeSinceEnd > 15 * 60000) {
+        // Close the lecture
+        await query(`UPDATE Lecture SET status = 'closed' WHERE lec_id = $1`, [lecture.lec_id]);
+        return res.status(400).json({
+          success: false,
+          message: 'Attendance window closed (15 minutes passed since lecture ended)'
+        });
+      } else {
+        lateCheck = 1;
+      }
+    }
+
+    // Check if attendance already exists
+    const existingQuery = `
+      SELECT * FROM Attendance WHERE user_id = $1 AND lec_id = $2
+    `;
+    const existingResult = await query(existingQuery, [studentId, lecture.lec_id]);
+    const existing = existingResult.rows[0];
+
+    if (existing) {
+      // Update existing record
+      const updateData = {
+        early_check: existing.early_check || earlyCheck,
+        late_check: existing.late_check || lateCheck,
+        method: 'nfc',
+        time: new Date().toISOString()
+      };
+
+      await query(
+        `UPDATE Attendance SET early_check = $1, late_check = $2, method = $3, time = $4 WHERE user_id = $5 AND lec_id = $6`,
+        [updateData.early_check, updateData.late_check, updateData.method, updateData.time, studentId, lecture.lec_id]
+      );
+    } else {
+      // Insert new record
+      await query(
+        `INSERT INTO Attendance (user_id, lec_id, early_check, late_check, method) VALUES ($1, $2, $3, $4, $5)`,
+        [studentId, lecture.lec_id, earlyCheck, lateCheck, 'nfc']
+      );
+    }
+
+    let message = 'Attendance recorded';
+    if (lateCheck) message = 'Last attendance recorded';
+    else if (earlyCheck) message = 'First attendance recorded';
+
+    res.json({
+      success: true,
+      message,
+      data: {
+        studentId,
+        studentName: `${student.f_name} ${student.l_name}`,
+        earlyCheck,
+        lateCheck,
+        lectureId: lecture.lec_id
+      }
+    });
+  } catch (error) {
+    console.error('Direct attendance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// GET /api/nfc/my-tag
+// Get the NFC tag ID for the logged-in student
+exports.getMyTag = async (req, res) => {
+  try {
+    const { studentId } = req.query;
+
+    if (!studentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'studentId is required'
+      });
+    }
+
+    const studentQuery = `
+      SELECT s.nfc_tag_id, u.user_id, u.f_name, u.l_name
+      FROM Student s
+      JOIN "User" u ON s.user_id = u.user_id
+      WHERE s.user_id = $1
+    `;
+    const studentResult = await query(studentQuery, [studentId]);
+
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    const student = studentResult.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        studentId: student.user_id,
+        studentName: `${student.f_name} ${student.l_name}`,
+        nfcTagId: student.nfc_tag_id
+      }
+    });
+  } catch (error) {
+    console.error('Get my tag error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};

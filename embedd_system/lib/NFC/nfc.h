@@ -7,6 +7,8 @@
 void initNFC(uint8_t csPin);
 bool scanCard();
 String getUID();
+String getHcePayload();
+String readHcePayload();
 bool nfcIsOnline();
 
 #endif

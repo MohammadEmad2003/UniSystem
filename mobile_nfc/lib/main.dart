@@ -246,7 +246,7 @@ class _MainNavigationState extends State<MainNavigation> {
                 backendService: context.read<BackendService>(),
                 authService: context.read<AuthService>(),
                 onScanComplete: () => Navigator.pushNamed(
-                  navContext, 
+                  navContext,
                   '/attendance-result',
                   arguments: {
                     'success': true,

@@ -33,6 +33,7 @@ class _NfcScanScreenState extends State<NfcScanScreen> {
   String _statusMessage = 'Initializing NFC...';
   String? _errorMessage;
   StreamSubscription? _eventSubscription;
+  String? _nfcTagId;
 
   @override
   void initState() {
@@ -47,7 +48,7 @@ class _NfcScanScreenState extends State<NfcScanScreen> {
     });
 
     final isAvailable = await widget.nfcService.isNfcAvailable();
-    
+
     if (!isAvailable) {
       setState(() {
         _isInitializing = false;
@@ -59,7 +60,7 @@ class _NfcScanScreenState extends State<NfcScanScreen> {
     }
 
     final initialized = await widget.nfcService.initialize();
-    
+
     if (!initialized) {
       setState(() {
         _isInitializing = false;
@@ -70,13 +71,26 @@ class _NfcScanScreenState extends State<NfcScanScreen> {
       return;
     }
 
-    await _startNfcSession();
+    // Get student's NFC tag ID from backend
+    final student = await widget.authService.getCurrentUser();
+    final token = await widget.authService.getToken();
+
+    if (student != null && token != null) {
+      final tagResult = await widget.backendService.getMyTag(student.id, token);
+      if (tagResult['success'] == true) {
+        setState(() {
+          _nfcTagId = tagResult['nfcTagId'];
+        });
+      }
+    }
+
+    await _startHceSession();
   }
 
-  Future<void> _startNfcSession() async {
+  Future<void> _startHceSession() async {
     final deviceId = await widget.authService.getDeviceId();
     final student = await widget.authService.getCurrentUser();
-    
+
     if (deviceId == null || student == null) {
       setState(() {
         _isInitializing = false;
@@ -90,36 +104,16 @@ class _NfcScanScreenState extends State<NfcScanScreen> {
     setState(() {
       _isInitializing = false;
       _isScanning = true;
-      _statusMessage = 'Requesting challenge...';
+      _statusMessage = 'Starting HCE session...';
     });
 
-    // Request challenge from backend
-    final challengeResult = await widget.backendService.requestAuthChallenge(
-      student.id,
-      deviceId,
-      await widget.authService.getToken() ?? '',
-    );
-
-    if (challengeResult['success'] != true) {
-      setState(() {
-        _hasError = true;
-        _errorMessage = challengeResult['error'] ?? 'Failed to get challenge';
-        _statusMessage = 'Challenge Failed';
-        _isScanning = false;
-      });
-      return;
-    }
-
-    final challenge = challengeResult['challenge'];
-    final timestamp = challengeResult['timestamp'] ?? DateTime.now().millisecondsSinceEpoch;
-
-    // Create NFC payload مع NFC Tag ID من database
+    // Create NFC payload with nfcTagId
     final payload = NfcPayload(
       studentId: student.id,
       deviceId: deviceId,
-      challenge: challenge,
-      timestamp: timestamp,
-      nfcTagId: student.nfcTagId,  // إضافة NFC Tag من database
+      challenge: '', // No challenge needed for simple HCE
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+      nfcTagId: _nfcTagId, // Send nfcTagId from database
     );
 
     setState(() {
@@ -128,7 +122,7 @@ class _NfcScanScreenState extends State<NfcScanScreen> {
 
     // Start HCE session
     final hceStarted = await widget.nfcService.startHceSession(payload);
-    
+
     if (!hceStarted) {
       setState(() {
         _hasError = true;
@@ -141,7 +135,7 @@ class _NfcScanScreenState extends State<NfcScanScreen> {
 
     // Listen for NFC events
     _eventSubscription = widget.nfcService.events.listen((event) {
-      _handleNfcEvent(event, challenge);
+      _handleNfcEvent(event);
     });
 
     // Set a timeout for the scan
@@ -152,16 +146,58 @@ class _NfcScanScreenState extends State<NfcScanScreen> {
     });
   }
 
-  void _handleNfcEvent(dynamic event, String challenge) {
+  void _handleNfcEvent(dynamic event) {
     print('📡 NFC Event received: $event');
-    
-    // Handle NFC reader interaction
+
     setState(() {
-      _statusMessage = 'NFC interaction detected...';
+      _statusMessage = 'NFC detected! Recording attendance...';
     });
 
-    // Verify with backend
-    _verifyAttendance(challenge);
+    // Use direct attendance endpoint
+    _recordAttendance();
+  }
+
+  Future<void> _recordAttendance() async {
+    final deviceId = await widget.authService.getDeviceId();
+    final student = await widget.authService.getCurrentUser();
+    final token = await widget.authService.getToken();
+
+    if (deviceId == null || student == null || token == null) {
+      setState(() {
+        _hasError = true;
+        _errorMessage = 'Missing credentials';
+        _statusMessage = 'Failed';
+        _isScanning = false;
+      });
+      return;
+    }
+
+    final result = await widget.backendService.directAttendance(
+      student.id,
+      deviceId,
+      '',
+      2, // Default room_id
+      token,
+    );
+
+    await widget.nfcService.stopHceSession();
+
+    if (result['success'] == true) {
+      setState(() {
+        _statusMessage = 'Attendance recorded!';
+        _isScanning = false;
+      });
+      Future.delayed(const Duration(seconds: 1), () {
+        widget.onScanComplete();
+      });
+    } else {
+      setState(() {
+        _hasError = true;
+        _errorMessage = result['message'] ?? 'Attendance failed';
+        _statusMessage = 'Failed';
+        _isScanning = false;
+      });
+    }
   }
 
   void _handleScanTimeout() {
@@ -174,47 +210,6 @@ class _NfcScanScreenState extends State<NfcScanScreen> {
     widget.nfcService.stopHceSession();
   }
 
-  Future<void> _verifyAttendance(String challenge) async {
-    final deviceId = await widget.authService.getDeviceId();
-    final student = await widget.authService.getCurrentUser();
-    
-    if (deviceId == null || student == null) {
-      setState(() {
-        _hasError = true;
-        _errorMessage = 'Verification failed: Missing credentials';
-        _statusMessage = 'Verification Failed';
-        _isScanning = false;
-      });
-      return;
-    }
-
-    setState(() {
-      _statusMessage = 'Verifying attendance...';
-    });
-
-    // Create challenge response (simplified - in production use proper crypto)
-    final challengeResponse = '$challenge:${DateTime.now().millisecondsSinceEpoch}';
-
-    final result = await widget.backendService.verifyResponse(
-      student.id,
-      challengeResponse,
-      deviceId,
-    );
-
-    await widget.nfcService.stopHceSession();
-
-    if (result['success'] == true && result['verified'] == true) {
-      widget.onScanComplete();
-    } else {
-      setState(() {
-        _hasError = true;
-        _errorMessage = result['error'] ?? 'Attendance verification failed';
-        _statusMessage = 'Verification Failed';
-        _isScanning = false;
-      });
-    }
-  }
-
   Future<void> _handleCancel() async {
     await widget.nfcService.stopHceSession();
     widget.onCancel();
@@ -223,7 +218,6 @@ class _NfcScanScreenState extends State<NfcScanScreen> {
   @override
   void dispose() {
     _eventSubscription?.cancel();
-    widget.nfcService.dispose();
     super.dispose();
   }
 

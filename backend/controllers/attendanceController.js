@@ -225,7 +225,13 @@ const nfcAttendance = asyncWrapper(async (req, res) => {
         if (jsonMatch) {
           const jsonStr = jsonMatch[0];
           const parsed = JSON.parse(jsonStr);
-          if (parsed.studentId) {
+          // Check for nfcTagId first (new format), fallback to studentId
+          if (parsed.nfcTagId) {
+            studentId = String(parsed.nfcTagId).trim();
+            isHcePayload = true;
+            debugInfo.parseAttempts.push(`JSON HCE payload detected: nfcTagId=${studentId}`);
+            console.log(`[Hardware] ✅ Detected HCE JSON payload with nfcTagId: ${studentId}`);
+          } else if (parsed.studentId) {
             studentId = String(parsed.studentId).trim();
             isHcePayload = true;
             debugInfo.parseAttempts.push(`JSON HCE payload detected: studentId=${studentId}`);

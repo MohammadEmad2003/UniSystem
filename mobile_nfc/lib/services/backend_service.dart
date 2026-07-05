@@ -370,4 +370,68 @@ class BackendService {
       return {'success': false, 'error': e.toString()};
     }
   }
+
+  Future<Map<String, dynamic>> directAttendance(
+    String studentId,
+    String deviceId,
+    String challenge,
+    int roomId,
+    String token,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/nfc/direct-attendance'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'studentId': studentId,
+          'deviceId': deviceId,
+          'challenge': challenge,
+          'room_id': roomId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': data['success'],
+          'message': data['message'],
+          'data': data['data'],
+        };
+      }
+
+      final errorData = jsonDecode(response.body);
+      return {'success': false, 'message': errorData['message'] ?? 'Attendance failed'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> getMyTag(String studentId, String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/nfc/my-tag?studentId=$studentId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': data['success'],
+          'nfcTagId': data['data']['nfcTagId'],
+          'studentName': data['data']['studentName'],
+        };
+      }
+
+      final errorData = jsonDecode(response.body);
+      return {'success': false, 'message': errorData['message'] ?? 'Failed to get tag'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
 }

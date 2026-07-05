@@ -309,16 +309,25 @@ void loop() {
     if (currentState == NFC_SCAN) {
         if (scanCard()) {
             String uid = getUID();
+            String hceData = getHcePayload();
+
+            // If HCE payload is available, use it instead of UID
+            String dataToSend = hceData.length() > 0 ? hceData : uid;
+
             Serial.println("NFC Detected Local: " + uid);
-            
+            if (hceData.length() > 0) {
+                Serial.println("HCE Payload: " + hceData);
+            }
+
             JsonDocument doc;
             doc["type"] = "nfc";
-            doc["uid"] = uid;
+            doc["uid"] = dataToSend;
             doc["room_id"] = currentRoomId;
+            doc["isHce"] = hceData.length() > 0;
 
             String payload;
             serializeJson(doc, payload);
-            
+
             // جرب تبعت لـ /api/attendance/nfc من غير السلاش الأخيرة
             makePostRequest("/api/attendance/nfc", payload);
         }

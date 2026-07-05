@@ -19,10 +19,10 @@ import 'dart:io' show Platform;
 
 String getBaseUrl() {
   // Use Vercel url for production or fallback, but for local dev:
-  // return 'https://uni-system-psi.vercel.app';
+   return 'https://uni-system-psi.vercel.app';
 
   // Using your computer's local network IP so both Emulator and Physical devices can connect!
-  return 'http://192.168.1.5:3000';
+  //return 'http://192.168.43.7:3000';
 }
 
 // Web-inspired color scheme

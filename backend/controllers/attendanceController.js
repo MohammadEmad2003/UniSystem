@@ -190,13 +190,109 @@ const nfcAttendance = asyncWrapper(async (req, res) => {
     return res.status(400).json({ success: httpstatustext.error, message: "No active lecture in this room" });
   }
 
-  // Find student by NFC UID
-  const studentResult = await db.query(`SELECT user_id FROM Student WHERE nfc_tag_id = $1`, [uid]);
-  const student = studentResult.rows[0];
+  // Check if uid is actually an HCE JSON payload (phone HCE)
+  let studentId = null;
+  let isHcePayload = false;
+  let debugInfo = {
+    originalUid: uid,
+    uidLength: uid ? uid.length : 0,
+    parseAttempts: []
+  };
+
+  try {
+    let uidToParse = uid;
+
+    // 1. Try to decode hex string first (some readers might send hex-encoded data)
+    if (uid && uid.length > 20 && !uid.includes(':') && /^[0-9a-fA-F]+$/.test(uid)) {
+      try {
+        let decoded = '';
+        for (let i = 0; i < uid.length; i += 2) {
+          decoded += String.fromCharCode(parseInt(uid.substr(i, 2), 16));
+        }
+        uidToParse = decoded;
+        debugInfo.parseAttempts.push(`Hex decoded from length ${uid.length} to: ${uidToParse.substring(0, 100)}`);
+        console.log(`[Hardware] Decoded hex string to: ${uidToParse.substring(0, 50)}...`);
+      } catch (hexError) {
+        debugInfo.parseAttempts.push(`Hex decode failed: ${hexError.message}`);
+        console.log(`[Hardware] Hex decode failed, using original uid`);
+      }
+    }
+
+    // 2. Try to parse as JSON directly (for direct JSON payloads)
+    if (uidToParse && (uidToParse.includes('{') || uidToParse.includes('studentId'))) {
+      try {
+        // Try to find JSON object in the string
+        const jsonMatch = uidToParse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const jsonStr = jsonMatch[0];
+          const parsed = JSON.parse(jsonStr);
+          if (parsed.studentId) {
+            studentId = String(parsed.studentId).trim();
+            isHcePayload = true;
+            debugInfo.parseAttempts.push(`JSON HCE payload detected: studentId=${studentId}`);
+            console.log(`[Hardware] ✅ Detected HCE JSON payload, studentId: ${studentId}`);
+          }
+        }
+      } catch (jsonError) {
+        debugInfo.parseAttempts.push(`JSON parse failed: ${jsonError.message}`);
+        console.log(`[Hardware] ⚠️ JSON parse failed: ${jsonError.message}`);
+      }
+    } else {
+      debugInfo.parseAttempts.push(`No JSON indicators found in uidToParse`);
+    }
+  } catch (e) {
+    debugInfo.parseAttempts.push(`Exception during parse: ${e.message}`);
+    console.log(`[Hardware] Exception: ${e.message}`);
+  }
+
+  let student;
+
+  if (isHcePayload) {
+    // For HCE payload, look up student by user_id directly
+    console.log(`[Hardware] 📱 Looking up student by user_id: ${studentId} (HCE mode)`);
+    const studentResult = await db.query(
+      `SELECT user_id FROM "User" WHERE user_id = $1`,
+      [studentId]
+    );
+    student = studentResult.rows[0];
+    
+    if (!student) {
+      console.log(`[Hardware] ❌ HCE Student NOT found with ID: ${studentId}`);
+    } else {
+      console.log(`[Hardware] ✅ HCE Student found: ${student.user_id}`);
+    }
+  } else {
+    // For regular card, look up by NFC tag ID
+    console.log(`[Hardware] 🎫 Looking up student by NFC card tag: ${uid}`);
+    const studentResult = await db.query(
+      `SELECT user_id FROM Student WHERE nfc_tag_id = $1`,
+      [uid]
+    );
+    student = studentResult.rows[0];
+    
+    if (!student) {
+      console.log(`[Hardware] ❌ Card UID NOT found: ${uid}`);
+    } else {
+      console.log(`[Hardware] ✅ Card found, student ID: ${student.user_id}`);
+    }
+  }
 
   if (!student) {
-    return res.status(404).json({ success: httpstatustext.error, message: "Student not found with this NFC tag" });
+    const errorMessage = isHcePayload 
+      ? `Student not found from HCE payload (ID: ${studentId})`
+      : `Student not found with this NFC tag (UID: ${uid})`;
+    
+    console.log(`[Hardware] ❌ NFC Attendance FAILED - ${errorMessage}`);
+    console.log(`[Hardware] Debug Info:`, debugInfo);
+    
+    return res.status(404).json({ 
+      success: httpstatustext.error, 
+      message: errorMessage,
+      debug: process.env.NODE_ENV === 'development' ? debugInfo : undefined
+    });
   }
+
+  console.log(`[Hardware] ✅ Student found, processing attendance...`);
 
   return processAttendance(student.user_id, lecture.lec_id, 'nfc', res);
 });

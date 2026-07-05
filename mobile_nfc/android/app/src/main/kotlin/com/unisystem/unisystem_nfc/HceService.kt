@@ -59,19 +59,22 @@ class HceService : HostApduService() {
                     // Notify Flutter that NFC was read
                     nfcEventCallback?.invoke("nfc_read")
                     
-                    // Convert payload to bytes and append status bytes
-                    val payloadBytes = payload.toByteArray()
+                    // Convert payload to UTF-8 bytes for proper JSON encoding
+                    val payloadBytes = payload.toByteArray(Charsets.UTF_8)
                     val statusBytes = hexStringToByteArray(RESPONSE_OK)
                     val response = payloadBytes + statusBytes
                     
                     // Limit response size to avoid buffer overflow (max 255 bytes for APDU)
                     val finalResponse = if (response.size > 255) {
                         Log.w(TAG, "Response too large (${response.size} bytes), truncating to 255")
-                        response.copyOf(255)
+                        // Keep the status bytes and truncate the payload if needed
+                        val truncatedPayload = payloadBytes.copyOf(255 - statusBytes.size)
+                        truncatedPayload + statusBytes
                     } else {
                         response
                     }
                     
+                    Log.d(TAG, "Sending ${finalResponse.size} bytes back to reader")
                     finalResponse
                 } else {
                     Log.e(TAG, "No payload available")

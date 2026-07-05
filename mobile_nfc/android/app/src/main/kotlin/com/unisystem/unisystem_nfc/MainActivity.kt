@@ -139,13 +139,14 @@ class MainActivity : FlutterFragmentActivity() {
             Log.d(TAG, "Starting HCE session...")
             
             if (studentId != null && deviceId != null && challenge != null) {
-                val payload = mapOf(
-                    "studentId" to studentId,
-                    "deviceId" to deviceId,
-                    "challenge" to challenge,
-                    "timestamp" to (timestamp ?: System.currentTimeMillis())
-                )
-                currentPayload = payload.toString()
+                // Create proper JSON string instead of Map.toString()
+                val payload = """{
+                    "studentId":"$studentId",
+                    "deviceId":"$deviceId",
+                    "challenge":"$challenge",
+                    "timestamp":${timestamp ?: System.currentTimeMillis()}
+                }"""
+                currentPayload = payload
                 Log.d(TAG, "Payload set: $currentPayload")
                 
                 // Open NFC payment settings for user to enable the app

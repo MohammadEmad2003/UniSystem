@@ -94,6 +94,7 @@ const roomRouter = require("./routes/roomRoutes");
 const aiRouter = require("./routes/aiRoutes");
 const internalAiRouter = require("./routes/internalAiRoutes");
 const paymentRouter = require("./routes/payment");
+const nfcRouter = require("./routes/nfc");
 
 // ============ ROUTES CONFIGURATION ============
 // Auth Routes (Register, Login, Email Verification, Password Reset, Resend emails)
@@ -140,6 +141,7 @@ app.use("/api/courses", coursesRouter);
 app.use("/api/departments", departmentRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/rooms", roomRouter);
+app.use("/api/nfc", nfcRouter);
 // handling other routes by jsend
 //and to handle unfound routes
 app.use(notFoundHandler);

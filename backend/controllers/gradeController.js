@@ -20,7 +20,7 @@ const getStudentGrades = asyncWrapper(async (req, res, next) => {
       g.grade_id, g.user_id, g.class_id, g.generate_at,
       g.attendance, g.practical, g.project, g.midterm, g.final, g.gpa,
       g.max_midterm, g.max_project, g.max_practical, g.max_attendance, g.max_final,
-      g.doctor_id, c.course_code, c.level, c.semester, co.name as course_name
+      g.doctor_id, c.course_code, c.level, c.semester, co.name as course_name, co.credit_hours
     FROM Grades g
     LEFT JOIN Class c ON g.class_id = c.class_id
     LEFT JOIN Courses co ON c.course_code = co.course_code
@@ -59,7 +59,8 @@ const getStudentGrades = asyncWrapper(async (req, res, next) => {
       gpa: computedGpa,
       letter: letter,
       doctor_id: grade.doctor_id,
-      generated_at: grade.generate_at
+      generated_at: grade.generate_at,
+      credit_hours: grade.credit_hours
     };
   });
 

@@ -11,8 +11,8 @@
 #include "BuzzerModule.h"
 
 // إعدادات الشبكة والسيرفر
-const char *ssid = "MZandEB";
-const char *password = "16520053071982MMA";
+const char *ssid = "A9";
+const char *password = "33113109";
 const char *serverUrl = "https://uni-system-psi.vercel.app";
 const int currentRoomId = 2;
 
@@ -279,7 +279,7 @@ void setup() {
     WiFi.begin(ssid, password);
     
     int timeoutCounter = 0;
-    while (WiFi.status() != WL_CONNECTED && timeoutCounter < 20) {
+    while (WiFi.status() != WL_CONNECTED && timeoutCounter < 40) {
         delay(500);
         timeoutCounter++;
     }
